@@ -1,4 +1,4 @@
-const THREE = window.THREE;
+const THREE = window.THREE || await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js');
 
 const pointer = { x: 0, y: 0 };
 window.addEventListener('pointermove', (event) => {
