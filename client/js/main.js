@@ -4,10 +4,12 @@ import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal, skeleton } from './ui.js';
 
-let heroDispose = () => {}; let graphDispose = () => {};
+const app = document.querySelector('#app');
+let heroDispose = () => {};
+let graphDispose = () => {};
 let ambientDispose = () => {};
 let scenesPromise;
-const app = document.querySelector('#app');
+
 document.body.classList.toggle('light', state.theme === 'light');
 
 function loadScenes() {
@@ -24,31 +26,59 @@ async function mountAmbientBackground() {
 }
 
 function route(path = location.hash.replace('#', '') || '/') {
-  if (!state.user && path.startsWith('/app')) path = '/login';
-  if (state.user && (path === '/login' || path === '/signup' || path === '/')) path = '/app/dashboard';
-  history.replaceState(null, '', `#${path}`); setState({ route: path }); render();
+  let nextPath = path;
+  if (!state.user && nextPath.startsWith('/app')) nextPath = '/login';
+  if (state.user && ['/', '/landing', '/login', '/signup'].includes(nextPath)) nextPath = '/app/dashboard';
+  history.replaceState(null, '', `#${nextPath}`);
+  setState({ route: nextPath });
+  render();
 }
+
 window.addEventListener('hashchange', () => route(location.hash.replace('#', '') || '/'));
 
 async function bootstrap() {
-  app.insertAdjacentHTML('beforebegin', '<div class="noise"></div>');
   mountAmbientBackground().catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
   if (storage.token) {
-    try { const { user } = await api.me(); setState({ user }); await loadWorkspace(); } catch { storage.token = null; }
+    try {
+      const { user } = await api.me();
+      setState({ user });
+      await loadWorkspace();
+    } catch {
+      storage.token = null;
+    }
   }
+
   route(location.hash.replace('#', '') || '/');
 }
 
 async function loadWorkspace() {
   const [stats, activity, notes, files, ideas, productivity] = await Promise.all([
-    api.stats().catch(() => ({ stats: {} })), api.activity().catch(() => ({ activity: [] })), api.notes().catch(() => ({ notes: [] })), api.files().catch(() => ({ files: [] })), api.ideas().catch(() => ({ ideas: [] })), api.productivity().catch(() => ({ productivity: state.productivity }))
+    api.stats().catch(() => ({ stats: {} })),
+    api.activity().catch(() => ({ activity: [] })),
+    api.notes().catch(() => ({ notes: [] })),
+    api.files().catch(() => ({ files: [] })),
+    api.ideas().catch(() => ({ ideas: [] })),
+    api.productivity().catch(() => ({ productivity: state.productivity }))
   ]);
-  setState({ stats: stats.stats, activity: activity.activity, notes: notes.notes, files: files.files, ideas: ideas.ideas, productivity: productivity.productivity });
+
+  setState({
+    stats: stats.stats || {},
+    activity: activity.activity || [],
+    notes: notes.notes || [],
+    files: files.files || [],
+    ideas: ideas.ideas || [],
+    productivity: productivity.productivity || state.productivity
+  });
 }
 
 function render() {
-  heroDispose(); graphDispose(); heroDispose = () => {}; graphDispose = () => {};
+  heroDispose();
+  graphDispose();
+  heroDispose = () => {};
+  graphDispose = () => {};
+
   if (state.route === '/' || state.route === '/landing') return renderLanding();
   if (state.route === '/login' || state.route === '/signup') return renderAuth(state.route === '/signup');
   return renderApp();
@@ -56,62 +86,675 @@ function render() {
 
 function renderLanding() {
   app.className = 'app-shell';
-  app.innerHTML = `<section class="landing"><nav class="nav glass"><a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a><div class="nav-links"><a href="#features">Features</a><a href="#visual">3D Graph</a><a class="keep btn" href="#/login">Login</a><a class="keep btn primary" href="#/signup">Get started</a></div></nav><main class="hero"><div><span class="eyebrow">${icon('vault')} Cinematic knowledge OS for files, notes and ideas</span><h1>Store your mind in a <span class="gradient-text">living vault.</span></h1><p>MindVault combines encrypted authentication, markdown notes, protected uploads, kanban ideas, productivity rituals, instant search, and an interactive Three.js knowledge graph in one premium workspace.</p><div class="hero-actions"><a class="btn primary" href="#/signup">Launch workspace</a><a class="btn" href="#/login">Open demo account</a></div><div class="hero-meta"><div class="mini-stat"><strong>3D</strong><span class="muted">Knowledge graph</span></div><div class="mini-stat"><strong>PWA</strong><span class="muted">Offline-ready shell</span></div><div class="mini-stat"><strong>JWT</strong><span class="muted">Secure API</span></div></div></div><div id="visual" class="hero-visual glass"><div class="floating-card"><b>Neural workspace preview</b><p class="muted">Mouse-reactive particles, orbital objects, and living depth make the landing experience memorable without sacrificing performance.</p></div></div></main><section id="features" class="features"><div class="feature"><b>Capture everything</b><span class="muted">Notes, uploads, links, projects, folders, tags, and ideas.</span></div><div class="feature"><b>Flow-first UX</b><span class="muted">Command palette, shortcuts, autosave, toasts, modals, and skeleton states.</span></div><div class="feature"><b>Deployable stack</b><span class="muted">Vanilla JS, Express, MongoDB, JWT, Multer, Helmet, and compression.</span></div></section></section>`;
+  app.innerHTML = `
+    <section class="landing">
+      <nav class="nav surface">
+        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+        <div class="nav-links">
+          <a href="#/login">Sign in</a>
+          <a class="btn primary" href="#/signup">Start workspace</a>
+        </div>
+      </nav>
+
+      <main class="hero">
+        <div>
+          <span class="eyebrow">${icon('vault')} Notes, files, ideas, and focus in one place</span>
+          <h1>A cleaner workspace for <span class="gradient-text">serious study.</span></h1>
+          <p>
+            MindVault gives you a focused command center for capturing notes, storing files,
+            shaping ideas, and tracking daily work without a cluttered interface.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#/signup">${icon('plus')} Create account</a>
+            <a class="btn" href="#/login">Open workspace</a>
+          </div>
+          <div class="hero-meta">
+            <div class="mini-stat"><strong>Notes</strong><span class="muted">Markdown capture</span></div>
+            <div class="mini-stat"><strong>Files</strong><span class="muted">Protected uploads</span></div>
+            <div class="mini-stat"><strong>Graph</strong><span class="muted">3D relationships</span></div>
+          </div>
+        </div>
+
+        <div id="visual" class="hero-visual surface">
+          <div class="floating-card">
+            <b>Live workspace preview</b>
+            <p class="muted">A calm interface with enough depth to feel polished, without visual noise.</p>
+          </div>
+        </div>
+      </main>
+
+      <section class="features">
+        <div class="feature"><b>Capture faster</b><span class="muted">Create notes, upload files, and search your vault from the command palette.</span></div>
+        <div class="feature"><b>Plan clearly</b><span class="muted">Move ideas through a compact board and keep your focus list visible.</span></div>
+        <div class="feature"><b>Deploy ready</b><span class="muted">Vite, Express, MongoDB, JWT auth, and Vercel configuration are already wired.</span></div>
+      </section>
+    </section>
+  `;
+
   const visual = document.querySelector('.hero-visual');
   loadScenes().then(({ createHeroScene }) => {
     if (document.body.contains(visual)) heroDispose = createHeroScene(visual);
   }).catch(() => {});
-  gsap.from('.hero > *,.feature', { y: 24, opacity: 0, stagger: .08, duration: .7, ease: 'power3.out' });
+  gsap.from('.hero > *, .feature', { y: 18, opacity: 0, stagger: 0.06, duration: 0.5, ease: 'power2.out' });
 }
 
 function renderAuth(signup) {
   app.className = 'app-shell';
-  app.innerHTML = `<section class="auth-page"><form class="auth-card glass" id="auth-form"><a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a><h1>${signup ? 'Create your vault' : 'Welcome back'}</h1><p class="muted">${signup ? 'Start organizing your files, notes and ideas in minutes.' : 'Sign in to resume your focus workspace.'}</p>${signup ? '<div class="field"><label>Name</label><input class="input" name="name" required minlength="2" placeholder="Ada Lovelace" /></div>' : ''}<div class="field"><label>Email</label><input class="input" type="email" name="email" required placeholder="you@company.com" /></div><div class="field"><label>Password</label><input class="input" type="password" name="password" required minlength="8" placeholder="••••••••" /></div><button class="btn primary" style="width:100%;justify-content:center" type="submit">${signup ? 'Create account' : 'Login'}</button><p class="switch-auth">${signup ? 'Already have an account?' : 'New to MindVault?'} <button type="button" id="switch-auth">${signup ? 'Login' : 'Sign up'}</button></p></form></section>`;
+  app.innerHTML = `
+    <section class="auth-page">
+      <form class="auth-card surface" id="auth-form">
+        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+        <h1>${signup ? 'Create your workspace' : 'Welcome back'}</h1>
+        <p class="muted">${signup ? 'Start organizing your study material in a few seconds.' : 'Sign in to continue your workspace.'}</p>
+        ${signup ? '<div class="field"><label>Name</label><input class="input" name="name" required minlength="2" placeholder="Your name" /></div>' : ''}
+        <div class="field"><label>Email</label><input class="input" type="email" name="email" required placeholder="you@example.com" /></div>
+        <div class="field"><label>Password</label><input class="input" type="password" name="password" required minlength="8" placeholder="Minimum 8 characters" /></div>
+        <button class="btn primary" style="width:100%" type="submit">${signup ? 'Create account' : 'Sign in'}</button>
+        <p class="switch-auth">
+          ${signup ? 'Already have an account?' : 'New to MindVault?'}
+          <button type="button" id="switch-auth">${signup ? 'Sign in' : 'Create one'}</button>
+        </p>
+      </form>
+    </section>
+  `;
+
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');
-  document.querySelector('#auth-form').onsubmit = async (event) => { event.preventDefault(); const payload=Object.fromEntries(new FormData(event.currentTarget)); try { const data = signup ? await api.register(payload) : await api.login(payload); storage.token = data.token; setState({ user: data.user }); toast('Vault unlocked'); await loadWorkspace(); route('/app/dashboard'); } catch (error) { toast(error.message, 'error'); } };
+  document.querySelector('#auth-form').onsubmit = async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      const data = signup ? await api.register(payload) : await api.login(payload);
+      storage.token = data.token;
+      setState({ user: data.user });
+      toast('Workspace opened');
+      await loadWorkspace();
+      route('/app/dashboard');
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  };
 }
 
-function navItems() { return [['dashboard','Dashboard'],['notes','Notes'],['files','Files'],['graph','3D Graph'],['ideas','Ideas'],['productivity','Focus']]; }
-function currentView(){return state.route.split('/').pop() || 'dashboard'}
+function navItems() {
+  return [
+    ['dashboard', 'Dashboard'],
+    ['notes', 'Notes'],
+    ['files', 'Files'],
+    ['graph', 'Graph'],
+    ['ideas', 'Ideas'],
+    ['productivity', 'Focus']
+  ];
+}
+
+function currentView() {
+  return state.route.split('/').pop() || 'dashboard';
+}
+
 function renderApp() {
   const view = currentView();
   app.className = 'dashboard-shell';
-  app.innerHTML = `<aside class="sidebar" id="sidebar"><a class="brand" href="#/app/dashboard"><span class="logo">${icon('vault')}</span>MindVault</a><nav class="side-nav">${navItems().map(([id,label])=>`<a class="side-link ${view===id?'active':''}" href="#/app/${id}"><span>${icon(id)}</span>${label}</a>`).join('')}</nav><div class="sidebar-footer"><button class="btn" id="cmd-open">⌘K Command</button><button class="btn" id="theme-toggle">${icon('theme')} Theme</button><button class="btn danger" id="logout">${icon('logout')} Logout</button></div></aside><main class="main"><header class="topbar glass"><button class="btn mobile-toggle" id="mobile-menu">${icon('menu')}</button><div class="search-wrap"><span>${icon('search')}</span><input class="input" id="global-search" placeholder="Search notes, files, ideas, tags..." /></div><button class="btn" id="quick-note"><span>${icon('plus')}</span><span class="hide-mobile">New note</span></button><div class="avatar">${escapeHTML(state.user?.name?.[0] || 'M')}</div></header><section id="view-root"></section></main><div class="toast-stack"></div><div class="command-backdrop" id="command"><div class="cmd glass"><input class="input" id="cmd-input" placeholder="Type a command or search…" /><div class="cmd-results" id="cmd-results"></div></div></div>`;
-  bindShell(); renderView(view); gsap.from('.main', { opacity:0, y:12, duration:.35 });
+  app.innerHTML = `
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#/app/dashboard"><span class="logo">${icon('vault')}</span>MindVault</a>
+      <nav class="side-nav">
+        ${navItems().map(([id, label]) => `
+          <a class="side-link ${view === id ? 'active' : ''}" href="#/app/${id}">
+            ${icon(id)} ${label}
+          </a>
+        `).join('')}
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn" id="cmd-open">Command</button>
+        <button class="btn" id="theme-toggle">${icon('theme')} Theme</button>
+        <button class="btn danger" id="logout">${icon('logout')} Logout</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar surface">
+        <button class="icon-button mobile-toggle" id="mobile-menu" aria-label="Open menu">${icon('menu')}</button>
+        <div class="search-wrap">
+          ${icon('search')}
+          <input class="input" id="global-search" placeholder="Search notes, files, ideas, tags..." />
+        </div>
+        <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">New note</span></button>
+        <div class="avatar">${escapeHTML(state.user?.name?.[0] || 'M')}</div>
+      </header>
+      <section id="view-root"></section>
+    </main>
+
+    <div class="toast-stack"></div>
+    <div class="command-backdrop" id="command">
+      <div class="cmd surface">
+        <input class="input" id="cmd-input" placeholder="Type a command or search..." />
+        <div class="cmd-results" id="cmd-results"></div>
+      </div>
+    </div>
+  `;
+
+  bindShell();
+  renderView(view);
+  gsap.from('.main', { opacity: 0, y: 10, duration: 0.25, ease: 'power2.out' });
 }
 
-function bindShell(){
-  document.querySelector('#logout').onclick=()=>{storage.token=null;setState({user:null});route('/')};
-  document.querySelector('#theme-toggle').onclick=()=>{const theme=state.theme==='dark'?'light':'dark';localStorage.setItem('mindvault_theme',theme);setState({theme});document.body.classList.toggle('light',theme==='light')};
-  document.querySelector('#mobile-menu').onclick=()=>document.querySelector('#sidebar').classList.toggle('open');
-  document.querySelector('#quick-note').onclick=()=>openNoteEditor();
-  document.querySelector('#cmd-open').onclick=openCommand;
-  window.onkeydown=(e)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openCommand()} if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='n'){e.preventDefault();openNoteEditor()}};
-  document.querySelector('#global-search').oninput=debounce(async(e)=>{const q=e.target.value.trim(); if(!q)return; const {results}=await api.search(q); setState({searchResults:results}); openCommand(q);},220);
+function bindShell() {
+  document.querySelector('#logout').onclick = () => {
+    storage.token = null;
+    setState({ user: null });
+    route('/');
+  };
+  document.querySelector('#theme-toggle').onclick = () => {
+    const theme = state.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('mindvault_theme', theme);
+    setState({ theme });
+    document.body.classList.toggle('light', theme === 'light');
+  };
+  document.querySelector('#mobile-menu').onclick = () => document.querySelector('#sidebar').classList.toggle('open');
+  document.querySelector('#quick-note').onclick = () => openNoteEditor();
+  document.querySelector('#cmd-open').onclick = () => openCommand();
+  window.onkeydown = (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      openCommand();
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+      event.preventDefault();
+      openNoteEditor();
+    }
+  };
+  document.querySelector('#global-search').oninput = debounce(async (event) => {
+    const q = event.target.value.trim();
+    if (!q) return;
+    const { results } = await api.search(q);
+    setState({ searchResults: results });
+    openCommand(q);
+  }, 220);
 }
-function renderView(view){const root=document.querySelector('#view-root'); if(view==='notes')return renderNotes(root); if(view==='files')return renderFiles(root); if(view==='graph')return renderGraph(root); if(view==='ideas')return renderIdeas(root); if(view==='productivity')return renderProductivity(root); return renderDashboard(root)}
 
-function renderDashboard(root){root.innerHTML=`<div class="section-head"><div><p class="eyebrow">Today, ${new Date().toLocaleDateString()}</p><h2>Good focus, ${escapeHTML(state.user?.name?.split(' ')[0]||'Creator')}.</h2><p class="muted">Your vault is indexed, visualized, and ready for deep work.</p></div><div class="hero-actions"><button class="btn primary" id="dash-note">${icon('plus')} Note</button><button class="btn" id="dash-upload">${icon('upload')} Upload</button></div></div><div class="grid stats">${[['Notes',state.stats.notes||0,'#8b5cf6'],['Files',state.stats.files||0,'#06b6d4'],['Ideas',state.stats.ideas||0,'#f59e0b'],['Todos',state.productivity.todos?.length||0,'#34d399']].map(([l,v,c])=>`<div class="card stat-card" style="--glow:${c}"><span class="muted">${l}</span><strong>${v}</strong></div>`).join('')}</div><div class="split" style="margin-top:18px"><div class="card"><h3>Recent notes</h3><div class="notes-grid">${state.notes.slice(0,4).map(noteCard).join('') || '<p class="muted">No notes yet. Create your first thought.</p>'}</div></div><div class="card"><h3>Activity timeline</h3><div class="timeline">${state.activity.slice(0,8).map(a=>`<div class="timeline-item"><span class="dot"></span><div><b>${escapeHTML(a.action)}</b><div class="muted">${escapeHTML(a.subject)} · ${formatDate(a.createdAt)}</div></div></div>`).join('') || '<p class="muted">Your activity will appear here.</p>'}</div></div></div>`;root.querySelector('#dash-note').onclick=()=>openNoteEditor();root.querySelector('#dash-upload').onclick=()=>location.hash='/app/files'}
-function noteCard(n){return `<article class="card note-card"><div class="tags">${n.pinned?'<span class="tag">Pinned</span>':''}${n.favorite?'<span class="tag">Favorite</span>':''}${(n.tags||[]).slice(0,3).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div><h3>${escapeHTML(n.title)}</h3><p class="muted">${escapeHTML((n.content||'').slice(0,130))}</p><div class="card-actions"><button class="btn" data-edit-note="${n._id}">${icon('edit')}</button><button class="btn danger" data-delete-note="${n._id}">${icon('trash')}</button></div></article>`}
-function renderNotes(root){root.innerHTML=`<div class="section-head"><div><h2>Notes</h2><p class="muted">Markdown, autosave-ready capture with tags, folders, pins and favorites.</p></div><button class="btn primary" id="new-note">${icon('plus')} New note</button></div><div class="notes-grid">${state.notes.map(noteCard).join('')||skeleton(4)}</div>`;root.querySelector('#new-note').onclick=()=>openNoteEditor();root.querySelectorAll('[data-edit-note]').forEach(b=>b.onclick=()=>openNoteEditor(state.notes.find(n=>n._id===b.dataset.editNote)));root.querySelectorAll('[data-delete-note]').forEach(b=>b.onclick=()=>deleteNote(b.dataset.deleteNote))}
-async function openNoteEditor(note={}){modal(note._id?'Edit note':'Create note',`<div class="field"><label>Title</label><input class="input" name="title" value="${escapeHTML(note.title||'')}" /></div><div class="form-row"><div class="field"><label>Folder</label><input class="input" name="folder" value="${escapeHTML(note.folder||'Personal')}" /></div><div class="field"><label>Tags (comma separated)</label><input class="input" name="tags" value="${escapeHTML((note.tags||[]).join(', '))}" /></div></div><div class="editor-tools"><label class="btn"><input type="checkbox" name="pinned" ${note.pinned?'checked':''}/> Pin</label><label class="btn"><input type="checkbox" name="favorite" ${note.favorite?'checked':''}/> Favorite</label></div><div class="field"><label>Markdown content</label><textarea class="textarea" name="content">${escapeHTML(note.content||'')}</textarea></div><div class="card"><b>Preview</b><div id="md-preview">${markdown(note.content||'')}</div></div>`,async(root)=>{const f=root.querySelector('.modal-body');const payload={title:f.querySelector('[name=title]').value||'Untitled note',folder:f.querySelector('[name=folder]').value||'Personal',tags:f.querySelector('[name=tags]').value.split(',').map(t=>t.trim()).filter(Boolean),content:f.querySelector('[name=content]').value,pinned:f.querySelector('[name=pinned]').checked,favorite:f.querySelector('[name=favorite]').checked};await api.saveNote(payload,note._id);toast('Note saved');await loadWorkspace();route('/app/notes')});setTimeout(()=>{const ta=document.querySelector('[name=content]'),p=document.querySelector('#md-preview');if(ta)ta.oninput=debounce(()=>p.innerHTML=markdown(ta.value),120)},0)}
-async function deleteNote(id){await api.deleteNote(id);toast('Note deleted');await loadWorkspace();renderView('notes')}
+function renderView(view) {
+  const root = document.querySelector('#view-root');
+  if (view === 'notes') return renderNotes(root);
+  if (view === 'files') return renderFiles(root);
+  if (view === 'graph') return renderGraph(root);
+  if (view === 'ideas') return renderIdeas(root);
+  if (view === 'productivity') return renderProductivity(root);
+  return renderDashboard(root);
+}
 
-function renderFiles(root){root.innerHTML=`<div class="section-head"><div><h2>File manager</h2><p class="muted">Drag images, PDFs, docs, ZIPs and organize them with folders and tags.</p></div></div><div class="dropzone" id="dropzone"><h3>${icon('upload')} Drop files here</h3><p class="muted">or click to browse protected uploads</p><input type="file" id="file-input" multiple hidden /></div><div class="files-grid" style="margin-top:18px">${state.files.map(fileCard).join('')||'<p class="muted">No files uploaded yet.</p>'}</div>`;const dz=root.querySelector('#dropzone'),input=root.querySelector('#file-input');dz.onclick=()=>input.click();['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('dragover')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('dragover')}));dz.addEventListener('drop',e=>uploadFiles(e.dataTransfer.files));input.onchange=()=>uploadFiles(input.files);root.querySelectorAll('[data-delete-file]').forEach(b=>b.onclick=()=>deleteFile(b.dataset.deleteFile));root.querySelectorAll('[data-open-file]').forEach(b=>b.onclick=async()=>{try{await api.openFile(b.dataset.openFile)}catch(e){toast(e.message)}})}
-function fileCard(f){const label=f.mimeType?.startsWith('image/')?'Image':'File';return `<article class="card file-card"><div class="file-thumb"><span style="font-size:3rem">▣</span></div><h3>${escapeHTML(f.originalName)}</h3><p class="muted">${escapeHTML(f.folder||'Uploads')} · ${label} · ${Math.round((f.size||0)/1024)} KB</p><div class="tags">${(f.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div><div class="card-actions"><button class="btn" data-open-file="${f._id}">Preview</button><button class="btn danger" data-delete-file="${f._id}">${icon('trash')}</button></div></article>`}
-async function uploadFiles(files){for(const file of files){const form=new FormData();form.append('file',file);form.append('folder','Uploads');form.append('tags','imported');await api.upload(form)}toast('Upload complete');await loadWorkspace();renderView('files')}
-async function deleteFile(id){await api.deleteFile(id);toast('File deleted');await loadWorkspace();renderView('files')}
+function renderDashboard(root) {
+  const firstName = state.user?.name?.split(' ')[0] || 'there';
+  root.innerHTML = `
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Today, ${new Date().toLocaleDateString()}</p>
+        <h2>Good focus, ${escapeHTML(firstName)}.</h2>
+        <p class="muted">Your workspace is ready for notes, files, ideas, and planning.</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
+        <button class="btn" id="dash-upload">${icon('upload')} Upload</button>
+      </div>
+    </div>
 
-function renderGraph(root){const graphData=[...state.notes.map(n=>({...n,type:'note',id:n._id})),...state.files.map(f=>({...f,title:f.originalName,type:'file',id:f._id})),...state.ideas.map(i=>({...i,type:'idea',id:i._id}))];root.innerHTML=`<div class="section-head"><div><h2>3D Knowledge Graph</h2><p class="muted">Drag nodes, orbit with your cursor, and click any node to inspect content.</p></div></div><div class="graph-layout"><div class="graph-panel card" id="graph"><div class="skeleton"></div></div><aside class="card inspector" id="inspector"><h3>Select a node</h3><p class="muted">Notes, files and ideas become connected spatial objects for visual discovery.</p></aside></div>`;const graph=root.querySelector('#graph');loadScenes().then(({ createKnowledgeGraph })=>{if(!document.body.contains(graph))return;graphDispose=createKnowledgeGraph(graph,graphData,(node)=>{root.querySelector('#inspector').innerHTML=`<h3>${escapeHTML(node.title||node.originalName)}</h3><p class="muted">${escapeHTML(node.type)} · ${escapeHTML(node.folder||node.status||'Vault')}</p><div class="tags">${(node.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div><p>${markdown((node.content||node.description||'').slice(0,500))}</p>`})}).catch(()=>{graph.innerHTML='<p class="muted">3D graph could not be loaded.</p>'})}
+    <div class="grid stats">
+      ${[
+        ['Notes', state.stats.notes || 0, '#3dd6c6'],
+        ['Files', state.stats.files || 0, '#47a3ff'],
+        ['Ideas', state.stats.ideas || 0, '#f7b955'],
+        ['Todos', state.productivity.todos?.length || 0, '#5ee0a3']
+      ].map(([label, value, color]) => `
+        <div class="card stat-card" style="--glow:${color}">
+          <span class="muted">${label}</span>
+          <strong>${value}</strong>
+        </div>
+      `).join('')}
+    </div>
 
-function renderIdeas(root){const statuses=['Backlog','Active','Review','Done'];root.innerHTML=`<div class="section-head"><div><h2>Idea board</h2><p class="muted">Kanban-style idea tracking with priorities and progress.</p></div><button class="btn primary" id="new-idea">${icon('plus')} New idea</button></div><div class="ideas-board">${statuses.map(s=>`<section class="lane" data-status="${s}"><h3>${s}<span class="muted">${state.ideas.filter(i=>i.status===s).length}</span></h3>${state.ideas.filter(i=>i.status===s).map(ideaCard).join('')}</section>`).join('')}</div>`;root.querySelector('#new-idea').onclick=()=>openIdeaEditor();root.querySelectorAll('.idea-card').forEach(card=>{card.draggable=true;card.ondragstart=e=>e.dataTransfer.setData('text/plain',card.dataset.id);card.onclick=()=>openIdeaEditor(state.ideas.find(i=>i._id===card.dataset.id))});root.querySelectorAll('.lane').forEach(l=>{l.ondragover=e=>e.preventDefault();l.ondrop=async e=>{const idea=state.ideas.find(i=>i._id===e.dataTransfer.getData('text/plain'));await api.saveIdea({...idea,status:l.dataset.status},idea._id);await loadWorkspace();renderView('ideas')}})}
-function ideaCard(i){return `<article class="idea-card" data-id="${i._id}"><span class="priority">${escapeHTML(i.priority)}</span><h3>${escapeHTML(i.title)}</h3><p class="muted">${escapeHTML(i.description||'')}</p><progress max="100" value="${i.progress||0}" style="width:100%"></progress></article>`}
-function openIdeaEditor(idea={}){modal(idea._id?'Edit idea':'New idea',`<div class="field"><label>Title</label><input class="input" name="title" value="${escapeHTML(idea.title||'')}" /></div><div class="field"><label>Description</label><textarea class="textarea" name="description">${escapeHTML(idea.description||'')}</textarea></div><div class="form-row"><div class="field"><label>Status</label><select class="select" name="status">${['Backlog','Active','Review','Done'].map(s=>`<option ${idea.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Priority</label><select class="select" name="priority">${['Low','Medium','High','Critical'].map(s=>`<option ${idea.priority===s?'selected':''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Progress</label><input class="input" type="number" min="0" max="100" name="progress" value="${idea.progress||0}" /></div>`,async(root)=>{const f=root.querySelector('.modal-body');await api.saveIdea({title:f.querySelector('[name=title]').value||'Untitled idea',description:f.querySelector('[name=description]').value,status:f.querySelector('[name=status]').value,priority:f.querySelector('[name=priority]').value,progress:Number(f.querySelector('[name=progress]').value)},idea._id);toast('Idea saved');await loadWorkspace();route('/app/ideas')})}
+    <div class="split">
+      <div class="card">
+        <h3>Recent notes</h3>
+        <div class="notes-grid">${state.notes.slice(0, 4).map(noteCard).join('') || '<p class="muted">No notes yet. Create your first note.</p>'}</div>
+      </div>
+      <div class="card">
+        <h3>Activity</h3>
+        <div class="timeline">
+          ${state.activity.slice(0, 8).map((item) => `
+            <div class="timeline-item">
+              <span class="dot"></span>
+              <div>
+                <b>${escapeHTML(item.action)}</b>
+                <div class="muted">${escapeHTML(item.subject)} - ${formatDate(item.createdAt)}</div>
+              </div>
+            </div>
+          `).join('') || '<p class="muted">Activity will appear here.</p>'}
+        </div>
+      </div>
+    </div>
+  `;
+  root.querySelector('#dash-note').onclick = () => openNoteEditor();
+  root.querySelector('#dash-upload').onclick = () => route('/app/files');
+  bindNoteCards(root);
+}
 
-function renderProductivity(root){const p=state.productivity;root.innerHTML=`<div class="section-head"><div><h2>Focus mode</h2><p class="muted">Todos, reminders, calendar snapshot and Pomodoro rituals.</p></div></div><div class="grid productivity"><section class="card"><h3>Pomodoro</h3><div class="timer" id="timer">25:00</div><div class="hero-actions"><button class="btn primary" id="timer-start">Start</button><button class="btn" id="timer-reset">Reset</button></div></section><section class="card"><h3>To-do list</h3><form id="todo-form" class="hero-actions"><input class="input" name="todo" placeholder="Add a task" /><button class="btn">Add</button></form><div>${(p.todos||[]).map(t=>`<div class="todo ${t.done?'done':''}" data-todo="${t.id}"><span>${t.done?'☑':'☐'}</span>${escapeHTML(t.text)}</div>`).join('')}</div></section><section class="card"><h3>Daily focus</h3><textarea class="textarea" id="focus-text" placeholder="What matters most today?">${escapeHTML(p.focus||'')}</textarea><button class="btn primary" id="save-focus">Save focus</button><h3>Calendar</h3><p class="muted">${new Date().toLocaleString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</p></section></div>`;bindProductivity(root)}
-function bindProductivity(root){let seconds=25*60,timerId;const display=()=>root.querySelector('#timer').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;root.querySelector('#timer-start').onclick=()=>{clearInterval(timerId);timerId=setInterval(()=>{seconds=Math.max(0,seconds-1);display();if(seconds===0){clearInterval(timerId);toast('Pomodoro complete')}},1000)};root.querySelector('#timer-reset').onclick=()=>{seconds=25*60;display()};root.querySelector('#todo-form').onsubmit=async e=>{e.preventDefault();const text=new FormData(e.currentTarget).get('todo');if(!text)return;await saveProd({todos:[...(state.productivity.todos||[]),{id:uid(),text,done:false}]});renderView('productivity')};root.querySelectorAll('[data-todo]').forEach(el=>el.onclick=async()=>{await saveProd({todos:state.productivity.todos.map(t=>t.id===el.dataset.todo?{...t,done:!t.done}:t)});renderView('productivity')});root.querySelector('#save-focus').onclick=async()=>{await saveProd({focus:root.querySelector('#focus-text').value});toast('Focus saved')}}
-async function saveProd(patch){const productivity={...state.productivity,...patch};await api.saveProductivity(productivity);setState({productivity})}
+function noteCard(note) {
+  return `
+    <article class="card note-card">
+      <div class="tags">
+        ${note.pinned ? '<span class="tag">Pinned</span>' : ''}
+        ${note.favorite ? '<span class="tag">Favorite</span>' : ''}
+        ${(note.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}
+      </div>
+      <h3>${escapeHTML(note.title)}</h3>
+      <p class="muted">${escapeHTML((note.content || '').slice(0, 130))}</p>
+      <div class="card-actions">
+        <button class="icon-button" data-edit-note="${note._id}" aria-label="Edit note">${icon('edit')}</button>
+        <button class="icon-button btn danger" data-delete-note="${note._id}" aria-label="Delete note">${icon('trash')}</button>
+      </div>
+    </article>
+  `;
+}
 
-function openCommand(seed=''){const root=document.querySelector('#command');const input=document.querySelector('#cmd-input');const results=document.querySelector('#cmd-results');root.classList.add('open');input.value=seed;input.focus();const renderResults=()=>{const q=input.value.toLowerCase();const items=[{label:'Create note',action:()=>openNoteEditor()},{label:'Upload files',action:()=>route('/app/files')},{label:'Open 3D graph',action:()=>route('/app/graph')},...state.notes.map(n=>({label:`Note: ${n.title}`,action:()=>openNoteEditor(n)})),...state.files.map(f=>({label:`File: ${f.originalName}`,action:async()=>{try{await api.openFile(f._id)}catch(e){toast(e.message)}}})),...state.ideas.map(i=>({label:`Idea: ${i.title}`,action:()=>openIdeaEditor(i)}))].filter(i=>i.label.toLowerCase().includes(q));results.innerHTML=items.slice(0,12).map((item,idx)=>`<button class="cmd-item" data-idx="${idx}"><span>${escapeHTML(item.label)}</span><span>↵</span></button>`).join('')||'<p class="muted">No matches</p>';results.querySelectorAll('[data-idx]').forEach(b=>b.onclick=()=>{root.classList.remove('open');items[Number(b.dataset.idx)].action()})};input.oninput=renderResults;root.onclick=e=>{if(e.target===root)root.classList.remove('open')};renderResults()}
+function bindNoteCards(root) {
+  root.querySelectorAll('[data-edit-note]').forEach((button) => {
+    button.onclick = () => openNoteEditor(state.notes.find((note) => note._id === button.dataset.editNote));
+  });
+  root.querySelectorAll('[data-delete-note]').forEach((button) => {
+    button.onclick = () => deleteNote(button.dataset.deleteNote);
+  });
+}
+
+function renderNotes(root) {
+  root.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>Notes</h2>
+        <p class="muted">Write markdown, organize folders, and mark important study material.</p>
+      </div>
+      <button class="btn primary" id="new-note">${icon('plus')} New note</button>
+    </div>
+    <div class="notes-grid">${state.notes.map(noteCard).join('') || skeleton(4)}</div>
+  `;
+  root.querySelector('#new-note').onclick = () => openNoteEditor();
+  bindNoteCards(root);
+}
+
+async function openNoteEditor(note = {}) {
+  modal(note._id ? 'Edit note' : 'Create note', `
+    <div class="field"><label>Title</label><input class="input" name="title" value="${escapeHTML(note.title || '')}" /></div>
+    <div class="form-row">
+      <div class="field"><label>Folder</label><input class="input" name="folder" value="${escapeHTML(note.folder || 'Personal')}" /></div>
+      <div class="field"><label>Tags</label><input class="input" name="tags" value="${escapeHTML((note.tags || []).join(', '))}" placeholder="study, exam, research" /></div>
+    </div>
+    <div class="editor-tools">
+      <label class="btn"><input type="checkbox" name="pinned" ${note.pinned ? 'checked' : ''}/> Pin</label>
+      <label class="btn"><input type="checkbox" name="favorite" ${note.favorite ? 'checked' : ''}/> Favorite</label>
+    </div>
+    <div class="field"><label>Markdown content</label><textarea class="textarea" name="content">${escapeHTML(note.content || '')}</textarea></div>
+    <div class="card"><b>Preview</b><div id="md-preview">${markdown(note.content || '')}</div></div>
+  `, async (root) => {
+    const form = root.querySelector('.modal-body');
+    const payload = {
+      title: form.querySelector('[name=title]').value || 'Untitled note',
+      folder: form.querySelector('[name=folder]').value || 'Personal',
+      tags: form.querySelector('[name=tags]').value.split(',').map((tag) => tag.trim()).filter(Boolean),
+      content: form.querySelector('[name=content]').value,
+      pinned: form.querySelector('[name=pinned]').checked,
+      favorite: form.querySelector('[name=favorite]').checked
+    };
+    await api.saveNote(payload, note._id);
+    toast('Note saved');
+    await loadWorkspace();
+    route('/app/notes');
+  });
+
+  setTimeout(() => {
+    const textarea = document.querySelector('[name=content]');
+    const preview = document.querySelector('#md-preview');
+    if (textarea && preview) textarea.oninput = debounce(() => { preview.innerHTML = markdown(textarea.value); }, 120);
+  }, 0);
+}
+
+async function deleteNote(id) {
+  await api.deleteNote(id);
+  toast('Note deleted');
+  await loadWorkspace();
+  renderView('notes');
+}
+
+function renderFiles(root) {
+  root.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>Files</h2>
+        <p class="muted">Upload study assets and keep them attached to your workspace.</p>
+      </div>
+    </div>
+    <div class="dropzone" id="dropzone">
+      <h3>${icon('upload')} Drop files here</h3>
+      <p class="muted">or click to browse</p>
+      <input type="file" id="file-input" multiple hidden />
+    </div>
+    <div class="files-grid">${state.files.map(fileCard).join('') || '<p class="muted">No files uploaded yet.</p>'}</div>
+  `;
+
+  const dropzone = root.querySelector('#dropzone');
+  const input = root.querySelector('#file-input');
+  dropzone.onclick = () => input.click();
+  ['dragenter', 'dragover'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropzone.classList.remove('dragover');
+    });
+  });
+  dropzone.addEventListener('drop', (event) => uploadFiles(event.dataTransfer.files));
+  input.onchange = () => uploadFiles(input.files);
+  root.querySelectorAll('[data-delete-file]').forEach((button) => {
+    button.onclick = () => deleteFile(button.dataset.deleteFile);
+  });
+  root.querySelectorAll('[data-open-file]').forEach((button) => {
+    button.onclick = async () => {
+      try {
+        await api.openFile(button.dataset.openFile);
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    };
+  });
+}
+
+function fileCard(file) {
+  const label = file.mimeType?.startsWith('image/') ? 'Image' : 'File';
+  return `
+    <article class="card file-card">
+      <div class="file-thumb">${icon('files')}</div>
+      <h3>${escapeHTML(file.originalName)}</h3>
+      <p class="muted">${escapeHTML(file.folder || 'Uploads')} - ${label} - ${Math.round((file.size || 0) / 1024)} KB</p>
+      <div class="tags">${(file.tags || []).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>
+      <div class="card-actions">
+        <button class="btn" data-open-file="${file._id}">Preview</button>
+        <button class="icon-button btn danger" data-delete-file="${file._id}" aria-label="Delete file">${icon('trash')}</button>
+      </div>
+    </article>
+  `;
+}
+
+async function uploadFiles(files) {
+  for (const file of files) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', 'Uploads');
+    form.append('tags', 'imported');
+    await api.upload(form);
+  }
+  toast('Upload complete');
+  await loadWorkspace();
+  renderView('files');
+}
+
+async function deleteFile(id) {
+  await api.deleteFile(id);
+  toast('File deleted');
+  await loadWorkspace();
+  renderView('files');
+}
+
+function renderGraph(root) {
+  const graphData = [
+    ...state.notes.map((note) => ({ ...note, type: 'note', id: note._id })),
+    ...state.files.map((file) => ({ ...file, title: file.originalName, type: 'file', id: file._id })),
+    ...state.ideas.map((idea) => ({ ...idea, type: 'idea', id: idea._id }))
+  ];
+
+  root.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>Knowledge graph</h2>
+        <p class="muted">Explore notes, files, and ideas as connected objects.</p>
+      </div>
+    </div>
+    <div class="graph-layout">
+      <div class="graph-panel card" id="graph"><div class="skeleton"></div></div>
+      <aside class="card inspector" id="inspector">
+        <h3>Select a node</h3>
+        <p class="muted">Click a graph object to inspect its details.</p>
+      </aside>
+    </div>
+  `;
+
+  const graph = root.querySelector('#graph');
+  loadScenes().then(({ createKnowledgeGraph }) => {
+    if (!document.body.contains(graph)) return;
+    graphDispose = createKnowledgeGraph(graph, graphData, (node) => {
+      root.querySelector('#inspector').innerHTML = `
+        <h3>${escapeHTML(node.title || node.originalName)}</h3>
+        <p class="muted">${escapeHTML(node.type)} - ${escapeHTML(node.folder || node.status || 'Workspace')}</p>
+        <div class="tags">${(node.tags || []).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>
+        <p>${markdown((node.content || node.description || '').slice(0, 500))}</p>
+      `;
+    });
+  }).catch(() => {
+    graph.innerHTML = '<p class="muted">3D graph could not be loaded.</p>';
+  });
+}
+
+function renderIdeas(root) {
+  const statuses = ['Backlog', 'Active', 'Review', 'Done'];
+  root.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>Ideas</h2>
+        <p class="muted">A compact board for projects, research threads, and next steps.</p>
+      </div>
+      <button class="btn primary" id="new-idea">${icon('plus')} New idea</button>
+    </div>
+    <div class="ideas-board">
+      ${statuses.map((status) => `
+        <section class="lane" data-status="${status}">
+          <h3>${status}<span class="muted">${state.ideas.filter((idea) => idea.status === status).length}</span></h3>
+          ${state.ideas.filter((idea) => idea.status === status).map(ideaCard).join('')}
+        </section>
+      `).join('')}
+    </div>
+  `;
+
+  root.querySelector('#new-idea').onclick = () => openIdeaEditor();
+  root.querySelectorAll('.idea-card').forEach((card) => {
+    card.draggable = true;
+    card.ondragstart = (event) => event.dataTransfer.setData('text/plain', card.dataset.id);
+    card.onclick = () => openIdeaEditor(state.ideas.find((idea) => idea._id === card.dataset.id));
+  });
+  root.querySelectorAll('.lane').forEach((lane) => {
+    lane.ondragover = (event) => event.preventDefault();
+    lane.ondrop = async (event) => {
+      const idea = state.ideas.find((item) => item._id === event.dataTransfer.getData('text/plain'));
+      await api.saveIdea({ ...idea, status: lane.dataset.status }, idea._id);
+      await loadWorkspace();
+      renderView('ideas');
+    };
+  });
+}
+
+function ideaCard(idea) {
+  return `
+    <article class="idea-card" data-id="${idea._id}">
+      <span class="priority">${escapeHTML(idea.priority)}</span>
+      <h3>${escapeHTML(idea.title)}</h3>
+      <p class="muted">${escapeHTML(idea.description || '')}</p>
+      <progress max="100" value="${idea.progress || 0}" style="width:100%"></progress>
+    </article>
+  `;
+}
+
+function openIdeaEditor(idea = {}) {
+  modal(idea._id ? 'Edit idea' : 'New idea', `
+    <div class="field"><label>Title</label><input class="input" name="title" value="${escapeHTML(idea.title || '')}" /></div>
+    <div class="field"><label>Description</label><textarea class="textarea" name="description">${escapeHTML(idea.description || '')}</textarea></div>
+    <div class="form-row">
+      <div class="field"><label>Status</label><select class="select" name="status">${['Backlog', 'Active', 'Review', 'Done'].map((status) => `<option ${idea.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
+      <div class="field"><label>Priority</label><select class="select" name="priority">${['Low', 'Medium', 'High', 'Critical'].map((priority) => `<option ${idea.priority === priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Progress</label><input class="input" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
+  `, async (root) => {
+    const form = root.querySelector('.modal-body');
+    await api.saveIdea({
+      title: form.querySelector('[name=title]').value || 'Untitled idea',
+      description: form.querySelector('[name=description]').value,
+      status: form.querySelector('[name=status]').value,
+      priority: form.querySelector('[name=priority]').value,
+      progress: Number(form.querySelector('[name=progress]').value)
+    }, idea._id);
+    toast('Idea saved');
+    await loadWorkspace();
+    route('/app/ideas');
+  });
+}
+
+function renderProductivity(root) {
+  const productivity = state.productivity;
+  root.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>Focus</h2>
+        <p class="muted">Keep the day simple: timer, tasks, and one focus note.</p>
+      </div>
+    </div>
+    <div class="grid productivity">
+      <section class="card">
+        <h3>Pomodoro</h3>
+        <div class="timer" id="timer">25:00</div>
+        <div class="actions">
+          <button class="btn primary" id="timer-start">Start</button>
+          <button class="btn" id="timer-reset">Reset</button>
+        </div>
+      </section>
+      <section class="card">
+        <h3>Tasks</h3>
+        <form id="todo-form" class="actions">
+          <input class="input" name="todo" placeholder="Add a task" />
+          <button class="btn">Add</button>
+        </form>
+        <div>
+          ${(productivity.todos || []).map((todo) => `
+            <div class="todo ${todo.done ? 'done' : ''}" data-todo="${todo.id}">
+              <span>${todo.done ? '[x]' : '[ ]'}</span>${escapeHTML(todo.text)}
+            </div>
+          `).join('')}
+        </div>
+      </section>
+      <section class="card">
+        <h3>Daily focus</h3>
+        <textarea class="textarea" id="focus-text" placeholder="What matters most today?">${escapeHTML(productivity.focus || '')}</textarea>
+        <button class="btn primary" id="save-focus">Save focus</button>
+        <h3>Calendar</h3>
+        <p class="muted">${new Date().toLocaleString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+      </section>
+    </div>
+  `;
+  bindProductivity(root);
+}
+
+function bindProductivity(root) {
+  let seconds = 25 * 60;
+  let timerId;
+  const display = () => {
+    root.querySelector('#timer').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  };
+
+  root.querySelector('#timer-start').onclick = () => {
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      seconds = Math.max(0, seconds - 1);
+      display();
+      if (seconds === 0) {
+        clearInterval(timerId);
+        toast('Pomodoro complete');
+      }
+    }, 1000);
+  };
+  root.querySelector('#timer-reset').onclick = () => {
+    seconds = 25 * 60;
+    display();
+  };
+  root.querySelector('#todo-form').onsubmit = async (event) => {
+    event.preventDefault();
+    const text = new FormData(event.currentTarget).get('todo');
+    if (!text) return;
+    await saveProd({ todos: [...(state.productivity.todos || []), { id: uid(), text, done: false }] });
+    renderView('productivity');
+  };
+  root.querySelectorAll('[data-todo]').forEach((element) => {
+    element.onclick = async () => {
+      await saveProd({
+        todos: state.productivity.todos.map((todo) => todo.id === element.dataset.todo ? { ...todo, done: !todo.done } : todo)
+      });
+      renderView('productivity');
+    };
+  });
+  root.querySelector('#save-focus').onclick = async () => {
+    await saveProd({ focus: root.querySelector('#focus-text').value });
+    toast('Focus saved');
+  };
+}
+
+async function saveProd(patch) {
+  const productivity = { ...state.productivity, ...patch };
+  await api.saveProductivity(productivity);
+  setState({ productivity });
+}
+
+function openCommand(seed = '') {
+  const root = document.querySelector('#command');
+  const input = document.querySelector('#cmd-input');
+  const results = document.querySelector('#cmd-results');
+  root.classList.add('open');
+  input.value = seed;
+  input.focus();
+
+  const renderResults = () => {
+    const query = input.value.toLowerCase();
+    const items = [
+      { label: 'Create note', action: () => openNoteEditor() },
+      { label: 'Upload files', action: () => route('/app/files') },
+      { label: 'Open graph', action: () => route('/app/graph') },
+      ...state.notes.map((note) => ({ label: `Note: ${note.title}`, action: () => openNoteEditor(note) })),
+      ...state.files.map((file) => ({
+        label: `File: ${file.originalName}`,
+        action: async () => {
+          try {
+            await api.openFile(file._id);
+          } catch (error) {
+            toast(error.message, 'error');
+          }
+        }
+      })),
+      ...state.ideas.map((idea) => ({ label: `Idea: ${idea.title}`, action: () => openIdeaEditor(idea) }))
+    ].filter((item) => item.label.toLowerCase().includes(query));
+
+    results.innerHTML = items.slice(0, 12).map((item, index) => `
+      <button class="cmd-item" data-idx="${index}">
+        <span>${escapeHTML(item.label)}</span>
+        <span>Enter</span>
+      </button>
+    `).join('') || '<p class="muted">No matches</p>';
+    results.querySelectorAll('[data-idx]').forEach((button) => {
+      button.onclick = () => {
+        root.classList.remove('open');
+        items[Number(button.dataset.idx)].action();
+      };
+    });
+  };
+
+  input.oninput = renderResults;
+  root.onclick = (event) => {
+    if (event.target === root) root.classList.remove('open');
+  };
+  renderResults();
+}
 
 bootstrap();

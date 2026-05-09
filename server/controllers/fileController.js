@@ -2,6 +2,7 @@ import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
 import FileAsset from '../models/FileAsset.js';
+import { uploadDir } from '../middleware/upload.js';
 import { recordActivity } from '../utils/activity.js';
 
 export async function listFiles(req, res) {
@@ -25,7 +26,7 @@ export async function uploadFile(req, res) {
 export async function deleteFile(req, res) {
   const file = await FileAsset.findOneAndDelete({ _id: req.params.id, user: req.user._id });
   if (!file) return res.status(404).json({ message: 'File not found' });
-  await fsp.rm(path.resolve('uploads', file.filename), { force: true });
+  await fsp.rm(path.resolve(uploadDir, file.filename), { force: true });
   await recordActivity(req.user._id, 'Deleted file', file.originalName, 'file', file._id);
   res.json({ ok: true });
 }
@@ -34,7 +35,6 @@ export async function streamFile(req, res) {
   const file = await FileAsset.findOne({ _id: req.params.id, user: req.user._id });
   if (!file) return res.status(404).json({ message: 'File not found' });
 
-  const uploadDir = path.resolve('uploads');
   const filePath = path.resolve(uploadDir, file.filename);
   if (!filePath.startsWith(`${uploadDir}${path.sep}`)) return res.status(400).json({ message: 'Invalid file path' });
 
