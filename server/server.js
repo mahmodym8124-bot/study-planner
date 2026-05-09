@@ -35,13 +35,31 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 800, standardHeaders: true, legacyHeaders: false }));
 
+async function requireDatabase(_req, res, next) {
+  if (databaseStatus().connected) return next();
+
+  try {
+    await connectDB(process.env.MONGODB_URI);
+  } catch (error) {
+    console.error('MongoDB connection failed:', error.message);
+  }
+
+  if (!databaseStatus().connected) {
+    return res.status(503).json({
+      message: 'Database is not connected. Check MONGODB_URI and MongoDB Atlas Network Access.'
+    });
+  }
+
+  return next();
+}
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'MindVault API', database: databaseStatus() }));
-app.use('/api/auth', authRoutes);
-app.use('/api/notes', noteRoutes);
-app.use('/api/files', fileRoutes);
-app.use('/api/ideas', ideaRoutes);
-app.use('/api/workspace', workspaceRoutes);
-app.use('/api/productivity', productivityRoutes);
+app.use('/api/auth', requireDatabase, authRoutes);
+app.use('/api/notes', requireDatabase, noteRoutes);
+app.use('/api/files', requireDatabase, fileRoutes);
+app.use('/api/ideas', requireDatabase, ideaRoutes);
+app.use('/api/workspace', requireDatabase, workspaceRoutes);
+app.use('/api/productivity', requireDatabase, productivityRoutes);
 
 if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const dist = path.resolve(__dirname, '..', 'dist');
