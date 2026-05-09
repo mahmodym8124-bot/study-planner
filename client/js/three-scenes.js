@@ -1,4 +1,4 @@
-const THREE = window.THREE;
+import * as THREE from 'three';
 
 const pointer = { x: 0, y: 0 };
 window.addEventListener('pointermove', (event) => {
@@ -6,9 +6,20 @@ window.addEventListener('pointermove', (event) => {
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
 });
 
+function createRenderer(options) {
+  if (!THREE?.WebGLRenderer) return null;
+  try {
+    return new THREE.WebGLRenderer(options);
+  } catch (error) {
+    console.warn('Three.js renderer could not be created; 3D scenes are disabled.', error);
+    return null;
+  }
+}
+
 export function createAmbientBackground(canvas) {
   if (!canvas) return () => {};
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+  const renderer = createRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+  if (!renderer) return () => {};
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
@@ -34,7 +45,8 @@ export function createHeroScene(container) {
   container.innerHTML = '';
   const canvas = document.createElement('canvas');
   container.appendChild(canvas);
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+  const renderer = createRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+  if (!renderer) return () => {};
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100); camera.position.set(0, 0, 9);
@@ -61,7 +73,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
   if (!container) return () => {};
   container.innerHTML = '';
   const canvas = document.createElement('canvas'); container.appendChild(canvas);
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+  const renderer = createRenderer({ canvas, alpha: true, antialias: true }); if (!renderer) return () => {}; renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
   const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(50, 1, .1, 100); camera.position.set(0,0,18);
   const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2(); const nodes=[]; const lines=[];
   const palette = { note: 0x8b5cf6, file: 0x06b6d4, idea: 0xf59e0b };
