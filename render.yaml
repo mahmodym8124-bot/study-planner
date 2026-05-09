@@ -6,10 +6,6 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
-    disk:
-      name: mindvault-uploads
-      mountPath: /opt/render/project/src/uploads
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production

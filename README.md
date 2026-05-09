@@ -153,9 +153,11 @@ When `NODE_ENV=production`, Express serves the compiled `dist` frontend and the 
 3. Set start command: `npm start`.
 4. Add environment variables from `.env.example`.
 5. Use MongoDB Atlas for `MONGODB_URI`.
-6. Configure persistent disk storage if you need local uploads to survive deploy restarts.
+6. Choose the free instance type for a no-cost hobby deployment.
 
 This repo also includes `render.yaml`, so on Render you can use **New +** -> **Blueprint** and select this GitHub repository. Add your Atlas `MONGODB_URI` when Render asks for the secret value.
+
+Free Render web services spin down after inactivity and do not preserve files uploaded to local disk after restarts/redeploys. MongoDB data is stored in Atlas and remains available.
 
 ### Vercel / Netlify Frontend + Render API
 
