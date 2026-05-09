@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: '.',
+    base: env.VITE_BASE_PATH || '/',
     publicDir: 'public',
     server: {
       port: 5173,
