@@ -7,7 +7,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import { connectDB } from './config/db.js';
+import multer from 'multer';
+import { connectDB, databaseStatus } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import noteRoutes from './routes/noteRoutes.js';
 import fileRoutes from './routes/fileRoutes.js';
@@ -34,7 +35,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 800, standardHeaders: true, legacyHeaders: false }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'MindVault API' }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'MindVault API', database: databaseStatus() }));
 app.use('/api/auth', authRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/files', fileRoutes);
@@ -51,6 +52,14 @@ if (process.env.NODE_ENV === 'production') {
 // eslint-disable-next-line no-unused-vars
 app.use((error, _req, res, next) => {
   console.error(error);
+  if (error instanceof multer.MulterError) {
+    const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    return res.status(status).json({ message: error.message });
+  }
+  if (error.message === 'Unsupported file type') return res.status(415).json({ message: error.message });
+  if (error.code === 11000) return res.status(409).json({ message: 'A record with that value already exists' });
+  if (error.name === 'ValidationError') return res.status(422).json({ message: error.message });
+  if (error.name === 'CastError') return res.status(400).json({ message: 'Invalid identifier' });
   res.status(error.status || 500).json({ message: error.message || 'Server error' });
 });
 

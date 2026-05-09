@@ -13,9 +13,14 @@ export async function uploadFile(req, res) {
   const tags = String(req.body.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
   const file = new FileAsset({ user: req.user._id, originalName: req.file.originalname, filename: req.file.filename, mimeType: req.file.mimetype, size: req.file.size, folder: req.body.folder || 'Uploads', tags });
   file.url = `/api/files/${file._id}/content`;
-  await file.save();
-  await recordActivity(req.user._id, 'Uploaded file', file.originalName, 'file', file._id);
-  res.status(201).json({ file });
+  try {
+    await file.save();
+    await recordActivity(req.user._id, 'Uploaded file', file.originalName, 'file', file._id);
+    res.status(201).json({ file });
+  } catch (error) {
+    await fsp.rm(req.file.path, { force: true }).catch(() => {});
+    throw error;
+  }
 }
 export async function deleteFile(req, res) {
   const file = await FileAsset.findOneAndDelete({ _id: req.params.id, user: req.user._id });

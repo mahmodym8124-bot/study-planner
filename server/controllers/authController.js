@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
+import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
 import { recordActivity } from '../utils/activity.js';
 
-function sign(user) { return jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'dev-secret-change-me', { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }); }
+function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
 
 export async function register(req, res) {
   const { name, email, password } = req.body;
