@@ -1,4 +1,4 @@
-const THREE = window.THREE;
+import * as THREE from 'three';
 
 const pointer = { x: 0, y: 0 };
 window.addEventListener('pointermove', (event) => {
