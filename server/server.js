@@ -23,7 +23,7 @@ const PORT = process.env.PORT || 8080;
 
 await connectDB(process.env.MONGODB_URI).catch((error) => {
   console.error('MongoDB connection failed:', error.message);
-  if (process.env.NODE_ENV === 'production') process.exit(1);
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) process.exit(1);
 });
 
 app.set('trust proxy', 1);
