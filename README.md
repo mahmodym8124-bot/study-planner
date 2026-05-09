@@ -155,6 +155,8 @@ When `NODE_ENV=production`, Express serves the compiled `dist` frontend and the 
 5. Use MongoDB Atlas for `MONGODB_URI`.
 6. Configure persistent disk storage if you need local uploads to survive deploy restarts.
 
+This repo also includes `render.yaml`, so on Render you can use **New +** -> **Blueprint** and select this GitHub repository. Add your Atlas `MONGODB_URI` when Render asks for the secret value.
+
 ### Vercel / Netlify Frontend + Render API
 
 1. Deploy the frontend with build command `npm run build` and output directory `dist`.
