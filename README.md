@@ -82,7 +82,7 @@ Required variables:
 
 | Variable | Description |
 | --- | --- |
-| `PORT` | Express server port. Defaults to `8080`. |
+| `PORT` | Express server port. This project uses `8091` locally because `8080` may be occupied by another service. |
 | `CLIENT_URL` | Allowed frontend origin for CORS, e.g. `http://localhost:5173`. |
 | `MONGODB_URI` | MongoDB connection string. |
 | `JWT_SECRET` | Strong random secret used to sign sessions. |
@@ -105,7 +105,7 @@ npm run dev
 ```
 
 - Frontend: <http://localhost:5173>
-- Backend API: <http://localhost:8080/api/health>
+- Backend API: <http://localhost:8091/api/health>
 
 ## Production Build
 

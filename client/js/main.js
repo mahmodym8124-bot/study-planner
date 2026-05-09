@@ -3,12 +3,25 @@ import gsap from 'gsap';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal, skeleton } from './ui.js';
-import { createAmbientBackground, createHeroScene, createKnowledgeGraph } from './three-scenes.js';
 
 let heroDispose = () => {}; let graphDispose = () => {};
+let ambientDispose = () => {};
+let scenesPromise;
 const app = document.querySelector('#app');
 document.body.classList.toggle('light', state.theme === 'light');
-createAmbientBackground(document.querySelector('#ambient-bg'));
+
+function loadScenes() {
+  scenesPromise ||= import('./three-scenes.js');
+  return scenesPromise;
+}
+
+async function mountAmbientBackground() {
+  const canvas = document.querySelector('#ambient-bg');
+  if (!canvas) return;
+  const { createAmbientBackground } = await loadScenes();
+  ambientDispose();
+  ambientDispose = createAmbientBackground(canvas);
+}
 
 function route(path = location.hash.replace('#', '') || '/') {
   if (!state.user && path.startsWith('/app')) path = '/login';
@@ -19,6 +32,7 @@ window.addEventListener('hashchange', () => route(location.hash.replace('#', '')
 
 async function bootstrap() {
   app.insertAdjacentHTML('beforebegin', '<div class="noise"></div>');
+  mountAmbientBackground().catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   if (storage.token) {
     try { const { user } = await api.me(); setState({ user }); await loadWorkspace(); } catch { storage.token = null; }
@@ -43,7 +57,10 @@ function render() {
 function renderLanding() {
   app.className = 'app-shell';
   app.innerHTML = `<section class="landing"><nav class="nav glass"><a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a><div class="nav-links"><a href="#features">Features</a><a href="#visual">3D Graph</a><a class="keep btn" href="#/login">Login</a><a class="keep btn primary" href="#/signup">Get started</a></div></nav><main class="hero"><div><span class="eyebrow">${icon('vault')} Cinematic knowledge OS for files, notes and ideas</span><h1>Store your mind in a <span class="gradient-text">living vault.</span></h1><p>MindVault combines encrypted authentication, markdown notes, protected uploads, kanban ideas, productivity rituals, instant search, and an interactive Three.js knowledge graph in one premium workspace.</p><div class="hero-actions"><a class="btn primary" href="#/signup">Launch workspace</a><a class="btn" href="#/login">Open demo account</a></div><div class="hero-meta"><div class="mini-stat"><strong>3D</strong><span class="muted">Knowledge graph</span></div><div class="mini-stat"><strong>PWA</strong><span class="muted">Offline-ready shell</span></div><div class="mini-stat"><strong>JWT</strong><span class="muted">Secure API</span></div></div></div><div id="visual" class="hero-visual glass"><div class="floating-card"><b>Neural workspace preview</b><p class="muted">Mouse-reactive particles, orbital objects, and living depth make the landing experience memorable without sacrificing performance.</p></div></div></main><section id="features" class="features"><div class="feature"><b>Capture everything</b><span class="muted">Notes, uploads, links, projects, folders, tags, and ideas.</span></div><div class="feature"><b>Flow-first UX</b><span class="muted">Command palette, shortcuts, autosave, toasts, modals, and skeleton states.</span></div><div class="feature"><b>Deployable stack</b><span class="muted">Vanilla JS, Express, MongoDB, JWT, Multer, Helmet, and compression.</span></div></section></section>`;
-  heroDispose = createHeroScene(document.querySelector('.hero-visual'));
+  const visual = document.querySelector('.hero-visual');
+  loadScenes().then(({ createHeroScene }) => {
+    if (document.body.contains(visual)) heroDispose = createHeroScene(visual);
+  }).catch(() => {});
   gsap.from('.hero > *,.feature', { y: 24, opacity: 0, stagger: .08, duration: .7, ease: 'power3.out' });
 }
 
@@ -85,7 +102,7 @@ function fileCard(f){const label=f.mimeType?.startsWith('image/')?'Image':'File'
 async function uploadFiles(files){for(const file of files){const form=new FormData();form.append('file',file);form.append('folder','Uploads');form.append('tags','imported');await api.upload(form)}toast('Upload complete');await loadWorkspace();renderView('files')}
 async function deleteFile(id){await api.deleteFile(id);toast('File deleted');await loadWorkspace();renderView('files')}
 
-function renderGraph(root){const graphData=[...state.notes.map(n=>({...n,type:'note',id:n._id})),...state.files.map(f=>({...f,title:f.originalName,type:'file',id:f._id})),...state.ideas.map(i=>({...i,type:'idea',id:i._id}))];root.innerHTML=`<div class="section-head"><div><h2>3D Knowledge Graph</h2><p class="muted">Drag nodes, orbit with your cursor, and click any node to inspect content.</p></div></div><div class="graph-layout"><div class="graph-panel card" id="graph"></div><aside class="card inspector" id="inspector"><h3>Select a node</h3><p class="muted">Notes, files and ideas become connected spatial objects for visual discovery.</p></aside></div>`;graphDispose=createKnowledgeGraph(root.querySelector('#graph'),graphData,(node)=>{root.querySelector('#inspector').innerHTML=`<h3>${escapeHTML(node.title||node.originalName)}</h3><p class="muted">${escapeHTML(node.type)} · ${escapeHTML(node.folder||node.status||'Vault')}</p><div class="tags">${(node.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div><p>${markdown((node.content||node.description||'').slice(0,500))}</p>`})}
+function renderGraph(root){const graphData=[...state.notes.map(n=>({...n,type:'note',id:n._id})),...state.files.map(f=>({...f,title:f.originalName,type:'file',id:f._id})),...state.ideas.map(i=>({...i,type:'idea',id:i._id}))];root.innerHTML=`<div class="section-head"><div><h2>3D Knowledge Graph</h2><p class="muted">Drag nodes, orbit with your cursor, and click any node to inspect content.</p></div></div><div class="graph-layout"><div class="graph-panel card" id="graph"><div class="skeleton"></div></div><aside class="card inspector" id="inspector"><h3>Select a node</h3><p class="muted">Notes, files and ideas become connected spatial objects for visual discovery.</p></aside></div>`;const graph=root.querySelector('#graph');loadScenes().then(({ createKnowledgeGraph })=>{if(!document.body.contains(graph))return;graphDispose=createKnowledgeGraph(graph,graphData,(node)=>{root.querySelector('#inspector').innerHTML=`<h3>${escapeHTML(node.title||node.originalName)}</h3><p class="muted">${escapeHTML(node.type)} · ${escapeHTML(node.folder||node.status||'Vault')}</p><div class="tags">${(node.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div><p>${markdown((node.content||node.description||'').slice(0,500))}</p>`})}).catch(()=>{graph.innerHTML='<p class="muted">3D graph could not be loaded.</p>'})}
 
 function renderIdeas(root){const statuses=['Backlog','Active','Review','Done'];root.innerHTML=`<div class="section-head"><div><h2>Idea board</h2><p class="muted">Kanban-style idea tracking with priorities and progress.</p></div><button class="btn primary" id="new-idea">${icon('plus')} New idea</button></div><div class="ideas-board">${statuses.map(s=>`<section class="lane" data-status="${s}"><h3>${s}<span class="muted">${state.ideas.filter(i=>i.status===s).length}</span></h3>${state.ideas.filter(i=>i.status===s).map(ideaCard).join('')}</section>`).join('')}</div>`;root.querySelector('#new-idea').onclick=()=>openIdeaEditor();root.querySelectorAll('.idea-card').forEach(card=>{card.draggable=true;card.ondragstart=e=>e.dataTransfer.setData('text/plain',card.dataset.id);card.onclick=()=>openIdeaEditor(state.ideas.find(i=>i._id===card.dataset.id))});root.querySelectorAll('.lane').forEach(l=>{l.ondragover=e=>e.preventDefault();l.ondrop=async e=>{const idea=state.ideas.find(i=>i._id===e.dataTransfer.getData('text/plain'));await api.saveIdea({...idea,status:l.dataset.status},idea._id);await loadWorkspace();renderView('ideas')}})}
 function ideaCard(i){return `<article class="idea-card" data-id="${i._id}"><span class="priority">${escapeHTML(i.priority)}</span><h3>${escapeHTML(i.title)}</h3><p class="muted">${escapeHTML(i.description||'')}</p><progress max="100" value="${i.progress||0}" style="width:100%"></progress></article>`}
