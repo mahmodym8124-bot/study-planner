@@ -1,5 +1,5 @@
 import '../styles/app.css';
-const gsap = window.gsap;
+import gsap from 'gsap';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal, skeleton } from './ui.js';
