@@ -1,7 +1,4 @@
-const THREE = window.THREE || await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js').catch((error) => {
-  console.warn('Three.js could not be loaded; 3D scenes are disabled.', error);
-  return null;
-});
+import * as THREE from 'three';
 
 const pointer = { x: 0, y: 0 };
 window.addEventListener('pointermove', (event) => {
@@ -10,7 +7,7 @@ window.addEventListener('pointermove', (event) => {
 });
 
 export function createAmbientBackground(canvas) {
-  if (!canvas || !THREE?.WebGLRenderer) return () => {};
+  if (!canvas || !THREE) return () => {};
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
   const scene = new THREE.Scene();
@@ -33,7 +30,7 @@ export function createAmbientBackground(canvas) {
 }
 
 export function createHeroScene(container) {
-  if (!container || !THREE?.WebGLRenderer) return () => {};
+  if (!container || !THREE) return () => {};
   container.innerHTML = '';
   const canvas = document.createElement('canvas');
   container.appendChild(canvas);
@@ -61,7 +58,7 @@ export function createHeroScene(container) {
 }
 
 export function createKnowledgeGraph(container, data, onSelect) {
-  if (!container || !THREE?.WebGLRenderer) return () => {};
+  if (!container || !THREE) return () => {};
   container.innerHTML = '';
   const canvas = document.createElement('canvas'); container.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
