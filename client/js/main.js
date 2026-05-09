@@ -1,5 +1,6 @@
 import '../styles/app.css';
 import gsap from 'gsap';
+import { inject } from '@vercel/analytics';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal, skeleton } from './ui.js';
@@ -31,6 +32,7 @@ function route(path = location.hash.replace('#', '') || '/') {
 window.addEventListener('hashchange', () => route(location.hash.replace('#', '') || '/'));
 
 async function bootstrap() {
+  inject();
   app.insertAdjacentHTML('beforebegin', '<div class="noise"></div>');
   mountAmbientBackground().catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
