@@ -1,0 +1,12 @@
+{
+  "name": "MindVault",
+  "short_name": "MindVault",
+  "description": "Personal knowledge and file management workspace",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070917",
+  "theme_color": "#7c3aed",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "192x192", "type": "image/svg+xml" }
+  ]
+}
