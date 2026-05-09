@@ -43,7 +43,7 @@ app.use('/api/ideas', ideaRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/productivity', productivityRoutes);
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const dist = path.resolve(__dirname, '..', 'dist');
   app.use(express.static(dist));
   app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
@@ -63,4 +63,8 @@ app.use((error, _req, res, next) => {
   res.status(error.status || 500).json({ message: error.message || 'Server error' });
 });
 
-app.listen(PORT, () => console.log(`MindVault API listening on ${PORT}`));
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`MindVault API listening on ${PORT}`));
+}
+
+export default app;
