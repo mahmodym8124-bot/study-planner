@@ -1,8 +1,12 @@
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import multer from 'multer';
 
-const uploadDir = path.resolve('uploads');
+export const uploadDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'mindvault-uploads')
+  : path.resolve('uploads');
+
 fs.mkdirSync(uploadDir, { recursive: true });
 const allowed = new Set(['image/jpeg','image/png','image/webp','image/gif','application/pdf','application/zip','application/x-zip-compressed','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
 const storage = multer.diskStorage({ destination: uploadDir, filename: (_req, file, cb) => cb(null, `${Date.now()}-${cryptoSafe(file.originalname)}`) });
