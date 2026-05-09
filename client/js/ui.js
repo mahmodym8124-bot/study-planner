@@ -1,4 +1,4 @@
-const gsap = window.gsap;
+import gsap from 'gsap';
 export function icon(name){const map={vault:'◇',dashboard:'⌘',notes:'✦',files:'▣',graph:'⬡',ideas:'◫',timer:'◷',search:'⌕',plus:'＋',upload:'⇧',theme:'☼',logout:'↗',menu:'☰',pin:'⌖',star:'★',trash:'⌫',edit:'✎',close:'×',check:'✓'};return map[name]||'•'}
 export function toast(message,type='info'){const stack=document.querySelector('.toast-stack')||document.body.appendChild(Object.assign(document.createElement('div'),{className:'toast-stack'}));const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=message;stack.appendChild(el);gsap.from(el,{y:20,opacity:0,duration:.24});setTimeout(()=>{gsap.to(el,{y:10,opacity:0,duration:.22,onComplete:()=>el.remove()})},3200)}
 export function escapeHTML(str=''){return String(str).replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
