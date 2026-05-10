@@ -280,7 +280,7 @@ function renderApp() {
   app.className = 'dashboard-shell';
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#/app/dashboard"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
+      <a class="brand" href="#/app/dashboard" aria-label="MindVault Dashboard"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
       <div class="workspace-pill">
         <span class="status-dot"></span>
         <div>
@@ -317,7 +317,16 @@ function renderApp() {
       <section id="view-root"></section>
     </main>
 
-    <div class="toast-stack"></div>
+    <nav class="bottom-nav">
+      ${[['dashboard', 'Home'], ['notes', 'Notes'], ['productivity', 'Focus'], ['ideas', 'Ideas']].map(([id, label]) => `
+        <a class="bottom-nav-item ${view === id ? 'active' : ''}" href="#/app/${id}">
+          ${icon(id)}
+          <span>${label}</span>
+        </a>
+      `).join('')}
+    </nav>
+
+    <div class="toast-stack" aria-live="polite"></div>
     <div class="command-backdrop" id="command">
       <div class="cmd surface">
         <input class="input" id="cmd-input" placeholder="Type a command or search..." />
@@ -393,17 +402,26 @@ function renderView(view) {
   return renderDashboard(root);
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 function renderDashboard(root) {
   const firstName = state.user?.name?.split(' ')[0] || 'there';
   const insights = dashboardInsights();
   const bars = weekActivityBars();
   const topTasks = insights.todos.filter((todo) => !todo.done).slice(0, 4);
   const activeIdeas = state.ideas.filter((idea) => ['Active', 'Review'].includes(idea.status)).slice(0, 3);
+  const nextTask = topTasks[0];
+  
   root.innerHTML = `
     <section class="dashboard-hero">
       <div>
-        <p class="eyebrow">${icon('spark')} Today, ${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-        <h2>Good focus, ${escapeHTML(firstName)}.</h2>
+        <p class="eyebrow">${icon('spark')} <span class="greeting-badge">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span></p>
+        <h2>${getGreeting()}, ${escapeHTML(firstName)}.</h2>
         <p class="muted">A live control room for notes, files, ideas, and deep work. Your highest-leverage next actions are ready.</p>
         <div class="hero-actions">
           <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
@@ -416,6 +434,17 @@ function renderDashboard(root) {
         <small>Focus score</small>
       </div>
     </section>
+
+    ${nextTask ? `
+      <div class="next-up-card">
+        ${icon('focus')}
+        <div class="next-up-text">
+          <b class="gradient-text">Up next</b>
+          <span>${escapeHTML(nextTask.text)}</span>
+        </div>
+        <button class="btn primary" onclick="location.hash='#/app/productivity'">Start focusing</button>
+      </div>
+    ` : ''}
 
     <div class="grid stats">
       ${[
@@ -459,7 +488,7 @@ function renderDashboard(root) {
         </div>
         <div class="task-stack">
           ${topTasks.map((todo) => `
-            <button class="task-line" data-dashboard-todo="${todo.id}">
+            <button class="task-line" data-dashboard-todo="${todo.id}" aria-label="Mark task done">
               ${icon('check')}
               <span>${escapeHTML(todo.text)}</span>
             </button>
@@ -843,31 +872,53 @@ function renderProductivity(root) {
       <section class="card focus-timer-card">
         <div class="card-head">
           <h3>Pomodoro</h3>
-          <span class="metric-chip">${workMinutes}/${breakMinutes}</span>
+          <span class="metric-chip" id="timer-counter">Work session</span>
         </div>
-        <div class="timer" id="timer">${String(workMinutes).padStart(2, '0')}:00</div>
-        <div class="actions">
+        <div class="timer-ring-wrap">
+          <svg class="timer-ring" viewBox="0 0 100 100">
+            <circle class="timer-ring-bg" cx="50" cy="50" r="45"></circle>
+            <circle class="timer-ring-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="timer-display">
+            <div class="timer" id="timer">${String(workMinutes).padStart(2, '0')}:00</div>
+            <span class="timer-mode-label muted" id="timer-mode">Ready</span>
+          </div>
+        </div>
+        <div class="actions" style="justify-content: center; margin-bottom: 1rem;">
           <button class="btn primary" id="timer-start">Start</button>
+          <button class="btn" id="timer-pause">Pause</button>
           <button class="btn" id="timer-reset">Reset</button>
         </div>
         <div class="form-row compact-row">
           <div class="field"><label>Work</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
           <div class="field"><label>Break</label><input class="input" type="number" min="1" max="60" id="break-minutes" value="${breakMinutes}" /></div>
         </div>
-        <button class="btn" id="save-pomodoro">${icon('check')} Save timer</button>
+        <button class="btn" style="width: 100%; margin-top: 0.5rem;" id="save-pomodoro">${icon('check')} Save settings</button>
       </section>
       <section class="card task-panel">
         <div class="card-head">
           <h3>Tasks</h3>
           <span class="metric-chip">${doneTodos}/${todos.length || 0}</span>
         </div>
-        <form id="todo-form" class="actions">
-          <input class="input" name="todo" placeholder="Add a task" />
+        <div class="task-progress-wrap">
+          <span class="task-progress-label muted">Completion progress</span>
+          <div class="task-progress">
+            <div class="task-progress-fill" style="width: ${todos.length ? (doneTodos / todos.length) * 100 : 0}%"></div>
+          </div>
+        </div>
+        <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
+          <input class="input" name="todo" placeholder="Add a task" required />
+          <select class="select" name="priority" style="width: auto;">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
           <button class="btn">${icon('plus')} Add</button>
         </form>
         <div class="todo-list">
           ${todos.map((todo) => `
-            <div class="todo ${todo.done ? 'done' : ''}" data-todo="${todo.id}">
+            <div class="todo ${todo.done ? 'done' : ''}" data-todo="${todo.id}" data-priority="${todo.priority || 'medium'}">
               <button class="todo-check" data-toggle-todo="${todo.id}" aria-label="Toggle task">${icon(todo.done ? 'check' : 'focus')}</button>
               <span>${escapeHTML(todo.text)}</span>
               <button class="icon-button" data-delete-todo="${todo.id}" aria-label="Delete task">${icon('trash')}</button>
@@ -897,27 +948,85 @@ function renderProductivity(root) {
 }
 
 function bindProductivity(root) {
-  let seconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+  let mode = 'work'; // 'work' or 'break'
+  let isPaused = false;
+  let totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+  let seconds = totalSeconds;
+  let sessions = 0;
+  
+  const timerCircle = root.querySelector('.timer-ring-progress');
+  const timerLabel = root.querySelector('#timer-mode');
+  const timerCounter = root.querySelector('#timer-counter');
+  
   const display = () => {
     root.querySelector('#timer').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    
+    // Update SVG stroke-dashoffset (283 is the circumference for r=45)
+    const progress = seconds / totalSeconds;
+    const offset = 283 - (progress * 283);
+    if (timerCircle) {
+      timerCircle.style.strokeDashoffset = offset;
+      timerCircle.className.baseVal = `timer-ring-progress ${mode === 'break' ? 'break' : ''} ${isPaused ? 'paused' : ''}`;
+    }
+  };
+
+  const nextMode = () => {
+    if (mode === 'work') {
+      sessions++;
+      timerCounter.textContent = `${sessions} session${sessions > 1 ? 's' : ''} completed`;
+      mode = 'break';
+      totalSeconds = Number(state.productivity.pomodoro?.break || 5) * 60;
+      timerLabel.textContent = 'Break';
+      toast('Work session complete! Take a break.');
+    } else {
+      mode = 'work';
+      totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+      timerLabel.textContent = 'Focusing';
+      toast('Break over. Back to focus!');
+    }
+    seconds = totalSeconds;
+    display();
   };
 
   root.querySelector('#timer-start').onclick = () => {
+    if (isPaused) {
+      isPaused = false;
+      timerLabel.textContent = mode === 'work' ? 'Focusing' : 'Break';
+      display();
+    } else {
+      mode = 'work';
+      totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+      seconds = totalSeconds;
+      timerLabel.textContent = 'Focusing';
+    }
     clearInterval(focusTimerId);
     focusTimerId = setInterval(() => {
+      if (isPaused) return;
       seconds = Math.max(0, seconds - 1);
       display();
       if (seconds === 0) {
         clearInterval(focusTimerId);
-        toast('Pomodoro complete');
+        nextMode();
       }
     }, 1000);
   };
-  root.querySelector('#timer-reset').onclick = () => {
-    clearInterval(focusTimerId);
-    seconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+  
+  root.querySelector('#timer-pause').onclick = () => {
+    isPaused = true;
+    timerLabel.textContent = 'Paused';
     display();
   };
+  
+  root.querySelector('#timer-reset').onclick = () => {
+    clearInterval(focusTimerId);
+    isPaused = false;
+    mode = 'work';
+    totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+    seconds = totalSeconds;
+    timerLabel.textContent = 'Ready';
+    display();
+  };
+  
   root.querySelector('#save-pomodoro').onclick = async () => {
     await saveProd({
       pomodoro: {
@@ -928,13 +1037,17 @@ function bindProductivity(root) {
     toast('Timer settings saved');
     renderView('productivity');
   };
+  
   root.querySelector('#todo-form').onsubmit = async (event) => {
     event.preventDefault();
-    const text = new FormData(event.currentTarget).get('todo');
+    const formData = new FormData(event.currentTarget);
+    const text = formData.get('todo');
+    const priority = formData.get('priority');
     if (!text) return;
-    await saveProd({ todos: [...(state.productivity.todos || []), { id: uid(), text, done: false }] });
+    await saveProd({ todos: [...(state.productivity.todos || []), { id: uid(), text, priority, done: false }] });
     renderView('productivity');
   };
+  
   root.querySelectorAll('[data-toggle-todo]').forEach((element) => {
     element.onclick = async (event) => {
       event.stopPropagation();
@@ -944,6 +1057,7 @@ function bindProductivity(root) {
       renderView('productivity');
     };
   });
+  
   root.querySelectorAll('[data-delete-todo]').forEach((element) => {
     element.onclick = async (event) => {
       event.stopPropagation();
@@ -951,10 +1065,13 @@ function bindProductivity(root) {
       renderView('productivity');
     };
   });
+  
   root.querySelector('#save-focus').onclick = async () => {
     await saveProd({ focus: root.querySelector('#focus-text').value });
     toast('Focus saved');
   };
+  
+  display();
 }
 
 async function saveProd(patch) {
