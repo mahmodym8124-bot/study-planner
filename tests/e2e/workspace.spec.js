@@ -10,6 +10,11 @@ test('signup, login, notes, focus, tasks, and persistence with no /api 502', asy
   const focusText = `Focus target ${runId}`;
   const taskText = `Finish task ${runId}`;
   const badGatewayApiResponses = [];
+  const waitForProductivitySave = () => page.waitForResponse(
+    (response) => response.url().includes('/api/productivity')
+      && response.request().method() === 'PUT'
+      && response.status() === 200
+  );
 
   page.on('response', (response) => {
     if (response.url().includes('/api') && response.status() === 502) {
@@ -45,14 +50,20 @@ test('signup, login, notes, focus, tasks, and persistence with no /api 502', asy
   await page.getByRole('link', { name: /focus/i }).click();
   await expect(page).toHaveURL(/#\/app\/productivity$/);
   await page.locator('#focus-text').fill(focusText);
+  const focusSave = waitForProductivitySave();
   await page.locator('#save-focus').click();
+  await focusSave;
   await expect(page.locator('#focus-text')).toHaveValue(focusText);
 
   await page.locator('#todo-form [name="todo"]').fill(taskText);
+  const todoCreateSave = waitForProductivitySave();
   await page.locator('#todo-form button').click();
+  await todoCreateSave;
   const todoItem = page.locator(`.todo:has-text("${taskText}")`);
   await expect(todoItem).toBeVisible();
+  const todoToggleSave = waitForProductivitySave();
   await todoItem.locator('[data-toggle-todo]').click();
+  await todoToggleSave;
   await expect(page.locator(`.todo.done:has-text("${taskText}")`)).toBeVisible();
 
   await page.reload();

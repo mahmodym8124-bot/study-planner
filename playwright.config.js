@@ -10,14 +10,18 @@ dotenv.config();
 
 function deriveE2eMongoUri(uri) {
   if (!uri) throw new Error('MONGODB_URI must be set for Playwright E2E runs.');
-  let parsed;
-  try {
-    parsed = new URL(uri);
-  } catch {
-    throw new Error('MONGODB_URI must be a valid URI for Playwright E2E runs.');
-  }
-  parsed.pathname = '/study-planner-e2e';
-  return parsed.toString();
+  const trimmedUri = uri.trim();
+  const protocolMatch = trimmedUri.match(/^mongodb(?:\+srv)?:\/\//);
+  if (!protocolMatch) throw new Error('MONGODB_URI must be a valid MongoDB URI for Playwright E2E runs.');
+
+  const queryIndex = trimmedUri.indexOf('?');
+  const hasQuery = queryIndex >= 0;
+  const base = hasQuery ? trimmedUri.slice(0, queryIndex) : trimmedUri;
+  const query = hasQuery ? trimmedUri.slice(queryIndex) : '';
+  const slashAfterAuthority = base.indexOf('/', protocolMatch[0].length);
+  const authority = slashAfterAuthority >= 0 ? base.slice(0, slashAfterAuthority) : base;
+
+  return `${authority}/study-planner-e2e${query}`;
 }
 
 const e2eMongoUri = deriveE2eMongoUri(process.env.MONGODB_URI);
@@ -35,7 +39,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+      use: { ...devices['Desktop Chrome'], channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' }
     }
   ],
   webServer: [
@@ -49,7 +53,10 @@ export default defineConfig({
         NODE_ENV: 'test',
         PORT: String(API_PORT),
         CLIENT_URL: WEB_URL,
-        MONGODB_URI: e2eMongoUri
+        MONGODB_URI: e2eMongoUri,
+        MONGODB_TIMEOUT_MS: process.env.MONGODB_TIMEOUT_MS || '30000',
+        MONGODB_CONNECT_TIMEOUT_MS: process.env.MONGODB_CONNECT_TIMEOUT_MS || '30000',
+        MONGODB_SOCKET_TIMEOUT_MS: process.env.MONGODB_SOCKET_TIMEOUT_MS || '45000'
       }
     },
     {
