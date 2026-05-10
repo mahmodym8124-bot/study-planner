@@ -8,7 +8,26 @@ import { validate } from '../middleware/validate.js';
 const router = Router();
 router.use(asyncHandler(protect));
 router.get('/', asyncHandler(listIdeas));
-router.post('/', [body('title').trim().isLength({ min: 1, max: 180 }), body('status').optional().isIn(['Backlog','Active','Review','Done'])], validate, asyncHandler(createIdea));
-router.put('/:id', [param('id').isMongoId(), body('status').optional().isIn(['Backlog','Active','Review','Done'])], validate, asyncHandler(updateIdea));
+router.post('/', [
+  body('title').trim().isLength({ min: 1, max: 180 }),
+  body('description').optional().isString().isLength({ max: 12000 }),
+  body('category').optional().trim().isLength({ min: 1, max: 80 }),
+  body('status').optional().isIn(['Backlog','Active','Review','Done']),
+  body('priority').optional().isIn(['Low','Medium','High','Critical']),
+  body('progress').optional().isInt({ min: 0, max: 100 }).toInt(),
+  body('tags').optional().isArray({ max: 20 }),
+  body('tags.*').optional().trim().isLength({ min: 1, max: 32 })
+], validate, asyncHandler(createIdea));
+router.put('/:id', [
+  param('id').isMongoId(),
+  body('title').optional().trim().isLength({ min: 1, max: 180 }),
+  body('description').optional().isString().isLength({ max: 12000 }),
+  body('category').optional().trim().isLength({ min: 1, max: 80 }),
+  body('status').optional().isIn(['Backlog','Active','Review','Done']),
+  body('priority').optional().isIn(['Low','Medium','High','Critical']),
+  body('progress').optional().isInt({ min: 0, max: 100 }).toInt(),
+  body('tags').optional().isArray({ max: 20 }),
+  body('tags.*').optional().trim().isLength({ min: 1, max: 32 })
+], validate, asyncHandler(updateIdea));
 router.delete('/:id', [param('id').isMongoId()], validate, asyncHandler(deleteIdea));
 export default router;

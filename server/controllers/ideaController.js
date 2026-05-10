@@ -10,7 +10,7 @@ function ideaPayload(body) {
 }
 
 export async function listIdeas(req, res) {
-  const ideas = await Idea.find({ user: req.user._id }).sort({ updatedAt: -1 });
+  const ideas = await Idea.find({ user: req.user._id }).sort({ updatedAt: -1 }).lean();
   res.json({ ideas });
 }
 export async function createIdea(req, res) {
@@ -19,13 +19,13 @@ export async function createIdea(req, res) {
   res.status(201).json({ idea });
 }
 export async function updateIdea(req, res) {
-  const idea = await Idea.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, ideaPayload(req.body), { new: true, runValidators: true });
+  const idea = await Idea.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, ideaPayload(req.body), { new: true, runValidators: true }).lean();
   if (!idea) return res.status(404).json({ message: 'Idea not found' });
   await recordActivity(req.user._id, 'Updated idea', idea.title, 'idea', idea._id);
   res.json({ idea });
 }
 export async function deleteIdea(req, res) {
-  const idea = await Idea.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+  const idea = await Idea.findOneAndDelete({ _id: req.params.id, user: req.user._id }).lean();
   if (!idea) return res.status(404).json({ message: 'Idea not found' });
   await recordActivity(req.user._id, 'Deleted idea', idea.title, 'idea', idea._id);
   res.json({ ok: true });

@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8080;
+const allowedOrigins = process.env.CLIENT_URL?.split(',').map((origin) => origin.trim().replace(/\/$/, '')).filter(Boolean) || [];
 
 await connectDB(process.env.MONGODB_URI).catch((error) => {
   console.error('MongoDB connection failed:', error.message);
@@ -28,12 +29,26 @@ await connectDB(process.env.MONGODB_URI).catch((error) => {
 
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CLIENT_URL?.split(',') || true, credentials: true }));
+app.use(cors({
+  origin: allowedOrigins.length ? allowedOrigins : true,
+  credentials: true
+}));
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 800, standardHeaders: true, legacyHeaders: false }));
+app.use(['/api/auth/login', '/api/auth/register'], rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many authentication attempts. Please wait and try again.' }
+}));
 
 async function requireDatabase(_req, res, next) {
   if (databaseStatus().connected) return next();
@@ -74,6 +89,7 @@ app.use((error, _req, res, next) => {
     const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
     return res.status(status).json({ message: error.message });
   }
+  if (error.message === 'Not allowed by CORS') return res.status(403).json({ message: 'Origin is not allowed' });
   if (error.message === 'Unsupported file type') return res.status(415).json({ message: error.message });
   if (error.code === 11000) return res.status(409).json({ message: 'A record with that value already exists' });
   if (error.name === 'ValidationError') return res.status(422).json({ message: error.message });

@@ -8,4 +8,6 @@ const activitySchema = new mongoose.Schema({
   entityId: { type: mongoose.Schema.Types.ObjectId }
 }, { timestamps: true });
 
+activitySchema.index({ user: 1, createdAt: -1 });
+
 export default mongoose.model('Activity', activitySchema);

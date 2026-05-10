@@ -2,15 +2,24 @@ import '../styles/app.css';
 import gsap from 'gsap';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
-import { icon, toast, escapeHTML, markdown, debounce, modal, skeleton } from './ui.js';
+import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 
 const app = document.querySelector('#app');
 let heroDispose = () => {};
 let graphDispose = () => {};
 let ambientDispose = () => {};
 let scenesPromise;
+let focusTimerId;
 
 document.body.classList.toggle('light', state.theme === 'light');
+
+window.addEventListener('mindvault:auth-expired', () => {
+  if (!state.user) return;
+  storage.token = null;
+  setState({ user: null });
+  toast('Session expired. Please sign in again.', 'error');
+  route('/login');
+});
 
 function loadScenes() {
   scenesPromise ||= import('./three-scenes.js');
@@ -74,6 +83,7 @@ async function loadWorkspace() {
 }
 
 function render() {
+  clearInterval(focusTimerId);
   heroDispose();
   graphDispose();
   heroDispose = () => {};
@@ -115,7 +125,7 @@ function renderLanding() {
           </div>
         </div>
 
-        <div id="visual" class="hero-visual surface">
+        <div id="visual" class="hero-visual">
           <div class="floating-card">
             <b>Live workspace preview</b>
             <p class="muted">A calm interface with enough depth to feel polished, without visual noise.</p>
@@ -190,12 +200,94 @@ function currentView() {
   return state.route.split('/').pop() || 'dashboard';
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatPercent(value) {
+  return `${Math.round(clamp(value, 0, 100))}%`;
+}
+
+function daysAgo(value) {
+  const diff = Date.now() - new Date(value).getTime();
+  return Math.max(0, Math.floor(diff / 86_400_000));
+}
+
+function computeStreak(activity = []) {
+  const days = new Set(activity.map((item) => new Date(item.createdAt).toDateString()));
+  let streak = 0;
+  const cursor = new Date();
+  for (let i = 0; i < 30; i += 1) {
+    if (!days.has(cursor.toDateString())) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function dashboardInsights() {
+  const todos = state.productivity.todos || [];
+  const doneTodos = todos.filter((todo) => todo.done).length;
+  const activeIdeas = state.ideas.filter((idea) => idea.status === 'Active' || idea.status === 'Review').length;
+  const pinnedNotes = state.notes.filter((note) => note.pinned || note.favorite).length;
+  const recentNotes = state.notes.filter((note) => daysAgo(note.updatedAt || note.createdAt) <= 7).length;
+  const streak = computeStreak(state.activity);
+  const completion = todos.length ? (doneTodos / todos.length) * 100 : 0;
+  const focusDepth = state.productivity.focus?.trim() ? 18 : 0;
+  const focusScore = clamp(Math.round((completion * 0.44) + (Math.min(streak, 7) * 6) + Math.min(activeIdeas * 5, 20) + focusDepth), 0, 100);
+
+  return {
+    todos,
+    doneTodos,
+    activeIdeas,
+    pinnedNotes,
+    recentNotes,
+    streak,
+    completion,
+    focusScore
+  };
+}
+
+function weekActivityBars() {
+  const labels = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+    return date;
+  });
+  const counts = labels.map((date) => state.activity.filter((item) => new Date(item.createdAt).toDateString() === date.toDateString()).length);
+  const max = Math.max(...counts, 1);
+  return labels.map((date, index) => ({
+    label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+    value: counts[index],
+    height: `${Math.max(12, (counts[index] / max) * 100)}%`
+  }));
+}
+
+function emptyState(iconName, title, body, action = '') {
+  return `
+    <div class="empty-state">
+      ${icon(iconName)}
+      <b>${escapeHTML(title)}</b>
+      <span class="muted">${escapeHTML(body)}</span>
+      ${action}
+    </div>
+  `;
+}
+
 function renderApp() {
   const view = currentView();
+  const insights = dashboardInsights();
   app.className = 'dashboard-shell';
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#/app/dashboard"><span class="logo">${icon('vault')}</span>MindVault</a>
+      <a class="brand" href="#/app/dashboard"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
+      <div class="workspace-pill">
+        <span class="status-dot"></span>
+        <div>
+          <b>${escapeHTML(state.user?.name || 'Workspace')}</b>
+          <span class="muted">${insights.streak || 0} day streak</span>
+        </div>
+      </div>
       <nav class="side-nav">
         ${navItems().map(([id, label]) => `
           <a class="side-link ${view === id ? 'active' : ''}" href="#/app/${id}">
@@ -204,11 +296,12 @@ function renderApp() {
         `).join('')}
       </nav>
       <div class="sidebar-footer">
-        <button class="btn" id="cmd-open">Command</button>
+        <button class="btn" id="cmd-open">${icon('command')} Command</button>
         <button class="btn" id="theme-toggle">${icon('theme')} Theme</button>
         <button class="btn danger" id="logout">${icon('logout')} Logout</button>
       </div>
     </aside>
+    <button class="sidebar-scrim" id="sidebar-scrim" aria-label="Close menu"></button>
 
     <main class="main">
       <header class="topbar surface">
@@ -216,6 +309,7 @@ function renderApp() {
         <div class="search-wrap">
           ${icon('search')}
           <input class="input" id="global-search" placeholder="Search notes, files, ideas, tags..." />
+          <span class="shortcut">Ctrl K</span>
         </div>
         <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">New note</span></button>
         <div class="avatar">${escapeHTML(state.user?.name?.[0] || 'M')}</div>
@@ -249,7 +343,20 @@ function bindShell() {
     setState({ theme });
     document.body.classList.toggle('light', theme === 'light');
   };
-  document.querySelector('#mobile-menu').onclick = () => document.querySelector('#sidebar').classList.toggle('open');
+  const sidebar = document.querySelector('#sidebar');
+  const scrim = document.querySelector('#sidebar-scrim');
+  const closeMenu = () => {
+    sidebar.classList.remove('open');
+    scrim.classList.remove('open');
+  };
+  document.querySelector('#mobile-menu').onclick = () => {
+    sidebar.classList.add('open');
+    scrim.classList.add('open');
+  };
+  scrim.onclick = closeMenu;
+  document.querySelectorAll('.side-link').forEach((link) => {
+    link.onclick = closeMenu;
+  });
   document.querySelector('#quick-note').onclick = () => openNoteEditor();
   document.querySelector('#cmd-open').onclick = () => openCommand();
   window.onkeydown = (event) => {
@@ -260,6 +367,11 @@ function bindShell() {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
       event.preventDefault();
       openNoteEditor();
+    }
+    if (event.key === 'Escape') {
+      document.querySelector('#command')?.classList.remove('open');
+      document.querySelector('.modal-backdrop')?.classList.remove('open');
+      closeMenu();
     }
   };
   document.querySelector('#global-search').oninput = debounce(async (event) => {
@@ -283,40 +395,99 @@ function renderView(view) {
 
 function renderDashboard(root) {
   const firstName = state.user?.name?.split(' ')[0] || 'there';
+  const insights = dashboardInsights();
+  const bars = weekActivityBars();
+  const topTasks = insights.todos.filter((todo) => !todo.done).slice(0, 4);
+  const activeIdeas = state.ideas.filter((idea) => ['Active', 'Review'].includes(idea.status)).slice(0, 3);
   root.innerHTML = `
-    <div class="section-head">
+    <section class="dashboard-hero">
       <div>
-        <p class="eyebrow">Today, ${new Date().toLocaleDateString()}</p>
+        <p class="eyebrow">${icon('spark')} Today, ${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         <h2>Good focus, ${escapeHTML(firstName)}.</h2>
-        <p class="muted">Your workspace is ready for notes, files, ideas, and planning.</p>
+        <p class="muted">A live control room for notes, files, ideas, and deep work. Your highest-leverage next actions are ready.</p>
+        <div class="hero-actions">
+          <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
+          <button class="btn" id="dash-upload">${icon('upload')} Upload</button>
+          <button class="btn" id="dash-focus">${icon('focus')} Focus</button>
+        </div>
       </div>
-      <div class="actions">
-        <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
-        <button class="btn" id="dash-upload">${icon('upload')} Upload</button>
+      <div class="focus-orb" style="--score:${insights.focusScore}">
+        <span>${insights.focusScore}</span>
+        <small>Focus score</small>
       </div>
-    </div>
+    </section>
 
     <div class="grid stats">
       ${[
-        ['Notes', state.stats.notes || 0, '#3dd6c6'],
-        ['Files', state.stats.files || 0, '#47a3ff'],
-        ['Ideas', state.stats.ideas || 0, '#f7b955'],
-        ['Todos', state.productivity.todos?.length || 0, '#5ee0a3']
-      ].map(([label, value, color]) => `
+        ['Notes', state.stats.notes || 0, `${insights.recentNotes} active this week`, '#3dd6c6'],
+        ['Files', state.stats.files || 0, 'Protected uploads', '#47a3ff'],
+        ['Ideas', state.stats.ideas || 0, `${insights.activeIdeas} in motion`, '#f7b955'],
+        ['Tasks', insights.todos.length || 0, `${formatPercent(insights.completion)} complete`, '#5ee0a3']
+      ].map(([label, value, detail, color]) => `
         <div class="card stat-card" style="--glow:${color}">
-          <span class="muted">${label}</span>
+          <span class="muted">${escapeHTML(label)}</span>
           <strong>${value}</strong>
+          <small>${escapeHTML(detail)}</small>
         </div>
       `).join('')}
     </div>
 
-    <div class="split">
-      <div class="card">
-        <h3>Recent notes</h3>
-        <div class="notes-grid">${state.notes.slice(0, 4).map(noteCard).join('') || '<p class="muted">No notes yet. Create your first note.</p>'}</div>
-      </div>
-      <div class="card">
-        <h3>Activity</h3>
+    <div class="dashboard-grid">
+      <section class="card insight-card wide">
+        <div class="card-head">
+          <div>
+            <h3>Study rhythm</h3>
+            <p class="muted">Workspace activity over the last seven days.</p>
+          </div>
+          <span class="metric-chip">${insights.streak || 0} day streak</span>
+        </div>
+        <div class="bar-chart">
+          ${bars.map((bar) => `
+            <div class="bar-wrap">
+              <span class="bar" style="height:${bar.height}"></span>
+              <small>${escapeHTML(bar.label)}</small>
+              <em>${bar.value}</em>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+
+      <section class="card insight-card">
+        <div class="card-head">
+          <h3>Priority stack</h3>
+          <span class="metric-chip">${insights.doneTodos}/${insights.todos.length || 0}</span>
+        </div>
+        <div class="task-stack">
+          ${topTasks.map((todo) => `
+            <button class="task-line" data-dashboard-todo="${todo.id}">
+              ${icon('check')}
+              <span>${escapeHTML(todo.text)}</span>
+            </button>
+          `).join('') || emptyState('focus', 'No active tasks', 'Add tasks in Focus to create a daily execution lane.')}
+        </div>
+      </section>
+
+      <section class="card insight-card">
+        <div class="card-head">
+          <h3>Ideas in motion</h3>
+          <span class="metric-chip">${insights.activeIdeas}</span>
+        </div>
+        <div class="idea-stack">
+          ${activeIdeas.map((idea) => `
+            <button class="idea-row" data-open-idea="${idea._id}">
+              <span>${escapeHTML(idea.status)}</span>
+              <b>${escapeHTML(idea.title)}</b>
+              <progress max="100" value="${idea.progress || 0}"></progress>
+            </button>
+          `).join('') || emptyState('ideas', 'Nothing active', 'Move a research idea into Active or Review.')}
+        </div>
+      </section>
+
+      <section class="card insight-card">
+        <div class="card-head">
+          <h3>Recent activity</h3>
+          <span class="metric-chip">${state.activity.length}</span>
+        </div>
         <div class="timeline">
           ${state.activity.slice(0, 8).map((item) => `
             <div class="timeline-item">
@@ -326,13 +497,38 @@ function renderDashboard(root) {
                 <div class="muted">${escapeHTML(item.subject)} - ${formatDate(item.createdAt)}</div>
               </div>
             </div>
-          `).join('') || '<p class="muted">Activity will appear here.</p>'}
+          `).join('') || emptyState('activity', 'No activity yet', 'Create a note, upload a file, or save focus work.')}
         </div>
-      </div>
+      </section>
     </div>
+
+    <section class="dashboard-section">
+      <div class="section-head compact">
+        <div>
+          <h2>Recent notes</h2>
+          <p class="muted">Fast access to your freshest study material.</p>
+        </div>
+        <button class="btn" id="dash-notes">${icon('notes')} All notes</button>
+      </div>
+      <div class="notes-grid">${state.notes.slice(0, 4).map(noteCard).join('') || emptyState('notes', 'Your notebook is empty', 'Capture a lecture, assignment, or research thread to start.')}</div>
+    </section>
   `;
   root.querySelector('#dash-note').onclick = () => openNoteEditor();
   root.querySelector('#dash-upload').onclick = () => route('/app/files');
+  root.querySelector('#dash-focus').onclick = () => route('/app/productivity');
+  root.querySelector('#dash-notes').onclick = () => route('/app/notes');
+  root.querySelectorAll('[data-dashboard-todo]').forEach((button) => {
+    button.onclick = async () => {
+      await saveProd({
+        todos: (state.productivity.todos || []).map((todo) => todo.id === button.dataset.dashboardTodo ? { ...todo, done: true } : todo)
+      });
+      await loadWorkspace();
+      renderDashboard(root);
+    };
+  });
+  root.querySelectorAll('[data-open-idea]').forEach((button) => {
+    button.onclick = () => openIdeaEditor(state.ideas.find((idea) => idea._id === button.dataset.openIdea));
+  });
   bindNoteCards(root);
 }
 
@@ -346,6 +542,10 @@ function noteCard(note) {
       </div>
       <h3>${escapeHTML(note.title)}</h3>
       <p class="muted">${escapeHTML((note.content || '').slice(0, 130))}</p>
+      <div class="card-meta">
+        <span>${escapeHTML(note.folder || 'Personal')}</span>
+        <span>${formatDate(note.updatedAt || note.createdAt || new Date())}</span>
+      </div>
       <div class="card-actions">
         <button class="icon-button" data-edit-note="${note._id}" aria-label="Edit note">${icon('edit')}</button>
         <button class="icon-button btn danger" data-delete-note="${note._id}" aria-label="Delete note">${icon('trash')}</button>
@@ -372,7 +572,7 @@ function renderNotes(root) {
       </div>
       <button class="btn primary" id="new-note">${icon('plus')} New note</button>
     </div>
-    <div class="notes-grid">${state.notes.map(noteCard).join('') || skeleton(4)}</div>
+    <div class="notes-grid">${state.notes.length ? state.notes.map(noteCard).join('') : emptyState('notes', 'No notes yet', 'Create a durable place for lectures, research, and revision plans.')}</div>
   `;
   root.querySelector('#new-note').onclick = () => openNoteEditor();
   bindNoteCards(root);
@@ -434,7 +634,7 @@ function renderFiles(root) {
       <p class="muted">or click to browse</p>
       <input type="file" id="file-input" multiple hidden />
     </div>
-    <div class="files-grid">${state.files.map(fileCard).join('') || '<p class="muted">No files uploaded yet.</p>'}</div>
+    <div class="files-grid">${state.files.length ? state.files.map(fileCard).join('') : emptyState('files', 'No files uploaded', 'Drop PDFs, references, and study assets here for protected access.')}</div>
   `;
 
   const dropzone = root.querySelector('#dropzone');
@@ -485,12 +685,17 @@ function fileCard(file) {
 }
 
 async function uploadFiles(files) {
-  for (const file of files) {
-    const form = new FormData();
-    form.append('file', file);
-    form.append('folder', 'Uploads');
-    form.append('tags', 'imported');
-    await api.upload(form);
+  try {
+    for (const file of files) {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('folder', 'Uploads');
+      form.append('tags', 'imported');
+      await api.upload(form);
+    }
+  } catch (error) {
+    toast(error.message, 'error');
+    return;
   }
   toast('Upload complete');
   await loadWorkspace();
@@ -599,7 +804,11 @@ function openIdeaEditor(idea = {}) {
       <div class="field"><label>Status</label><select class="select" name="status">${['Backlog', 'Active', 'Review', 'Done'].map((status) => `<option ${idea.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
       <div class="field"><label>Priority</label><select class="select" name="priority">${['Low', 'Medium', 'High', 'Critical'].map((priority) => `<option ${idea.priority === priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></div>
     </div>
-    <div class="field"><label>Progress</label><input class="input" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
+    <div class="form-row">
+      <div class="field"><label>Category</label><input class="input" name="category" value="${escapeHTML(idea.category || 'General')}" /></div>
+      <div class="field"><label>Progress</label><input class="input" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
+    </div>
+    <div class="field"><label>Tags</label><input class="input" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="research, thesis, lab" /></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
     await api.saveIdea({
@@ -607,7 +816,9 @@ function openIdeaEditor(idea = {}) {
       description: form.querySelector('[name=description]').value,
       status: form.querySelector('[name=status]').value,
       priority: form.querySelector('[name=priority]').value,
-      progress: Number(form.querySelector('[name=progress]').value)
+      category: form.querySelector('[name=category]').value || 'General',
+      progress: Number(form.querySelector('[name=progress]').value),
+      tags: form.querySelector('[name=tags]').value.split(',').map((tag) => tag.trim()).filter(Boolean)
     }, idea._id);
     toast('Idea saved');
     await loadWorkspace();
@@ -617,42 +828,68 @@ function openIdeaEditor(idea = {}) {
 
 function renderProductivity(root) {
   const productivity = state.productivity;
+  const todos = productivity.todos || [];
+  const doneTodos = todos.filter((todo) => todo.done).length;
+  const workMinutes = productivity.pomodoro?.work || 25;
+  const breakMinutes = productivity.pomodoro?.break || 5;
   root.innerHTML = `
     <div class="section-head">
       <div>
         <h2>Focus</h2>
-        <p class="muted">Keep the day simple: timer, tasks, and one focus note.</p>
+        <p class="muted">Run the day from one clear execution surface: timer, tasks, and the one thing that matters.</p>
       </div>
     </div>
     <div class="grid productivity">
-      <section class="card">
-        <h3>Pomodoro</h3>
-        <div class="timer" id="timer">25:00</div>
+      <section class="card focus-timer-card">
+        <div class="card-head">
+          <h3>Pomodoro</h3>
+          <span class="metric-chip">${workMinutes}/${breakMinutes}</span>
+        </div>
+        <div class="timer" id="timer">${String(workMinutes).padStart(2, '0')}:00</div>
         <div class="actions">
           <button class="btn primary" id="timer-start">Start</button>
           <button class="btn" id="timer-reset">Reset</button>
         </div>
+        <div class="form-row compact-row">
+          <div class="field"><label>Work</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
+          <div class="field"><label>Break</label><input class="input" type="number" min="1" max="60" id="break-minutes" value="${breakMinutes}" /></div>
+        </div>
+        <button class="btn" id="save-pomodoro">${icon('check')} Save timer</button>
       </section>
-      <section class="card">
-        <h3>Tasks</h3>
+      <section class="card task-panel">
+        <div class="card-head">
+          <h3>Tasks</h3>
+          <span class="metric-chip">${doneTodos}/${todos.length || 0}</span>
+        </div>
         <form id="todo-form" class="actions">
           <input class="input" name="todo" placeholder="Add a task" />
-          <button class="btn">Add</button>
+          <button class="btn">${icon('plus')} Add</button>
         </form>
-        <div>
-          ${(productivity.todos || []).map((todo) => `
+        <div class="todo-list">
+          ${todos.map((todo) => `
             <div class="todo ${todo.done ? 'done' : ''}" data-todo="${todo.id}">
-              <span>${todo.done ? '[x]' : '[ ]'}</span>${escapeHTML(todo.text)}
+              <button class="todo-check" data-toggle-todo="${todo.id}" aria-label="Toggle task">${icon(todo.done ? 'check' : 'focus')}</button>
+              <span>${escapeHTML(todo.text)}</span>
+              <button class="icon-button" data-delete-todo="${todo.id}" aria-label="Delete task">${icon('trash')}</button>
             </div>
-          `).join('')}
+          `).join('') || emptyState('check', 'No tasks queued', 'Add one clear task to start a focused session.')}
         </div>
       </section>
-      <section class="card">
-        <h3>Daily focus</h3>
+      <section class="card focus-note-card">
+        <div class="card-head">
+          <h3>Daily focus</h3>
+          <span class="metric-chip">${new Date().toLocaleDateString(undefined, { weekday: 'short' })}</span>
+        </div>
         <textarea class="textarea" id="focus-text" placeholder="What matters most today?">${escapeHTML(productivity.focus || '')}</textarea>
         <button class="btn primary" id="save-focus">Save focus</button>
-        <h3>Calendar</h3>
-        <p class="muted">${new Date().toLocaleString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+      </section>
+      <section class="card focus-summary-card">
+        <h3>Execution summary</h3>
+        <div class="summary-list">
+          <div><span class="muted">Completion</span><b>${formatPercent(todos.length ? (doneTodos / todos.length) * 100 : 0)}</b></div>
+          <div><span class="muted">Open tasks</span><b>${Math.max(0, todos.length - doneTodos)}</b></div>
+          <div><span class="muted">Focus note</span><b>${productivity.focus?.trim() ? 'Set' : 'Empty'}</b></div>
+        </div>
       </section>
     </div>
   `;
@@ -660,26 +897,36 @@ function renderProductivity(root) {
 }
 
 function bindProductivity(root) {
-  let seconds = 25 * 60;
-  let timerId;
+  let seconds = Number(state.productivity.pomodoro?.work || 25) * 60;
   const display = () => {
     root.querySelector('#timer').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
   };
 
   root.querySelector('#timer-start').onclick = () => {
-    clearInterval(timerId);
-    timerId = setInterval(() => {
+    clearInterval(focusTimerId);
+    focusTimerId = setInterval(() => {
       seconds = Math.max(0, seconds - 1);
       display();
       if (seconds === 0) {
-        clearInterval(timerId);
+        clearInterval(focusTimerId);
         toast('Pomodoro complete');
       }
     }, 1000);
   };
   root.querySelector('#timer-reset').onclick = () => {
-    seconds = 25 * 60;
+    clearInterval(focusTimerId);
+    seconds = Number(state.productivity.pomodoro?.work || 25) * 60;
     display();
+  };
+  root.querySelector('#save-pomodoro').onclick = async () => {
+    await saveProd({
+      pomodoro: {
+        work: Number(root.querySelector('#work-minutes').value || 25),
+        break: Number(root.querySelector('#break-minutes').value || 5)
+      }
+    });
+    toast('Timer settings saved');
+    renderView('productivity');
   };
   root.querySelector('#todo-form').onsubmit = async (event) => {
     event.preventDefault();
@@ -688,11 +935,19 @@ function bindProductivity(root) {
     await saveProd({ todos: [...(state.productivity.todos || []), { id: uid(), text, done: false }] });
     renderView('productivity');
   };
-  root.querySelectorAll('[data-todo]').forEach((element) => {
-    element.onclick = async () => {
+  root.querySelectorAll('[data-toggle-todo]').forEach((element) => {
+    element.onclick = async (event) => {
+      event.stopPropagation();
       await saveProd({
-        todos: state.productivity.todos.map((todo) => todo.id === element.dataset.todo ? { ...todo, done: !todo.done } : todo)
+        todos: (state.productivity.todos || []).map((todo) => todo.id === element.dataset.toggleTodo ? { ...todo, done: !todo.done } : todo)
       });
+      renderView('productivity');
+    };
+  });
+  root.querySelectorAll('[data-delete-todo]').forEach((element) => {
+    element.onclick = async (event) => {
+      event.stopPropagation();
+      await saveProd({ todos: (state.productivity.todos || []).filter((todo) => todo.id !== element.dataset.deleteTodo) });
       renderView('productivity');
     };
   });
@@ -704,8 +959,8 @@ function bindProductivity(root) {
 
 async function saveProd(patch) {
   const productivity = { ...state.productivity, ...patch };
-  await api.saveProductivity(productivity);
-  setState({ productivity });
+  const response = await api.saveProductivity(productivity);
+  setState({ productivity: response.productivity || productivity });
 }
 
 function openCommand(seed = '') {

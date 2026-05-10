@@ -8,7 +8,8 @@ export async function protect(req, res, next) {
   if (!token) return res.status(401).json({ message: 'Authentication required' });
   try {
     const decoded = jwt.verify(token, getJwtSecret());
-    const user = await User.findById(decoded.id).select('-password');
+    if (!decoded?.id) return res.status(401).json({ message: 'Invalid session' });
+    const user = await User.findById(decoded.id).lean();
     if (!user) return res.status(401).json({ message: 'Invalid session' });
     req.user = user;
     next();
