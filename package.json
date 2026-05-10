@@ -11,7 +11,8 @@
     "start": "node server/server.js",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "lint": "eslint client server --ext .js"
+    "lint": "eslint client server --ext .js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,6 +31,7 @@
     "three": "^0.172.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@eslint/js": "^10.0.1",
     "concurrently": "^9.1.2",
     "eslint": "^10.2.1",
