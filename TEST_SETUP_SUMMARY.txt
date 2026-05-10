@@ -1,0 +1,312 @@
+# Test Execution Setup - Summary
+
+## Problem Statement
+Execute 5 npm/npx commands in sequence from C:\Users\RA store\study-planner with:
+- Exact command and exit codes captured
+- Key stdout/stderr logged
+- Raw error output for failures
+- During step 5 (test:e2e), concurrent probes to:
+  - http://localhost:8091/api/health
+  - http://localhost:5173/api/health
+- Timestamp, HTTP status, body snippet for each probe
+- Cleanup of background processes
+
+## Solution Provided
+
+Four complete execution scripts have been created in the repository:
+
+### 1. **EXECUTE_TESTS_FULL.bat** (Windows Batch)
+- **Best for**: Windows Command Prompt users
+- **Compatibility**: All Windows versions with cmd.exe
+- **Language**: Windows Batch
+- **Location**: C:\Users\RA store\study-planner\EXECUTE_TESTS_FULL.bat
+
+**How to run**:
+```
+cd C:\Users\RA store\study-planner
+EXECUTE_TESTS_FULL.bat
+```
+
+---
+
+### 2. **execute_tests.ps1** (Windows PowerShell)
+- **Best for**: Windows PowerShell users
+- **Compatibility**: Windows 10/11 (built-in PowerShell 5.1)
+- **Language**: PowerShell
+- **Location**: C:\Users\RA store\study-planner\execute_tests.ps1
+- **Features**: Colored output, background jobs for probing
+
+**How to run**:
+```powershell
+cd "C:\Users\RA store\study-planner"
+powershell -ExecutionPolicy Bypass -File execute_tests.ps1
+```
+
+---
+
+### 3. **execute_tests.py** (Python)
+- **Best for**: Python environments
+- **Compatibility**: Python 3.6+
+- **Language**: Python 3
+- **Location**: C:\Users\RA store\study-planner\execute_tests.py
+- **Features**: Threading-based concurrent probing
+
+**How to run**:
+```bash
+cd "C:\Users\RA store\study-planner"
+python execute_tests.py
+```
+
+---
+
+### 4. **execute_tests.js** (Node.js)
+- **Best for**: Node.js environments (npm available)
+- **Compatibility**: Node.js 14+
+- **Language**: JavaScript
+- **Location**: C:\Users\RA store\study-planner\execute_tests.js
+- **Features**: spawn() for concurrent process management
+
+**How to run**:
+```bash
+cd "C:\Users\RA store\study-planner"
+node execute_tests.js
+```
+
+---
+
+## Commands Executed (All Scripts)
+
+```
+1. npm.cmd install --save-dev @playwright/test
+2. npm.cmd run lint
+3. npm.cmd run build
+4. npx playwright test --list
+5. npm.cmd run test:e2e
+```
+
+---
+
+## Output Captured
+
+All scripts generate two log files:
+
+### TEST_EXECUTION_LOG.txt
+Contains:
+- Exact command strings executed
+- Execution timestamps
+- **Complete stdout** for each command
+- **Complete stderr** for each command
+- **Exit code** for each command
+- Raw error output for any failures
+- Command execution time
+
+### HEALTH_PROBES.txt
+Contains:
+- Probe timestamps (YYYY-MM-DD HH:MM:SS.fff format)
+- HTTP status codes received
+- Response body snippets (first 150 characters)
+- Error messages if endpoints unreachable
+- Port numbers (8091 for API, 5173 for Web)
+
+---
+
+## Probe Details
+
+**During test:e2e execution**, both scripts will:
+
+1. Start concurrent health probing after 3-second delay (allowing servers to boot)
+2. Probe both endpoints every 5 seconds
+3. Run maximum 15 probes (~75 seconds total)
+4. Record:
+   - Timestamp
+   - HTTP status code
+   - Response body (first 100-150 chars)
+   - Any errors/timeouts
+5. Stop automatically when test:e2e completes
+
+**Endpoints probed**:
+```
+http://localhost:8091/api/health  (API Server)
+http://localhost:5173/api/health  (Web Server)
+```
+
+---
+
+## Log File Format
+
+### Sample TEST_EXECUTION_LOG.txt Entry
+
+```
+=======================================================================
+COMMAND 1: npm install @playwright/test
+=======================================================================
+Timestamp: 2024-01-15 14:30:45
+
+npm notice 
+npm notice New major version of npm available! 12.0.0 -> 13.0.0
+... [full npm output] ...
+
+Exit Code: 0
+
+=======================================================================
+COMMAND 2: npm run lint
+=======================================================================
+Timestamp: 2024-01-15 14:32:10
+
+  127 problems (0 errors, 127 warnings)
+... [lint output] ...
+
+Exit Code: 0
+```
+
+### Sample HEALTH_PROBES.txt Entry
+
+```
+[Probe 1] [2024-01-15 14:35:20.123]
+  Port 8091: HTTP 200 | Body: {"status":"healthy","uptime":45.123}
+  Port 5173: HTTP 200 | Body: <!DOCTYPE html><html><head>...
+
+[Probe 2] [2024-01-15 14:35:25.456]
+  Port 8091: HTTP 200 | Body: {"status":"healthy","uptime":50.456}
+  Port 5173: HTTP 200 | Body: <!DOCTYPE html><html><head>...
+```
+
+---
+
+## Exit Code Mapping
+
+Each script provides exit codes for all 5 commands:
+
+- **0** = Command succeeded
+- **1** = Command failed
+- **-1** = Command timeout or fatal error
+
+Example summary from TEST_EXECUTION_LOG.txt:
+```
+=====================================================================
+EXECUTION SUMMARY
+=====================================================================
+
+Command 1: Exit Code 0 (✓ SUCCESS)
+Command 2: Exit Code 0 (✓ SUCCESS)
+Command 3: Exit Code 0 (✓ SUCCESS)
+Command 4: Exit Code 0 (✓ SUCCESS)
+Command 5: Exit Code 1 (✗ FAILED) - 1 test failed
+
+Reports saved to:
+  Main log:    C:\Users\RA store\study-planner\TEST_EXECUTION_LOG.txt
+  Health log:  C:\Users\RA store\study-planner\HEALTH_PROBES.txt
+```
+
+---
+
+## Error Handling
+
+All scripts:
+- ✓ Continue execution even if a command fails
+- ✓ Capture full stderr output for failed commands
+- ✓ Record exact exit codes
+- ✓ Log raw error messages without filtering
+- ✓ Do NOT attempt to fix errors
+- ✓ Do NOT retry on failure
+
+---
+
+## Recommended Usage
+
+**Quick start**:
+```batch
+cd "C:\Users\RA store\study-planner"
+EXECUTE_TESTS_FULL.bat
+```
+
+**Then view results**:
+```batch
+type TEST_EXECUTION_LOG.txt
+type HEALTH_PROBES.txt
+```
+
+---
+
+## Requirements by Script
+
+| Script | Requirements | Installation |
+|--------|--------------|--------------|
+| EXECUTE_TESTS_FULL.bat | cmd.exe | Built-in (all Windows) |
+| execute_tests.ps1 | PowerShell 5.1 | Built-in (Win10/11) |
+| execute_tests.py | Python 3.x | `python --version` |
+| execute_tests.js | Node.js | `node --version` |
+
+---
+
+## FAQ
+
+**Q: Will all 5 commands run even if one fails?**
+A: Yes, all scripts continue execution regardless of exit codes.
+
+**Q: How long will the whole process take?**
+A: Typically 5-15 minutes depending on build and test speed.
+
+**Q: What if ports 8091 or 5173 are already in use?**
+A: Kill the existing process using:
+```batch
+netstat -ano | findstr :8091
+taskkill /PID <PID> /F
+```
+
+**Q: Can I modify the probe frequency?**
+A: Yes, edit the script and change `probeIntervalSeconds` or `probe_interval` variable.
+
+**Q: Where are the log files?**
+A: Both in `C:\Users\RA store\study-planner/`:
+- TEST_EXECUTION_LOG.txt
+- HEALTH_PROBES.txt
+
+**Q: What if MongoDB isn't running?**
+A: The test:e2e might fail. Ensure MongoDB is accessible via MONGODB_URI env var.
+
+---
+
+## File List
+
+Files created in C:\Users\RA store\study-planner:
+
+1. **EXECUTE_TESTS_FULL.bat** - Batch script (recommended for most)
+2. **execute_tests.ps1** - PowerShell script
+3. **execute_tests.py** - Python script
+4. **execute_tests.js** - Node.js script
+5. **TEST_EXECUTION_README.md** - Detailed instructions
+6. **TEST_SETUP_SUMMARY.txt** - This file
+
+---
+
+## Next Steps
+
+1. Choose your preferred script based on your environment
+2. Open Command Prompt or PowerShell
+3. Navigate to `C:\Users\RA store\study-planner`
+4. Run the script
+5. Wait for completion (5-15 minutes)
+6. Review output in:
+   - TEST_EXECUTION_LOG.txt (detailed command output)
+   - HEALTH_PROBES.txt (health endpoint probes)
+
+---
+
+## Support & Customization
+
+To customize any script:
+- Edit the script file with a text editor
+- Modify variables like REPO_DIR, probe frequency, timeout limits
+- Save and re-run
+
+Common customizations:
+- Change `maxProbes` to probe more/fewer times
+- Change `probeIntervalSeconds` to adjust probe frequency
+- Add more endpoints to the ENDPOINTS list
+- Adjust timeouts for slower systems
+
+---
+
+Created: 2024
+Purpose: Comprehensive test execution with health endpoint monitoring

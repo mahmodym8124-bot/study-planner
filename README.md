@@ -51,7 +51,7 @@ JWT_SECRET=
 JWT_EXPIRES_IN=7d
 MAX_FILE_SIZE=15728640
 FILE_STORAGE=local
-PORT=8080
+PORT=8091
 CLIENT_URL=http://localhost:5173
 VITE_API_URL=/api
 ```
@@ -66,12 +66,19 @@ npm run dev
 
 Frontend: `http://localhost:5173`
 
-API health: `http://localhost:8080/api/health`
+API health: `http://127.0.0.1:8091/api/health`
 
 ## Build
 
 ```bash
 npm run build
+```
+
+## End-to-End Tests
+
+```bash
+npx playwright test --list
+npm run test:e2e
 ```
 
 ## Deployment

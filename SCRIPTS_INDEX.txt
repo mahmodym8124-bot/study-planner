@@ -1,0 +1,353 @@
+# Test Execution Scripts - Complete Index
+
+This directory contains comprehensive test execution scripts that will:
+
+1. Execute 5 npm/npx commands in sequence
+2. Capture exit codes and full output
+3. Probe health endpoints during test:e2e
+4. Log all results to timestamped files
+
+## Quick Start
+
+### Easiest Option (Recommended)
+```
+Double-click: RUN_TESTS.bat
+```
+This opens an interactive menu to choose your preferred execution method.
+
+### Direct Execution (Batch)
+```batch
+cd C:\Users\RA store\study-planner
+EXECUTE_TESTS_FULL.bat
+```
+
+### Direct Execution (PowerShell)
+```powershell
+cd "C:\Users\RA store\study-planner"
+powershell -ExecutionPolicy Bypass -File execute_tests.ps1
+```
+
+---
+
+## Scripts Available
+
+### 1. RUN_TESTS.bat ⭐ START HERE
+**Interactive menu** - helps you choose which execution method to use
+- Check system requirements
+- Launch your preferred script
+- View documentation
+- Manual step-by-step mode
+
+**Usage**: Double-click or `RUN_TESTS.bat`
+
+---
+
+### 2. EXECUTE_TESTS_FULL.bat
+**Batch script** - Most compatible, no dependencies
+- Works on all Windows versions
+- Runs in standard Command Prompt
+- Logs to TEST_EXECUTION_LOG.txt
+
+**Usage**: `EXECUTE_TESTS_FULL.bat`
+
+---
+
+### 3. execute_tests.ps1
+**PowerShell script** - Built-in to Windows 10/11
+- Colored output
+- Better error handling
+- Background job probing
+- Logs to TEST_EXECUTION_LOG.txt
+
+**Usage**: `powershell -ExecutionPolicy Bypass -File execute_tests.ps1`
+
+---
+
+### 4. execute_tests.py
+**Python script** - For Python environments
+- Cross-platform compatible
+- Threading-based probing
+- Detailed error logging
+- Logs to TEST_EXECUTION_LOG.txt
+
+**Usage**: `python execute_tests.py`
+**Requirements**: Python 3.6+
+
+---
+
+### 5. execute_tests.js
+**Node.js script** - For npm/Node.js environments
+- Uses spawn() for process management
+- Concurrent probing
+- Full error capture
+- Logs to TEST_EXECUTION_LOG.txt
+
+**Usage**: `node execute_tests.js`
+**Requirements**: Node.js 14+
+
+---
+
+## Commands Executed
+
+All scripts execute these 5 commands in order:
+
+```
+1. npm.cmd install --save-dev @playwright/test
+   → Installs Playwright test framework
+
+2. npm.cmd run lint
+   → Runs ESLint code quality checks
+
+3. npm.cmd run build
+   → Builds Vite frontend for production
+
+4. npx playwright test --list
+   → Lists all available Playwright tests
+
+5. npm.cmd run test:e2e
+   → Runs end-to-end tests with health probing
+```
+
+---
+
+## Output Files
+
+After execution, check these files for results:
+
+### TEST_EXECUTION_LOG.txt
+Main execution log containing:
+- Exact commands executed
+- Execution timestamps
+- Complete stdout for each command
+- Complete stderr for each command
+- Exit codes for each command
+- Raw error output for failures
+
+### HEALTH_PROBES.txt
+Health endpoint probes captured during test:e2e:
+- Probe timestamps
+- HTTP status codes
+- Response body snippets
+- Error messages (if any)
+- Captured for both endpoints:
+  - http://localhost:8091/api/health (API Server)
+  - http://localhost:5173/api/health (Web Server)
+
+---
+
+## Execution Summary
+
+When tests complete, each script prints a summary showing:
+
+```
+Command 1 (npm install @playwright/test): Exit Code 0 (✓ SUCCESS)
+Command 2 (npm run lint): Exit Code 0 (✓ SUCCESS)
+Command 3 (npm run build): Exit Code 0 (✓ SUCCESS)
+Command 4 (npx playwright test --list): Exit Code 0 (✓ SUCCESS)
+Command 5 (npm run test:e2e): Exit Code 0 (✓ SUCCESS)
+
+Reports saved to:
+  Main log:    C:\Users\RA store\study-planner\TEST_EXECUTION_LOG.txt
+  Health log:  C:\Users\RA store\study-planner\HEALTH_PROBES.txt
+```
+
+---
+
+## Exit Codes Reference
+
+| Exit Code | Meaning |
+|-----------|---------|
+| 0 | Command succeeded ✓ |
+| 1 | Command failed ✗ |
+| -1 | Timeout or fatal error |
+| Other | Application-specific error code |
+
+---
+
+## Documentation
+
+### TEST_EXECUTION_README.md
+Comprehensive guide with:
+- Detailed instructions for each script
+- What each command does
+- Log file format examples
+- Troubleshooting tips
+- FAQ
+
+### TEST_SETUP_SUMMARY.txt
+Overview document with:
+- Problem statement
+- Solution overview
+- Log file format
+- Requirements by script
+- Customization options
+
+---
+
+## Selecting a Script
+
+**I want the easiest option:**
+→ Double-click `RUN_TESTS.bat`
+
+**I want to use Windows Batch:**
+→ Run `EXECUTE_TESTS_FULL.bat`
+
+**I want colored output:**
+→ Run `powershell -ExecutionPolicy Bypass -File execute_tests.ps1`
+
+**I have Python installed:**
+→ Run `python execute_tests.py`
+
+**I have Node.js installed:**
+→ Run `node execute_tests.js`
+
+**I want to run commands manually one-by-one:**
+→ Use the manual option in `RUN_TESTS.bat`
+
+---
+
+## Important Notes
+
+- ✓ All commands continue execution even if one fails
+- ✓ Exit codes are captured and logged
+- ✓ Raw error output is preserved
+- ✓ Health probes run concurrently during test:e2e
+- ✓ No cleanup attempts - processes managed automatically
+- ✓ Tests may take 5-15 minutes depending on speed
+
+---
+
+## Troubleshooting
+
+### Port Already in Use
+```batch
+netstat -ano | findstr :8091
+taskkill /PID <PID> /F
+
+netstat -ano | findstr :5173
+taskkill /PID <PID> /F
+```
+
+### MongoDB Connection Error
+Ensure MONGODB_URI is set in .env:
+```
+MONGODB_URI=mongodb+srv://...
+```
+
+### Node/NPM Not Found
+Verify installation:
+```batch
+node --version
+npm --version
+```
+
+### Script Won't Run
+Try running with explicit interpreter:
+```batch
+REM For batch:
+cmd.exe /c EXECUTE_TESTS_FULL.bat
+
+REM For PowerShell:
+powershell -ExecutionPolicy Bypass -File execute_tests.ps1
+
+REM For Python:
+python.exe execute_tests.py
+
+REM For Node:
+node.exe execute_tests.js
+```
+
+---
+
+## Customization
+
+To modify any script:
+1. Open with a text editor (Notepad, VS Code, etc.)
+2. Find the configuration section
+3. Adjust variables like:
+   - `REPO_DIR` - Working directory
+   - `maxProbes` / `max_probes` - Number of health probes
+   - `probeIntervalSeconds` / `probe_interval` - Probe frequency
+   - Timeout limits
+4. Save and re-run
+
+---
+
+## Results Analysis
+
+After execution:
+
+```batch
+REM View full execution log
+type TEST_EXECUTION_LOG.txt
+
+REM View health probes only
+type HEALTH_PROBES.txt
+
+REM Find exit codes
+findstr "Exit Code:" TEST_EXECUTION_LOG.txt
+
+REM Find errors
+findstr /i "error" TEST_EXECUTION_LOG.txt
+
+REM Find HTTP statuses
+findstr "Status:" HEALTH_PROBES.txt
+```
+
+---
+
+## File Structure
+
+```
+study-planner/
+├── RUN_TESTS.bat                      ⭐ START HERE (interactive menu)
+├── EXECUTE_TESTS_FULL.bat              Batch script
+├── execute_tests.ps1                   PowerShell script
+├── execute_tests.py                    Python script
+├── execute_tests.js                    Node.js script
+├── TEST_EXECUTION_README.md            Detailed documentation
+├── TEST_SETUP_SUMMARY.txt              Setup overview
+├── SCRIPTS_INDEX.txt                   This file
+│
+├── TEST_EXECUTION_LOG.txt              Generated: Main execution log
+├── HEALTH_PROBES.txt                   Generated: Health probe results
+│
+└── [other project files...]
+```
+
+---
+
+## Getting Started Now
+
+1. **Easiest**: Double-click `RUN_TESTS.bat`
+2. **Choose** your preferred execution method from the menu
+3. **Wait** for tests to complete (5-15 minutes)
+4. **Review** results in:
+   - `TEST_EXECUTION_LOG.txt` (full output)
+   - `HEALTH_PROBES.txt` (health endpoints)
+
+---
+
+## Additional Resources
+
+- **Playwright Documentation**: https://playwright.dev
+- **Node.js**: https://nodejs.org
+- **Python**: https://python.org
+- **PowerShell**: Built-in to Windows 10/11
+
+---
+
+## Support
+
+For questions about specific commands or output, check:
+1. TEST_EXECUTION_README.md (detailed guide)
+2. TEST_SETUP_SUMMARY.txt (overview)
+3. TEST_EXECUTION_LOG.txt (actual output)
+4. HEALTH_PROBES.txt (endpoint status)
+
+---
+
+**Version**: 1.0
+**Created**: 2024
+**Purpose**: Comprehensive test execution with health monitoring
+**Compatibility**: Windows with .bat, PowerShell, Python, or Node.js
