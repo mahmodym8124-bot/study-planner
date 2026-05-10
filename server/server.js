@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
@@ -19,22 +19,70 @@ import productivityRoutes from './routes/productivityRoutes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-const PORT = process.env.PORT || 8080;
-const allowedOrigins = process.env.CLIENT_URL?.split(',').map((origin) => origin.trim().replace(/\/$/, '')).filter(Boolean) || [];
+const dist = path.resolve(__dirname, '..', 'dist');
+const serveDist = express.static(dist);
+let serverInstance = null;
 
-await connectDB(process.env.MONGODB_URI).catch((error) => {
-  console.error('MongoDB connection failed:', error.message);
-  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) process.exit(1);
-});
+function parseAllowedOrigins(value = process.env.CLIENT_URL) {
+  return String(value || '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+}
+
+function sanitizeMongoUri(uri = '') {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.username) parsed.username = '***';
+    if (parsed.password) parsed.password = '***';
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+  } catch {
+    return '<invalid>';
+  }
+}
+
+function getPort() {
+  const rawPort = process.env.PORT || '8080';
+  const port = Number(rawPort);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`PORT must be an integer between 1 and 65535. Received: ${rawPort}`);
+  }
+  return port;
+}
+
+function validateEnvironment() {
+  const required = ['MONGODB_URI', 'JWT_SECRET', 'JWT_EXPIRES_IN'];
+  const missing = required.filter((key) => !String(process.env[key] || '').trim());
+  if (missing.length) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+function startupMetadata(port) {
+  return {
+    nodeEnv: process.env.NODE_ENV || 'development',
+    port,
+    vercel: Boolean(process.env.VERCEL),
+    apiPrefix: '/api',
+    corsOrigins: parseAllowedOrigins().length,
+    mongoUri: sanitizeMongoUri(process.env.MONGODB_URI)
+  };
+}
 
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
 app.use(cors({
-  origin: allowedOrigins.length ? allowedOrigins : true,
+  origin: (origin, callback) => {
+    const allowedOrigins = parseAllowedOrigins();
+    if (!allowedOrigins.length || !origin) return callback(null, true);
+    const normalizedOrigin = origin.trim().replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(compression());
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use((req, res, next) => morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')(req, res, next));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/api', (_req, res, next) => {
@@ -76,11 +124,18 @@ app.use('/api/ideas', requireDatabase, ideaRoutes);
 app.use('/api/workspace', requireDatabase, workspaceRoutes);
 app.use('/api/productivity', requireDatabase, productivityRoutes);
 
-if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-  const dist = path.resolve(__dirname, '..', 'dist');
-  app.use(express.static(dist));
-  app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
-}
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+    return serveDist(req, res, next);
+  }
+  return next();
+});
+app.get('*', (req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+    return res.sendFile(path.join(dist, 'index.html'));
+  }
+  return next();
+});
 
 // eslint-disable-next-line no-unused-vars
 app.use((error, _req, res, next) => {
@@ -97,8 +152,30 @@ app.use((error, _req, res, next) => {
   res.status(error.status || 500).json({ message: error.message || 'Server error' });
 });
 
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => console.log(`MindVault API listening on ${PORT}`));
+export async function startServer() {
+  dotenv.config();
+  validateEnvironment();
+  const port = getPort();
+  console.log('MindVault startup metadata:', startupMetadata(port));
+
+  await connectDB(process.env.MONGODB_URI);
+
+  if (process.env.VERCEL) return null;
+  if (serverInstance?.listening) return serverInstance;
+
+  serverInstance = app.listen(port, () => console.log(`MindVault API listening on ${port}`));
+  serverInstance.on('close', () => {
+    serverInstance = null;
+  });
+  return serverInstance;
+}
+
+const isDirectEntry = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === __filename;
+if (isDirectEntry) {
+  startServer().catch((error) => {
+    console.error('Failed to start MindVault API:', error.message);
+    if (!process.env.VERCEL) process.exit(1);
+  });
 }
 
 export default app;
