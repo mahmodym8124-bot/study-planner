@@ -24,10 +24,18 @@ const serveDist = express.static(dist);
 let serverInstance = null;
 
 function parseAllowedOrigins(value = process.env.CLIENT_URL) {
-  return String(value || '')
+  const configured = String(value || '')
     .split(',')
     .map((origin) => origin.trim().replace(/\/$/, ''))
     .filter(Boolean);
+
+  const vercelOrigins = [
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.replace(/\/$/, '')}` : '',
+    process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL.replace(/\/$/, '')}` : '',
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, '')}` : ''
+  ].filter(Boolean);
+
+  return [...new Set([...configured, ...vercelOrigins])];
 }
 
 function sanitizeMongoUri(uri = '') {
@@ -123,6 +131,12 @@ app.use('/api/files', requireDatabase, fileRoutes);
 app.use('/api/ideas', requireDatabase, ideaRoutes);
 app.use('/api/workspace', requireDatabase, workspaceRoutes);
 app.use('/api/productivity', requireDatabase, productivityRoutes);
+
+if (process.env.VERCEL) {
+  connectDB(process.env.MONGODB_URI).catch((error) => {
+    console.error('MongoDB preconnect failed:', error.message);
+  });
+}
 
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {

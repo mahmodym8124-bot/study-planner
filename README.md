@@ -56,6 +56,8 @@ CLIENT_URL=http://localhost:5173
 VITE_API_URL=/api
 ```
 
+`CLIENT_URL` accepts a comma-separated allowlist of frontend origins.
+
 On Vercel, uploads are stored in MongoDB GridFS automatically because serverless disk is ephemeral. Local development keeps using the `uploads/` directory unless `FILE_STORAGE=gridfs` is set.
 
 3. Start the app:
