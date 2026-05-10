@@ -12,4 +12,6 @@ const noteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 noteSchema.index({ title: 'text', content: 'text', tags: 'text', folder: 'text' });
+noteSchema.index({ user: 1, pinned: -1, updatedAt: -1 });
+noteSchema.index({ user: 1, folder: 1, updatedAt: -1 });
 export default mongoose.model('Note', noteSchema);

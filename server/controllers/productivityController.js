@@ -10,11 +10,19 @@ function productivityPayload(body) {
 }
 
 export async function getProductivity(req, res) {
-  const productivity = await Productivity.findOneAndUpdate({ user: req.user._id }, { $setOnInsert: { todos: [], reminders: [] } }, { new: true, upsert: true });
+  const productivity = await Productivity.findOneAndUpdate(
+    { user: req.user._id },
+    { $setOnInsert: { todos: [], reminders: [] } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ).lean();
   res.json({ productivity });
 }
 export async function saveProductivity(req, res) {
-  const productivity = await Productivity.findOneAndUpdate({ user: req.user._id }, productivityPayload(req.body), { new: true, upsert: true, runValidators: true });
+  const productivity = await Productivity.findOneAndUpdate(
+    { user: req.user._id },
+    { $set: productivityPayload(req.body), $setOnInsert: { user: req.user._id } },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+  ).lean();
   await recordActivity(req.user._id, 'Updated focus system', 'Productivity', 'productivity', productivity._id);
   res.json({ productivity });
 }

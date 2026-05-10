@@ -19,7 +19,9 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      sourcemap: true
+      sourcemap: env.VITE_SOURCEMAP === 'true',
+      target: 'es2022',
+      chunkSizeWarningLimit: 700
     }
   };
 });

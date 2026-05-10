@@ -8,7 +8,7 @@ function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expire
 
 export async function register(req, res) {
   const { name, email, password } = req.body;
-  const exists = await User.findOne({ email });
+  const exists = await User.findOne({ email }).select('_id').lean();
   if (exists) return res.status(409).json({ message: 'Email is already registered' });
   const user = await User.create({ name, email, password });
   await Productivity.create({ user: user._id, todos: [], reminders: [] });
@@ -18,7 +18,7 @@ export async function register(req, res) {
 
 export async function login(req, res) {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select('+password');
   if (!user || !(await user.comparePassword(password))) return res.status(401).json({ message: 'Invalid email or password' });
   await recordActivity(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
   res.json({ token: sign(user), user: user.toSafeJSON() });

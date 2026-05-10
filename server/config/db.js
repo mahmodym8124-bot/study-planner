@@ -5,6 +5,7 @@ let connectionPromise = null;
 export async function connectDB(uri) {
   mongoose.set('strictQuery', true);
   mongoose.set('bufferCommands', false);
+  mongoose.set('autoIndex', process.env.MONGOOSE_AUTO_INDEX === 'true' || process.env.NODE_ENV !== 'production');
 
   if (mongoose.connection.readyState === 1) return mongoose.connection;
 
@@ -14,7 +15,11 @@ export async function connectDB(uri) {
   }
 
   connectionPromise ||= mongoose
-    .connect(uri, { autoIndex: true, serverSelectionTimeoutMS: Number(process.env.MONGODB_TIMEOUT_MS || 5000) })
+    .connect(uri, {
+      maxPoolSize: Number(process.env.MONGODB_MAX_POOL_SIZE || 10),
+      minPoolSize: Number(process.env.MONGODB_MIN_POOL_SIZE || 0),
+      serverSelectionTimeoutMS: Number(process.env.MONGODB_TIMEOUT_MS || 5000)
+    })
     .finally(() => {
       connectionPromise = null;
     });

@@ -10,7 +10,7 @@ function notePayload(body) {
 }
 
 export async function listNotes(req, res) {
-  const notes = await Note.find({ user: req.user._id }).sort({ pinned: -1, updatedAt: -1 });
+  const notes = await Note.find({ user: req.user._id }).sort({ pinned: -1, updatedAt: -1 }).lean();
   res.json({ notes });
 }
 export async function createNote(req, res) {
@@ -19,13 +19,13 @@ export async function createNote(req, res) {
   res.status(201).json({ note });
 }
 export async function updateNote(req, res) {
-  const note = await Note.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, notePayload(req.body), { new: true, runValidators: true });
+  const note = await Note.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, notePayload(req.body), { new: true, runValidators: true }).lean();
   if (!note) return res.status(404).json({ message: 'Note not found' });
   await recordActivity(req.user._id, 'Updated note', note.title, 'note', note._id);
   res.json({ note });
 }
 export async function deleteNote(req, res) {
-  const note = await Note.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+  const note = await Note.findOneAndDelete({ _id: req.params.id, user: req.user._id }).lean();
   if (!note) return res.status(404).json({ message: 'Note not found' });
   await recordActivity(req.user._id, 'Deleted note', note.title, 'note', note._id);
   res.json({ ok: true });
