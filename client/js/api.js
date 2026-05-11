@@ -7,8 +7,6 @@ const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
 const OFFLINE_TOKEN_PREFIX = 'offline-token:';
 const OFFLINE_HOST = window.location.hostname.endsWith('github.io');
-const previewLocks = new Set();
-const PREVIEW_LOCK_MS = 1200;
 
 export const storage = {
   get token() {
