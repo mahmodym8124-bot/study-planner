@@ -4,6 +4,8 @@ const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
 const OFFLINE_TOKEN_PREFIX = 'offline-token:';
 const OFFLINE_HOST = window.location.hostname.endsWith('github.io');
+const previewLocks = new Set();
+const PREVIEW_LOCK_MS = 1200;
 
 export const storage = {
   get token() {
@@ -451,22 +453,25 @@ async function openOfflineFile(id, viewer = null) {
 }
 
 async function openFile(id) {
+  if (!id || previewLocks.has(id)) return;
+  previewLocks.add(id);
+
   let viewer = null;
-  if (OFFLINE_HOST) {
-    try {
-      openPreviewSource(resolveOfflineFilePreview(id));
-      return;
-    } catch {
-      // Fallback to remote stream when no local preview source exists.
-    }
-  } else {
-    viewer = window.open('', '_blank', 'noopener,noreferrer');
-  }
-
-  const headers = {};
-  if (storage.token) headers.Authorization = `Bearer ${storage.token}`;
-
   try {
+    if (OFFLINE_HOST) {
+      try {
+        openPreviewSource(resolveOfflineFilePreview(id));
+        return;
+      } catch {
+        // Fallback to remote stream when no local preview source exists.
+      }
+    } else {
+      viewer = window.open('', '_blank', 'noopener,noreferrer');
+    }
+
+    const headers = {};
+    if (storage.token) headers.Authorization = `Bearer ${storage.token}`;
+
     const response = await fetch(`${API_BASE}/files/${id}/content`, { headers, cache: 'no-store' });
     if (!response.ok) {
       const data = await parseJSON(response);
@@ -484,6 +489,8 @@ async function openFile(id) {
     if (viewer && !viewer.closed) viewer.close();
     if (OFFLINE_HOST) return openOfflineFile(id);
     throw error;
+  } finally {
+    setTimeout(() => previewLocks.delete(id), PREVIEW_LOCK_MS);
   }
 }
 
