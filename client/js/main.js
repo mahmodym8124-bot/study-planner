@@ -196,7 +196,11 @@ function renderAuth(signup) {
       await loadWorkspace();
       route('/app/dashboard');
     } catch (error) {
-      toast(error.message, 'error');
+      let message = error.message;
+      if (error.errors && Array.isArray(error.errors) && error.errors[0]?.msg) {
+        message = `${message}: ${error.errors[0].msg}`;
+      }
+      toast(message, 'error');
     }
   };
 }

@@ -391,7 +391,9 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
       const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message;
       if (shouldFallback) return offlineRequest(path, { method, body, headers });
       if (response.status === 401) window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
-      throw new Error(data.message || 'Request failed');
+      const error = new Error(data.message || 'Request failed');
+      if (data.errors) error.errors = data.errors;
+      throw error;
     }
 
     return data;
