@@ -416,13 +416,34 @@ function resolveOfflineFilePreview(id) {
   return source;
 }
 
+function sourceToOpenUrl(source) {
+  if (typeof source !== 'string' || !source.startsWith('data:')) return { url: source, revoke: false };
+  try {
+    const commaIndex = source.indexOf(',');
+    if (commaIndex < 0) return { url: source, revoke: false };
+    const header = source.slice(5, commaIndex);
+    const payload = source.slice(commaIndex + 1);
+    const mime = header.split(';')[0] || 'application/octet-stream';
+    const isBase64 = header.includes(';base64');
+    const raw = isBase64 ? atob(payload) : decodeURIComponent(payload);
+    const bytes = new Uint8Array(raw.length);
+    for (let index = 0; index < raw.length; index++) bytes[index] = raw.charCodeAt(index);
+    return { url: URL.createObjectURL(new Blob([bytes], { type: mime })), revoke: true };
+  } catch {
+    return { url: source, revoke: false };
+  }
+}
+
 function openPreviewSource(source, viewer = null) {
+  const { url, revoke } = sourceToOpenUrl(source);
   if (viewer && !viewer.closed) {
-    viewer.location = source;
+    viewer.location = url;
+    if (revoke) setTimeout(() => URL.revokeObjectURL(url), 120_000);
     return;
   }
-  const popup = window.open(source, '_blank', 'noopener,noreferrer');
-  if (!popup) window.location.assign(source);
+  const popup = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!popup) window.location.assign(url);
+  if (revoke) setTimeout(() => URL.revokeObjectURL(url), 120_000);
 }
 
 async function openOfflineFile(id, viewer = null) {
