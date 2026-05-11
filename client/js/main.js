@@ -189,17 +189,29 @@ function renderAuth(signup) {
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');
   document.querySelector('#auth-form').onsubmit = async (event) => {
     event.preventDefault();
-    const payload = Object.fromEntries(new FormData(event.currentTarget));
+    const form = event.currentTarget;
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+    
+    const payload = Object.fromEntries(new FormData(form));
     try {
+      btn.disabled = true;
+      btn.textContent = signup ? 'Creating...' : 'Opening...';
+      
       const data = signup ? await api.register(payload) : await api.login(payload);
       const isOffline = data.token.startsWith('offline-token:');
       storage.token = data.token;
       setState({ user: data.user, isOffline });
+      
       if (isOffline) toast('Opened local workspace', 'info');
       else toast('Workspace opened');
+      
       await loadWorkspace();
       route('/app/dashboard');
     } catch (error) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      
       let message = error.message;
       if (message === 'Invalid email or password' && !signup) {
         message = 'Invalid credentials. If you haven\'t registered on the cloud vault yet, please create an account first.';
