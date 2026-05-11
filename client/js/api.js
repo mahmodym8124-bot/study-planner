@@ -34,7 +34,6 @@ function defaultOfflineStore() {
   return {
     users: [],
     notesByUser: {},
-    filesByUser: {},
     ideasByUser: {},
     productivityByUser: {},
     activityByUser: {}
@@ -123,14 +122,7 @@ function queryValue(queryString, name) {
   return new URLSearchParams(queryString || '').get(name) || '';
 }
 
-async function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(makeError('Unable to process file', 400));
-    reader.readAsDataURL(file);
-  });
-}
+
 
 async function offlineRequest(path, { method = 'GET', body } = {}) {
   const store = readOfflineStore();
@@ -167,7 +159,6 @@ async function offlineRequest(path, { method = 'GET', body } = {}) {
   const user = requireOfflineUser(store);
   const userId = user.id;
   const notes = ensureArrayMapEntry(store, 'notesByUser', userId);
-  const files = ensureArrayMapEntry(store, 'filesByUser', userId);
   const ideas = ensureArrayMapEntry(store, 'ideasByUser', userId);
   const productivity = ensureProductivityEntry(store, userId);
   const activity = ensureArrayMapEntry(store, 'activityByUser', userId);
@@ -176,8 +167,6 @@ async function offlineRequest(path, { method = 'GET', body } = {}) {
     return {
       stats: {
         notes: notes.length,
-        files: files.length,
-        ideas: ideas.length,
         todos: productivity.todos?.length || 0,
         reminders: productivity.reminders?.length || 0
       }
@@ -197,9 +186,6 @@ async function offlineRequest(path, { method = 'GET', body } = {}) {
         ...notes.filter((item) => includes(item.title) || includes(item.content) || (item.tags || []).some(includes) || includes(item.folder))
           .slice(0, 12)
           .map((item) => ({ type: 'note', item: clone(item) })),
-        ...files.filter((item) => includes(item.originalName) || includes(item.mimeType) || (item.tags || []).some(includes) || includes(item.folder))
-          .slice(0, 12)
-          .map((item) => ({ type: 'file', item: clone(item) })),
         ...ideas.filter((item) => includes(item.title) || includes(item.description) || (item.tags || []).some(includes) || includes(item.category))
           .slice(0, 12)
           .map((item) => ({ type: 'idea', item: clone(item) }))
@@ -252,47 +238,7 @@ async function offlineRequest(path, { method = 'GET', body } = {}) {
     return { ok: true };
   }
 
-  if (pathname === '/files' && method === 'GET') {
-    return { files: clone(files.slice().sort(compareByUpdatedDesc)) };
-  }
 
-  if (pathname === '/files' && method === 'POST') {
-    if (!(body instanceof FormData)) throw makeError('File is required', 400);
-    const file = body.get('file');
-    if (!(file instanceof File)) throw makeError('File is required', 400);
-    const tags = String(body.get('tags') || '').split(',').map((tag) => tag.trim().slice(0, 32)).filter(Boolean).slice(0, 20);
-    const folder = String(body.get('folder') || 'Uploads').trim().slice(0, 80) || 'Uploads';
-    const dataUrl = file.size <= 2_000_000 ? await fileToDataUrl(file) : '';
-    const entry = {
-      _id: offlineUid(),
-      user: userId,
-      originalName: file.name,
-      filename: file.name,
-      storageProvider: 'offline',
-      mimeType: file.type || 'application/octet-stream',
-      size: file.size || 0,
-      folder,
-      tags,
-      dataUrl,
-      url: '',
-      createdAt: stamp,
-      updatedAt: stamp
-    };
-    files.unshift(entry);
-    pushActivity(store, userId, 'Uploaded file', entry.originalName, 'file');
-    writeOfflineStore(store);
-    return { file: clone(entry) };
-  }
-
-  if (pathname.startsWith('/files/') && method === 'DELETE') {
-    const id = pathname.split('/')[2];
-    const index = files.findIndex((item) => item._id === id);
-    if (index < 0) throw makeError('File not found', 404);
-    const [deleted] = files.splice(index, 1);
-    pushActivity(store, userId, 'Deleted file', deleted.originalName, 'file');
-    writeOfflineStore(store);
-    return { ok: true };
-  }
 
   if (pathname === '/ideas' && method === 'GET') {
     return { ideas: clone(ideas.slice().sort(compareByUpdatedDesc)) };
@@ -430,109 +376,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   }
 }
 
-function offlinePreviewSource(file) {
-  if (typeof file?.dataUrl === 'string' && file.dataUrl.startsWith('data:')) return file.dataUrl;
-  if (typeof file?.url === 'string' && file.url.startsWith('data:')) return file.url;
-  return '';
-}
 
-function resolveOfflineFilePreview(id) {
-  const store = readOfflineStore();
-  const user = requireOfflineUser(store);
-  const files = ensureArrayMapEntry(store, 'filesByUser', user.id);
-  const file = files.find((entry) => entry._id === id);
-  if (!file) throw makeError('File not found', 404);
-  const source = offlinePreviewSource(file);
-  if (!source) throw makeError('Preview is available for files up to 2MB in offline mode', 413);
-  return source;
-}
-
-function sourceToOpenUrl(source) {
-  if (typeof source !== 'string' || !source.startsWith('data:')) return { url: source, revoke: false };
-  try {
-    const commaIndex = source.indexOf(',');
-    if (commaIndex < 0) return { url: source, revoke: false };
-    const header = source.slice(5, commaIndex);
-    const payload = source.slice(commaIndex + 1);
-    const mime = header.split(';')[0] || 'application/octet-stream';
-    const isBase64 = header.includes(';base64');
-    const raw = isBase64 ? atob(payload) : decodeURIComponent(payload);
-    const bytes = new Uint8Array(raw.length);
-    for (let index = 0; index < raw.length; index++) bytes[index] = raw.charCodeAt(index);
-    return { url: URL.createObjectURL(new Blob([bytes], { type: mime })), revoke: true };
-  } catch {
-    return { url: source, revoke: false };
-  }
-}
-
-function openPreviewSource(url, viewer = null) {
-  if (viewer && !viewer.closed) {
-    viewer.location = url;
-    return;
-  }
-  const popup = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!popup) window.location.assign(url);
-}
-
-function offlineFilePreview(id) {
-  return sourceToOpenUrl(resolveOfflineFilePreview(id));
-}
-
-async function filePreview(id) {
-  if (!id) throw makeError('File not found', 404);
-
-  try {
-    if (OFFLINE_HOST) {
-      try {
-        return offlineFilePreview(id);
-      } catch {
-        // Fallback to remote stream when no local preview source exists.
-      }
-    }
-
-    const headers = {};
-    if (storage.token) headers.Authorization = `Bearer ${storage.token}`;
-
-    const response = await fetch(`${API_BASE}/files/${id}/content`, { headers, cache: 'no-store' });
-    if (!response.ok) {
-      const data = await parseJSON(response);
-      const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message;
-      if (shouldFallback) return offlineFilePreview(id);
-      throw new Error(data.message || 'Unable to open file');
-    }
-
-    const blob = await response.blob();
-    return { url: URL.createObjectURL(blob), revoke: true };
-  } catch (error) {
-    if (OFFLINE_HOST) return offlineFilePreview(id);
-    throw error;
-  }
-}
-
-async function openOfflineFile(id, viewer = null) {
-  const preview = offlineFilePreview(id);
-  openPreviewSource(preview.url, viewer);
-  if (preview.revoke && preview.url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(preview.url), 120_000);
-}
-
-async function openFile(id) {
-  if (!id || previewLocks.has(id)) return;
-  previewLocks.add(id);
-
-  let viewer = null;
-  try {
-    viewer = window.open('', '_blank', 'noopener,noreferrer');
-    const preview = await filePreview(id);
-    openPreviewSource(preview.url, viewer);
-    if (preview.revoke && preview.url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(preview.url), 120_000);
-  } catch (error) {
-    if (viewer && !viewer.closed) viewer.close();
-    if (OFFLINE_HOST) return openOfflineFile(id);
-    throw error;
-  } finally {
-    setTimeout(() => previewLocks.delete(id), PREVIEW_LOCK_MS);
-  }
-}
 
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }),
@@ -544,11 +388,6 @@ export const api = {
   notes: () => request('/notes'),
   saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
-  files: () => request('/files'),
-  upload: (form) => request('/files', { method: 'POST', body: form }),
-  deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
-  filePreview,
-  openFile,
   ideas: () => request('/ideas'),
   saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }),
   deleteIdea: (id) => request(`/ideas/${id}`, { method: 'DELETE' }),
