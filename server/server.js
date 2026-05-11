@@ -51,6 +51,12 @@ function isTrustedHostedFrontend(origin = '') {
 function isAllowedOrigin(origin, allowedOrigins) {
   if (!origin) return true;
   const normalizedOrigin = origin.trim().replace(/\/$/, '');
+  
+  if (process.env.NODE_ENV !== 'production') {
+    const isLocal = normalizedOrigin.includes('localhost:') || normalizedOrigin.includes('127.0.0.1:');
+    if (isLocal) return true;
+  }
+
   if (!allowedOrigins.length) return true;
   if (allowedOrigins.includes(normalizedOrigin)) return true;
   return isTrustedHostedFrontend(normalizedOrigin);
@@ -58,6 +64,10 @@ function isAllowedOrigin(origin, allowedOrigins) {
 
 function sanitizeMongoUri(uri = '') {
   try {
+    const isAtlas = uri.includes('mongodb+srv://') || uri.includes('.mongodb.net');
+    if (isAtlas) {
+      return uri.replace(/:([^@]+)@/, ':***@');
+    }
     const parsed = new URL(uri);
     if (parsed.username) parsed.username = '***';
     if (parsed.password) parsed.password = '***';
