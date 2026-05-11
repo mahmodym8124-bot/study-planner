@@ -30,10 +30,16 @@ function getRequestLogger() {
 }
 
 function parseAllowedOrigins(value = process.env.CLIENT_URL) {
-  return String(value || '')
+  const list = String(value || '')
     .split(',')
     .map((origin) => origin.trim().replace(/\/$/, ''))
     .filter(Boolean);
+  
+  // Ensure the primary GitHub Pages URL is always allowed in production
+  const ghPages = 'https://mahmodym8124-bot.github.io';
+  if (!list.includes(ghPages)) list.push(ghPages);
+  
+  return list;
 }
 
 function isTrustedHostedFrontend(origin = '') {
