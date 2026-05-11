@@ -60,7 +60,7 @@ export default defineConfig({
       }
     },
     {
-      command: `npm.cmd run client -- --host 127.0.0.1 --port ${WEB_PORT} --strictPort`,
+      command: `npm.cmd run client -- --port ${WEB_PORT} --strictPort`,
       url: WEB_URL,
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,

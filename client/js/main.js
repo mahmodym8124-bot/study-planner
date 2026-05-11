@@ -13,6 +13,21 @@ let focusTimerId;
 
 document.body.classList.toggle('light', state.theme === 'light');
 
+const STUDY_QUOTES = [
+  'Small focused blocks compound into real mastery.',
+  'Clarity beats intensity when the work needs to last.',
+  'Protect the next hour and the week starts to move.',
+  'One finished task is better than five half-open loops.',
+  'Review, refine, repeat. That is how knowledge sticks.'
+];
+
+const PRIORITY_WEIGHT = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1
+};
+
 window.addEventListener('mindvault:auth-expired', () => {
   if (!state.user) return;
   storage.token = null;
@@ -208,6 +223,40 @@ function formatPercent(value) {
   return `${Math.round(clamp(value, 0, 100))}%`;
 }
 
+function priorityWeight(todo = {}) {
+  return PRIORITY_WEIGHT[String(todo.priority || 'medium').toLowerCase()] || PRIORITY_WEIGHT.medium;
+}
+
+function openTodosByPriority(todos = state.productivity.todos || []) {
+  return todos
+    .filter((todo) => !todo.done)
+    .slice()
+    .sort((a, b) => priorityWeight(b) - priorityWeight(a));
+}
+
+function getStudyQuote() {
+  const day = Math.floor(Date.now() / 86_400_000);
+  return STUDY_QUOTES[day % STUDY_QUOTES.length];
+}
+
+function statSparkline(values) {
+  return `
+    <div class="stat-sparkline" aria-hidden="true">
+      ${values.map((height) => `<span style="height:${Math.round(clamp(height, 12, 100))}%"></span>`).join('')}
+    </div>
+  `;
+}
+
+function sparkFromPercent(percent) {
+  const value = clamp(percent, 8, 100);
+  return [28, value * 0.45 + 16, value * 0.62 + 18, value * 0.78 + 12, value, Math.max(18, value - 10)];
+}
+
+function folderColor(folder = 'Personal') {
+  const hash = [...folder].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return `hsl(${hash % 360} 82% 66%)`;
+}
+
 function daysAgo(value) {
   const diff = Date.now() - new Date(value).getTime();
   return Math.max(0, Math.floor(diff / 86_400_000));
@@ -259,6 +308,7 @@ function weekActivityBars() {
   return labels.map((date, index) => ({
     label: date.toLocaleDateString(undefined, { weekday: 'short' }),
     value: counts[index],
+    active: counts[index] > 0,
     height: `${Math.max(12, (counts[index] / max) * 100)}%`
   }));
 }
@@ -319,7 +369,7 @@ function renderApp() {
 
     <nav class="bottom-nav">
       ${[['dashboard', 'Home'], ['notes', 'Notes'], ['productivity', 'Focus'], ['ideas', 'Ideas']].map(([id, label]) => `
-        <a class="bottom-nav-item ${view === id ? 'active' : ''}" href="#/app/${id}">
+        <a class="bottom-nav-item ${view === id ? 'active' : ''}" href="#/app/${id}" aria-label="${label}">
           ${icon(id)}
           <span>${label}</span>
         </a>
@@ -413,9 +463,10 @@ function renderDashboard(root) {
   const firstName = state.user?.name?.split(' ')[0] || 'there';
   const insights = dashboardInsights();
   const bars = weekActivityBars();
-  const topTasks = insights.todos.filter((todo) => !todo.done).slice(0, 4);
+  const topTasks = openTodosByPriority(insights.todos).slice(0, 4);
   const activeIdeas = state.ideas.filter((idea) => ['Active', 'Review'].includes(idea.status)).slice(0, 3);
   const nextTask = topTasks[0];
+  const quote = getStudyQuote();
   
   root.innerHTML = `
     <section class="dashboard-hero">
@@ -423,6 +474,7 @@ function renderDashboard(root) {
         <p class="eyebrow">${icon('spark')} <span class="greeting-badge">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span></p>
         <h2>${getGreeting()}, ${escapeHTML(firstName)}.</h2>
         <p class="muted">A live control room for notes, files, ideas, and deep work. Your highest-leverage next actions are ready.</p>
+        <p class="study-quote">${escapeHTML(quote)}</p>
         <div class="hero-actions">
           <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
           <button class="btn" id="dash-upload">${icon('upload')} Upload</button>
@@ -442,21 +494,22 @@ function renderDashboard(root) {
           <b class="gradient-text">Up next</b>
           <span>${escapeHTML(nextTask.text)}</span>
         </div>
-        <button class="btn primary" onclick="location.hash='#/app/productivity'">Start focusing</button>
+        <button class="btn primary" id="dash-start-focus" data-focus-task="${escapeHTML(nextTask.text)}">Start focusing</button>
       </div>
     ` : ''}
 
     <div class="grid stats">
       ${[
-        ['Notes', state.stats.notes || 0, `${insights.recentNotes} active this week`, '#3dd6c6'],
-        ['Files', state.stats.files || 0, 'Protected uploads', '#47a3ff'],
-        ['Ideas', state.stats.ideas || 0, `${insights.activeIdeas} in motion`, '#f7b955'],
-        ['Tasks', insights.todos.length || 0, `${formatPercent(insights.completion)} complete`, '#5ee0a3']
-      ].map(([label, value, detail, color]) => `
+        ['Notes', state.stats.notes || 0, `${insights.recentNotes} active this week`, '#3dd6c6', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
+        ['Files', state.stats.files || 0, 'Protected uploads', '#47a3ff', sparkFromPercent(Math.min((state.stats.files || 0) * 18, 100))],
+        ['Ideas', state.stats.ideas || 0, `${insights.activeIdeas} in motion`, '#f7b955', sparkFromPercent(state.stats.ideas ? (insights.activeIdeas / state.stats.ideas) * 100 : 12)],
+        ['Tasks', insights.todos.length || 0, `${formatPercent(insights.completion)} complete`, '#5ee0a3', sparkFromPercent(insights.completion)]
+      ].map(([label, value, detail, color, spark]) => `
         <div class="card stat-card" style="--glow:${color}">
           <span class="muted">${escapeHTML(label)}</span>
           <strong>${value}</strong>
           <small>${escapeHTML(detail)}</small>
+          ${statSparkline(spark)}
         </div>
       `).join('')}
     </div>
@@ -472,7 +525,7 @@ function renderDashboard(root) {
         </div>
         <div class="bar-chart">
           ${bars.map((bar) => `
-            <div class="bar-wrap">
+            <div class="bar-wrap" data-active="${bar.active}" title="${bar.value} activity item${bar.value === 1 ? '' : 's'}">
               <span class="bar" style="height:${bar.height}"></span>
               <small>${escapeHTML(bar.label)}</small>
               <em>${bar.value}</em>
@@ -546,6 +599,11 @@ function renderDashboard(root) {
   root.querySelector('#dash-upload').onclick = () => route('/app/files');
   root.querySelector('#dash-focus').onclick = () => route('/app/productivity');
   root.querySelector('#dash-notes').onclick = () => route('/app/notes');
+  root.querySelector('#dash-start-focus')?.addEventListener('click', async (event) => {
+    const text = event.currentTarget.dataset.focusTask;
+    if (text) await saveProd({ focus: text });
+    route('/app/productivity');
+  });
   root.querySelectorAll('[data-dashboard-todo]').forEach((button) => {
     button.onclick = async () => {
       await saveProd({
@@ -562,6 +620,7 @@ function renderDashboard(root) {
 }
 
 function noteCard(note) {
+  const folder = note.folder || 'Personal';
   return `
     <article class="card note-card">
       <div class="tags">
@@ -572,7 +631,7 @@ function noteCard(note) {
       <h3>${escapeHTML(note.title)}</h3>
       <p class="muted">${escapeHTML((note.content || '').slice(0, 130))}</p>
       <div class="card-meta">
-        <span>${escapeHTML(note.folder || 'Personal')}</span>
+        <span class="folder-pill" style="--folder-color:${folderColor(folder)}"><i></i>${escapeHTML(folder)}</span>
         <span>${formatDate(note.updatedAt || note.createdAt || new Date())}</span>
       </div>
       <div class="card-actions">
@@ -859,6 +918,8 @@ function renderProductivity(root) {
   const productivity = state.productivity;
   const todos = productivity.todos || [];
   const doneTodos = todos.filter((todo) => todo.done).length;
+  const percentComplete = todos.length ? (doneTodos / todos.length) * 100 : 0;
+  const currentTask = openTodosByPriority(todos)[0];
   const workMinutes = productivity.pomodoro?.work || 25;
   const breakMinutes = productivity.pomodoro?.break || 5;
   root.innerHTML = `
@@ -885,9 +946,18 @@ function renderProductivity(root) {
           </div>
         </div>
         <div class="actions" style="justify-content: center; margin-bottom: 1rem;">
-          <button class="btn primary" id="timer-start">Start</button>
-          <button class="btn" id="timer-pause">Pause</button>
-          <button class="btn" id="timer-reset">Reset</button>
+          <button class="btn primary" id="timer-start" aria-label="Start focus timer">Start</button>
+          <button class="btn" id="timer-pause" aria-label="Pause focus timer">Pause</button>
+          <button class="btn" id="timer-reset" aria-label="Reset focus timer">Reset</button>
+        </div>
+        <div class="current-task-card">
+          <span class="metric-chip">Current task</span>
+          <b>${currentTask ? escapeHTML(currentTask.text) : 'No active task selected'}</b>
+          <small class="muted">${currentTask ? `${escapeHTML(currentTask.priority || 'medium')} priority` : 'Add a task to give the timer a clear target.'}</small>
+        </div>
+        <div class="timer-complete" id="timer-complete" aria-live="polite" hidden>
+          <b>Session complete</b>
+          <span>Take a breath, then choose the next block.</span>
         </div>
         <div class="form-row compact-row">
           <div class="field"><label>Work</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
@@ -903,8 +973,9 @@ function renderProductivity(root) {
         <div class="task-progress-wrap">
           <span class="task-progress-label muted">Completion progress</span>
           <div class="task-progress">
-            <div class="task-progress-fill" style="width: ${todos.length ? (doneTodos / todos.length) * 100 : 0}%"></div>
+            <div class="task-progress-fill" style="width: ${percentComplete}%"></div>
           </div>
+          <div class="task-summary">${doneTodos} of ${todos.length || 0} tasks complete (${formatPercent(percentComplete)})</div>
         </div>
         <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
           <input class="input" name="todo" placeholder="Add a task" required />
@@ -937,7 +1008,7 @@ function renderProductivity(root) {
       <section class="card focus-summary-card">
         <h3>Execution summary</h3>
         <div class="summary-list">
-          <div><span class="muted">Completion</span><b>${formatPercent(todos.length ? (doneTodos / todos.length) * 100 : 0)}</b></div>
+          <div><span class="muted">Completion</span><b>${formatPercent(percentComplete)}</b></div>
           <div><span class="muted">Open tasks</span><b>${Math.max(0, todos.length - doneTodos)}</b></div>
           <div><span class="muted">Focus note</span><b>${productivity.focus?.trim() ? 'Set' : 'Empty'}</b></div>
         </div>
@@ -957,6 +1028,7 @@ function bindProductivity(root) {
   const timerCircle = root.querySelector('.timer-ring-progress');
   const timerLabel = root.querySelector('#timer-mode');
   const timerCounter = root.querySelector('#timer-counter');
+  const completionPanel = root.querySelector('#timer-complete');
   
   const display = () => {
     root.querySelector('#timer').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -974,6 +1046,9 @@ function bindProductivity(root) {
     if (mode === 'work') {
       sessions++;
       timerCounter.textContent = `${sessions} session${sessions > 1 ? 's' : ''} completed`;
+      completionPanel.hidden = false;
+      completionPanel.querySelector('b').textContent = 'Work session complete';
+      completionPanel.querySelector('span').textContent = 'Take the scheduled break before your next block.';
       mode = 'break';
       totalSeconds = Number(state.productivity.pomodoro?.break || 5) * 60;
       timerLabel.textContent = 'Break';
@@ -982,6 +1057,9 @@ function bindProductivity(root) {
       mode = 'work';
       totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
       timerLabel.textContent = 'Focusing';
+      completionPanel.hidden = false;
+      completionPanel.querySelector('b').textContent = 'Break complete';
+      completionPanel.querySelector('span').textContent = 'Ready for the next focused block.';
       toast('Break over. Back to focus!');
     }
     seconds = totalSeconds;
@@ -989,15 +1067,18 @@ function bindProductivity(root) {
   };
 
   root.querySelector('#timer-start').onclick = () => {
+    completionPanel.hidden = true;
     if (isPaused) {
       isPaused = false;
       timerLabel.textContent = mode === 'work' ? 'Focusing' : 'Break';
       display();
     } else {
-      mode = 'work';
-      totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
-      seconds = totalSeconds;
-      timerLabel.textContent = 'Focusing';
+      if (timerLabel.textContent === 'Ready') {
+        mode = 'work';
+        totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
+        seconds = totalSeconds;
+      }
+      timerLabel.textContent = mode === 'work' ? 'Focusing' : 'Break';
     }
     clearInterval(focusTimerId);
     focusTimerId = setInterval(() => {
@@ -1024,6 +1105,8 @@ function bindProductivity(root) {
     totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
     seconds = totalSeconds;
     timerLabel.textContent = 'Ready';
+    timerCounter.textContent = 'Work session';
+    completionPanel.hidden = true;
     display();
   };
   
