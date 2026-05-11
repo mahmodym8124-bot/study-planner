@@ -1,5 +1,20 @@
-const CACHE = 'mindvault-static-v2';
-const CORE = ['/', '/manifest.webmanifest', '/favicon.svg'];
+const CACHE = 'mindvault-static-v3';
+const BASE_PATH = (() => {
+  const scopePath = new URL(self.registration.scope).pathname;
+  return scopePath.endsWith('/') ? scopePath.slice(0, -1) : scopePath;
+})();
+
+function withBase(path) {
+  return BASE_PATH ? `${BASE_PATH}${path}` : path;
+}
+
+function stripBase(pathname) {
+  if (!BASE_PATH) return pathname;
+  return pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) || '/' : pathname;
+}
+
+const ROOT_PATH = withBase('/');
+const CORE = [ROOT_PATH, withBase('/manifest.webmanifest'), withBase('/favicon.svg')];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -15,7 +30,8 @@ self.addEventListener('activate', (event) => {
 });
 
 function isDynamicRequest(url) {
-  return url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/');
+  const path = stripBase(url.pathname);
+  return path.startsWith('/api/') || path.startsWith('/uploads/');
 }
 
 async function staleWhileRevalidate(request) {
@@ -33,11 +49,11 @@ async function navigationFallback(request) {
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(CACHE);
-      cache.put('/', response.clone());
+      cache.put(ROOT_PATH, response.clone());
     }
     return response;
   } catch {
-    return caches.match('/') || Response.error();
+    return caches.match(ROOT_PATH) || Response.error();
   }
 }
 
@@ -45,6 +61,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+  const path = stripBase(url.pathname);
   if (url.origin !== self.location.origin || isDynamicRequest(url)) return;
 
   if (event.request.mode === 'navigate') {
@@ -52,7 +69,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname.startsWith('/assets/') || CORE.includes(url.pathname)) {
+  if (path.startsWith('/assets/') || CORE.includes(url.pathname)) {
     event.respondWith(staleWhileRevalidate(event.request));
   }
 });
