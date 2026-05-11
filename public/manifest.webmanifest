@@ -1,10 +1,10 @@
 {
   "name": "MindVault",
   "short_name": "MindVault",
-  "id": "/",
+  "id": "./",
   "description": "A premium study workspace for notes, files, ideas, and focused planning.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "browser"],
   "background_color": "#080a0f",
@@ -14,15 +14,15 @@
     {
       "name": "Open Dashboard",
       "short_name": "Dashboard",
-      "url": "/#/app/dashboard"
+      "url": "./#/app/dashboard"
     },
     {
       "name": "Create Note",
       "short_name": "New Note",
-      "url": "/#/app/notes"
+      "url": "./#/app/notes"
     }
   ],
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }
