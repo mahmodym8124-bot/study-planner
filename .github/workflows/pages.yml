@@ -35,6 +35,7 @@ jobs:
         run: npm run build
         env:
           VITE_BASE_PATH: /study-planner/
+          VITE_API_URL: https://study-planner-git-main-mahmodym8124-bots-projects.vercel.app/api
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

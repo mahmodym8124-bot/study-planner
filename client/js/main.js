@@ -62,7 +62,7 @@ window.addEventListener('hashchange', () => route(location.hash.replace('#', '')
 
 async function bootstrap() {
   mountAmbientBackground().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
 
   if (storage.token) {
     try {
