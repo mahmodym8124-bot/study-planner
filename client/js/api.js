@@ -398,21 +398,34 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     const data = await parseJSON(response);
 
     if (!response.ok) {
-      const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message && !isAuthRoute;
+      // Improved fallback logic: allow auth routes to fallback if the server returns a bare 401 or if we're in offline host.
+      const isBareError = !data.message && !data.errors;
+      const shouldFallback = OFFLINE_HOST && (response.status === 401 || response.status === 404 || response.status >= 500) && isBareError;
+      
       if (shouldFallback) return offlineRequest(path, { method, body, headers });
       
       if (response.status === 401 && !OFFLINE_HOST) {
         window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
       }
       
-      const error = new Error(data.message || 'Request failed');
+      let message = data.message;
+      if (!message) {
+        if (response.status === 401) message = isAuthRoute ? 'Invalid email or password' : 'Session expired';
+        else if (response.status === 409) message = 'Email is already registered';
+        else if (response.status === 503) message = 'Database is currently unavailable';
+        else message = `Request failed (${response.status})`;
+      }
+      
+      const error = new Error(message);
       if (data.errors) error.errors = data.errors;
+      error.status = response.status;
       throw error;
     }
 
     return data;
   } catch (error) {
-    if (OFFLINE_HOST && !isAuthRoute) return offlineRequest(path, { method, body, headers });
+    // If the network request fails completely, fallback to offline if on GitHub Pages.
+    if (OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
     throw error;
   }
 }
