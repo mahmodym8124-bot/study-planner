@@ -36,6 +36,26 @@ function parseAllowedOrigins(value = process.env.CLIENT_URL) {
     .filter(Boolean);
 }
 
+function isTrustedHostedFrontend(origin = '') {
+  try {
+    const parsed = new URL(origin);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+    if (parsed.hostname.endsWith('.github.io')) return true;
+    if (parsed.hostname.endsWith('.vercel.app')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedOrigin(origin, allowedOrigins) {
+  if (!origin) return true;
+  const normalizedOrigin = origin.trim().replace(/\/$/, '');
+  if (!allowedOrigins.length) return true;
+  if (allowedOrigins.includes(normalizedOrigin)) return true;
+  return isTrustedHostedFrontend(normalizedOrigin);
+}
+
 function sanitizeMongoUri(uri = '') {
   try {
     const parsed = new URL(uri);
@@ -80,9 +100,7 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentS
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = parseAllowedOrigins();
-    if (!allowedOrigins.length || !origin) return callback(null, true);
-    const normalizedOrigin = origin.trim().replace(/\/$/, '');
-    if (allowedOrigins.includes(normalizedOrigin)) return callback(null, true);
+    if (isAllowedOrigin(origin, allowedOrigins)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true
