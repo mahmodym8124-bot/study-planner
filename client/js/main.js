@@ -10,7 +10,7 @@ let graphDispose = () => {};
 let ambientDispose = () => {};
 let scenesPromise;
 let focusTimerId;
-let activeFilePreview = null;
+
 
 document.body.classList.toggle('light', state.theme === 'light');
 
@@ -81,11 +81,10 @@ async function bootstrap() {
 }
 
 async function loadWorkspace() {
-  const [stats, activity, notes, files, ideas, productivity] = await Promise.all([
+  const [stats, activity, notes, ideas, productivity] = await Promise.all([
     api.stats().catch(() => ({ stats: {} })),
     api.activity().catch(() => ({ activity: [] })),
     api.notes().catch(() => ({ notes: [] })),
-    api.files().catch(() => ({ files: [] })),
     api.ideas().catch(() => ({ ideas: [] })),
     api.productivity().catch(() => ({ productivity: state.productivity }))
   ]);
@@ -94,7 +93,6 @@ async function loadWorkspace() {
     stats: stats.stats || {},
     activity: activity.activity || [],
     notes: notes.notes || [],
-    files: files.files || [],
     ideas: ideas.ideas || [],
     productivity: productivity.productivity || state.productivity
   });
@@ -138,7 +136,6 @@ function renderLanding() {
           </div>
           <div class="hero-meta">
             <div class="mini-stat"><strong>Notes</strong><span class="muted">Markdown capture</span></div>
-            <div class="mini-stat"><strong>Files</strong><span class="muted">Protected uploads</span></div>
             <div class="mini-stat"><strong>Graph</strong><span class="muted">3D relationships</span></div>
           </div>
         </div>
@@ -152,7 +149,7 @@ function renderLanding() {
       </main>
 
       <section class="features">
-        <div class="feature"><b>Capture faster</b><span class="muted">Create notes, upload files, and search your vault from the command palette.</span></div>
+        <div class="feature"><b>Capture faster</b><span class="muted">Create notes and search your vault from the command palette.</span></div>
         <div class="feature"><b>Plan clearly</b><span class="muted">Move ideas through a compact board and keep your focus list visible.</span></div>
         <div class="feature"><b>Deploy ready</b><span class="muted">Vite, Express, MongoDB, JWT auth, and Vercel configuration are already wired.</span></div>
       </section>
@@ -228,7 +225,6 @@ function navItems() {
   return [
     ['dashboard', 'Dashboard'],
     ['notes', 'Notes'],
-    ['files', 'Files'],
     ['graph', 'Graph'],
     ['ideas', 'Ideas'],
     ['productivity', 'Focus']
@@ -468,12 +464,8 @@ function bindShell() {
 
 function renderView(view) {
   const root = document.querySelector('#view-root');
-  if (view !== 'files' && activeFilePreview?.revoke && activeFilePreview.url?.startsWith('blob:')) {
-    URL.revokeObjectURL(activeFilePreview.url);
-    activeFilePreview = null;
-  }
   if (view === 'notes') return renderNotes(root);
-  if (view === 'files') return renderFiles(root);
+
   if (view === 'graph') return renderGraph(root);
   if (view === 'ideas') return renderIdeas(root);
   if (view === 'productivity') return renderProductivity(root);
@@ -505,7 +497,6 @@ function renderDashboard(root) {
         <p class="study-quote">${escapeHTML(quote)}</p>
         <div class="hero-actions">
           <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
-          <button class="btn" id="dash-upload">${icon('upload')} Upload</button>
           <button class="btn" id="dash-focus">${icon('focus')} Focus</button>
         </div>
       </div>
@@ -528,16 +519,16 @@ function renderDashboard(root) {
 
     <div class="grid stats">
       ${[
-        ['Notes', state.stats.notes || 0, `${insights.recentNotes} active this week`, '#3dd6c6', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
-        ['Files', state.stats.files || 0, 'Protected uploads', '#47a3ff', sparkFromPercent(Math.min((state.stats.files || 0) * 18, 100))],
-        ['Ideas', state.stats.ideas || 0, `${insights.activeIdeas} in motion`, '#f7b955', sparkFromPercent(state.stats.ideas ? (insights.activeIdeas / state.stats.ideas) * 100 : 12)],
-        ['Tasks', insights.todos.length || 0, `${formatPercent(insights.completion)} complete`, '#5ee0a3', sparkFromPercent(insights.completion)]
+        ['Notes', state.stats.notes || 0, `${insights.recentNotes} this week`, 'var(--brand)', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
+
+        ['Ideas', state.stats.ideas || 0, `${insights.activeIdeas} in motion`, 'var(--accent)', sparkFromPercent(state.stats.ideas ? (insights.activeIdeas / state.stats.ideas) * 100 : 12)],
+        ['Tasks', insights.todos.length || 0, `${formatPercent(insights.completion)} done`, 'var(--success)', sparkFromPercent(insights.completion)]
       ].map(([label, value, detail, color, spark]) => `
-        <div class="card stat-card" style="--glow:${color}">
-          <span class="muted">${escapeHTML(label)}</span>
-          <strong>${value}</strong>
-          <small>${escapeHTML(detail)}</small>
-          ${statSparkline(spark)}
+        <div class="card stat-card glass" style="--glow:${color}">
+          <span class="muted eyebrow-small">${escapeHTML(label)}</span>
+          <strong class="gradient-text-alt">${value}</strong>
+          <small class="muted">${escapeHTML(detail)}</small>
+          <div class="stat-spark">${statSparkline(spark)}</div>
         </div>
       `).join('')}
     </div>
@@ -577,17 +568,19 @@ function renderDashboard(root) {
         </div>
       </section>
 
-      <section class="card insight-card">
+      <section class="card insight-card glass">
         <div class="card-head">
           <h3>Ideas in motion</h3>
           <span class="metric-chip">${insights.activeIdeas}</span>
         </div>
         <div class="idea-stack">
           ${activeIdeas.map((idea) => `
-            <button class="idea-row" data-open-idea="${idea._id}">
-              <span>${escapeHTML(idea.status)}</span>
+            <button class="idea-row glass" data-open-idea="${idea._id}">
+              <span class="status-badge">${escapeHTML(idea.status)}</span>
               <b>${escapeHTML(idea.title)}</b>
-              <progress max="100" value="${idea.progress || 0}"></progress>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${idea.progress || 0}%"></div>
+              </div>
             </button>
           `).join('') || emptyState('ideas', 'Nothing active', 'Move a research idea into Active or Review.')}
         </div>
@@ -607,7 +600,7 @@ function renderDashboard(root) {
                 <div class="muted">${escapeHTML(item.subject)} - ${formatDate(item.createdAt)}</div>
               </div>
             </div>
-          `).join('') || emptyState('activity', 'No activity yet', 'Create a note, upload a file, or save focus work.')}
+          `).join('') || emptyState('activity', 'No activity yet', 'Create a note or save focus work.')}
         </div>
       </section>
     </div>
@@ -624,7 +617,6 @@ function renderDashboard(root) {
     </section>
   `;
   root.querySelector('#dash-note').onclick = () => openNoteEditor();
-  root.querySelector('#dash-upload').onclick = () => route('/app/files');
   root.querySelector('#dash-focus').onclick = () => route('/app/productivity');
   root.querySelector('#dash-notes').onclick = () => route('/app/notes');
   root.querySelector('#dash-start-focus')?.addEventListener('click', async (event) => {
@@ -737,180 +729,11 @@ async function deleteNote(id) {
   renderView('notes');
 }
 
-function clearActiveFilePreview() {
-  if (activeFilePreview?.revoke && activeFilePreview.url?.startsWith('blob:')) URL.revokeObjectURL(activeFilePreview.url);
-  activeFilePreview = null;
-}
 
-function filePreviewMarkup(file, preview) {
-  if (!file || !preview) {
-    return `
-      <div class="file-preview-empty">
-        ${icon('files')}
-        <b>Select a file to preview</b>
-        <p class="muted">Preview opens in this side panel instead of a new tab.</p>
-      </div>
-    `;
-  }
-
-  if (preview.loading) {
-    return `
-      <div class="file-preview-empty">
-        <div class="skeleton"></div>
-        <p class="muted">Loading preview...</p>
-      </div>
-    `;
-  }
-
-  const src = encodeURI(preview.url || '');
-  const mime = String(file.mimeType || '').toLowerCase();
-
-  if (mime.startsWith('image/')) {
-    return `<img class="file-preview-image" src="${src}" alt="${escapeHTML(file.originalName)}" />`;
-  }
-
-  return `<iframe class="file-preview-frame" src="${src}" title="${escapeHTML(file.originalName)}"></iframe>`;
-}
-
-function renderFiles(root) {
-  const previewFile = activeFilePreview ? state.files.find((file) => file._id === activeFilePreview.id) : null;
-  if (activeFilePreview && !previewFile) clearActiveFilePreview();
-
-  root.innerHTML = `
-    <div class="section-head">
-      <div>
-        <h2>Files</h2>
-        <p class="muted">Upload study assets and keep them attached to your workspace.</p>
-      </div>
-    </div>
-    <div class="files-layout">
-      <div class="files-main">
-        <div class="dropzone" id="dropzone">
-          <h3>${icon('upload')} Drop files here</h3>
-          <p class="muted">or click to browse</p>
-          <input type="file" id="file-input" multiple hidden />
-        </div>
-        <div class="files-grid">${state.files.length ? state.files.map(fileCard).join('') : emptyState('files', 'No files uploaded', 'Drop PDFs, references, and study assets here for protected access.')}</div>
-      </div>
-      <aside class="card file-preview-panel">
-        <div class="file-preview-head">
-          <div>
-            <h3>Preview</h3>
-            <p class="muted">${previewFile ? escapeHTML(previewFile.originalName) : 'Choose a file from the list'}</p>
-          </div>
-          ${previewFile ? `<button class="icon-button" id="close-file-preview" aria-label="Close preview">${icon('close')}</button>` : ''}
-        </div>
-        <div class="file-preview-body">
-          ${filePreviewMarkup(previewFile, activeFilePreview)}
-        </div>
-      </aside>
-    </div>
-  `;
-
-  const dropzone = root.querySelector('#dropzone');
-  const input = root.querySelector('#file-input');
-  dropzone.onclick = () => input.click();
-  ['dragenter', 'dragover'].forEach((eventName) => {
-    dropzone.addEventListener(eventName, (event) => {
-      event.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-  });
-  ['dragleave', 'drop'].forEach((eventName) => {
-    dropzone.addEventListener(eventName, (event) => {
-      event.preventDefault();
-      dropzone.classList.remove('dragover');
-    });
-  });
-  dropzone.addEventListener('drop', (event) => uploadFiles(event.dataTransfer.files));
-  input.onchange = () => uploadFiles(input.files);
-  root.querySelector('#close-file-preview')?.addEventListener('click', () => {
-    clearActiveFilePreview();
-    renderView('files');
-  });
-  root.querySelectorAll('[data-delete-file]').forEach((button) => {
-    button.onclick = () => deleteFile(button.dataset.deleteFile);
-  });
-  root.querySelectorAll('[data-open-file]').forEach((button) => {
-    button.onclick = async () => {
-      const id = button.dataset.openFile;
-      const file = state.files.find((entry) => entry._id === id);
-      if (!id || !file) return;
-
-      if (activeFilePreview?.id === id && !activeFilePreview.loading) return;
-
-      if (activeFilePreview?.id !== id) clearActiveFilePreview();
-      activeFilePreview = { id, loading: true };
-      renderView('files');
-
-      try {
-        const preview = await api.filePreview(id);
-        if (activeFilePreview?.id !== id) {
-          if (preview.revoke && preview.url?.startsWith('blob:')) URL.revokeObjectURL(preview.url);
-          return;
-        }
-        activeFilePreview = {
-          id,
-          loading: false,
-          url: preview.url,
-          revoke: preview.revoke,
-          mimeType: file.mimeType
-        };
-      } catch (error) {
-        if (activeFilePreview?.id === id) clearActiveFilePreview();
-        toast(error.message, 'error');
-      }
-
-      renderView('files');
-    };
-  });
-}
-
-function fileCard(file) {
-  const label = file.mimeType?.startsWith('image/') ? 'Image' : 'File';
-  return `
-    <article class="card file-card">
-      <div class="file-thumb">${icon('files')}</div>
-      <h3>${escapeHTML(file.originalName)}</h3>
-      <p class="muted">${escapeHTML(file.folder || 'Uploads')} - ${label} - ${Math.round((file.size || 0) / 1024)} KB</p>
-      <div class="tags">${(file.tags || []).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>
-      <div class="card-actions">
-        <button class="btn" data-open-file="${file._id}">Preview</button>
-        <button class="icon-button btn danger" data-delete-file="${file._id}" aria-label="Delete file">${icon('trash')}</button>
-      </div>
-    </article>
-  `;
-}
-
-async function uploadFiles(files) {
-  try {
-    for (const file of files) {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('folder', 'Uploads');
-      form.append('tags', 'imported');
-      await api.upload(form);
-    }
-  } catch (error) {
-    toast(error.message, 'error');
-    return;
-  }
-  toast('Upload complete');
-  await loadWorkspace();
-  renderView('files');
-}
-
-async function deleteFile(id) {
-  await api.deleteFile(id);
-  toast('File deleted');
-  await loadWorkspace();
-  renderView('files');
-}
 
 function renderGraph(root) {
   const graphData = [
     ...state.notes.map((note) => ({ ...note, type: 'note', id: note._id })),
-    ...state.files.map((file) => ({ ...file, title: file.originalName, type: 'file', id: file._id })),
     ...state.ideas.map((idea) => ({ ...idea, type: 'idea', id: idea._id }))
   ];
 
@@ -918,7 +741,7 @@ function renderGraph(root) {
     <div class="section-head">
       <div>
         <h2>Knowledge graph</h2>
-        <p class="muted">Explore notes, files, and ideas as connected objects.</p>
+        <p class="muted">Explore notes and ideas as connected objects.</p>
       </div>
     </div>
     <div class="graph-layout">
@@ -935,7 +758,7 @@ function renderGraph(root) {
     if (!document.body.contains(graph)) return;
     graphDispose = createKnowledgeGraph(graph, graphData, (node) => {
       root.querySelector('#inspector').innerHTML = `
-        <h3>${escapeHTML(node.title || node.originalName)}</h3>
+        <h3>${escapeHTML(node.title)}</h3>
         <p class="muted">${escapeHTML(node.type)} - ${escapeHTML(node.folder || node.status || 'Workspace')}</p>
         <div class="tags">${(node.tags || []).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>
         <p>${markdown((node.content || node.description || '').slice(0, 500))}</p>
@@ -1285,19 +1108,8 @@ function openCommand(seed = '') {
     const query = input.value.toLowerCase();
     const items = [
       { label: 'Create note', action: () => openNoteEditor() },
-      { label: 'Upload files', action: () => route('/app/files') },
       { label: 'Open graph', action: () => route('/app/graph') },
       ...state.notes.map((note) => ({ label: `Note: ${note.title}`, action: () => openNoteEditor(note) })),
-      ...state.files.map((file) => ({
-        label: `File: ${file.originalName}`,
-        action: async () => {
-          try {
-            await api.openFile(file._id);
-          } catch (error) {
-            toast(error.message, 'error');
-          }
-        }
-      })),
       ...state.ideas.map((idea) => ({ label: `Idea: ${idea.title}`, action: () => openIdeaEditor(idea) }))
     ].filter((item) => item.label.toLowerCase().includes(query));
 

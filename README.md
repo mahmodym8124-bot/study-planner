@@ -6,7 +6,7 @@ MindVault is a focused study workspace for notes, files, ideas, and daily planni
 
 - Clean responsive workspace UI with dark and light themes.
 - Notes with markdown preview, tags, folders, pins, and favorites.
-- Protected file uploads with preview and delete actions.
+
 - Idea board with draggable lanes, priorities, and progress.
 - Focus view with Pomodoro timer, tasks, and a daily focus note.
 - 3D knowledge graph for notes, files, and ideas.
@@ -26,7 +26,7 @@ client/
 server/
   config/          Database and auth configuration
   controllers/     Request handlers
-  middleware/      Auth, upload, validation, async helpers
+  middleware/      Auth, validation, async helpers
   models/          Mongoose models
   routes/          API routes
 api/index.js       Vercel serverless entry
@@ -49,14 +49,11 @@ npm install
 MONGODB_URI=
 JWT_SECRET=
 JWT_EXPIRES_IN=7d
-MAX_FILE_SIZE=15728640
-FILE_STORAGE=local
 PORT=8091
 CLIENT_URL=http://localhost:5173
 VITE_API_URL=/api
 ```
 
-On Vercel, uploads are stored in MongoDB GridFS automatically because serverless disk is ephemeral. Local development keeps using the `uploads/` directory unless `FILE_STORAGE=gridfs` is set.
 
 3. Start the app:
 

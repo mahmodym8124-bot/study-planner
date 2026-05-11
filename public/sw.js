@@ -31,7 +31,7 @@ self.addEventListener('activate', (event) => {
 
 function isDynamicRequest(url) {
   const path = stripBase(url.pathname);
-  return path.startsWith('/api/') || path.startsWith('/uploads/');
+  return path.startsWith('/api/');
 }
 
 async function staleWhileRevalidate(request) {
