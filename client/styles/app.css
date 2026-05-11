@@ -554,6 +554,11 @@ body.light .sidebar {
   box-shadow: 0 0 0 5px rgba(120, 231, 167, 0.12);
 }
 
+.status-dot.offline {
+  background: var(--accent);
+  box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.12);
+}
+
 .side-nav,
 .sidebar-footer,
 .timeline,

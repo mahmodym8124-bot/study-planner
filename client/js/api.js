@@ -368,6 +368,13 @@ async function parseJSON(response) {
 }
 
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
+  const isOfflineToken = storage.token?.startsWith(OFFLINE_TOKEN_PREFIX);
+  const isAuthRoute = path.startsWith('/auth/login') || path.startsWith('/auth/register');
+  
+  if (OFFLINE_HOST && isOfflineToken && !isAuthRoute) {
+    return offlineRequest(path, { method, body, headers });
+  }
+
   const opts = {
     method,
     cache: 'no-store',
@@ -391,9 +398,13 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     const data = await parseJSON(response);
 
     if (!response.ok) {
-      const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message;
+      const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message && !isAuthRoute;
       if (shouldFallback) return offlineRequest(path, { method, body, headers });
-      if (response.status === 401) window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+      
+      if (response.status === 401 && !OFFLINE_HOST) {
+        window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+      }
+      
       const error = new Error(data.message || 'Request failed');
       if (data.errors) error.errors = data.errors;
       throw error;
@@ -401,7 +412,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 
     return data;
   } catch (error) {
-    if (OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
+    if (OFFLINE_HOST && !isAuthRoute) return offlineRequest(path, { method, body, headers });
     throw error;
   }
 }

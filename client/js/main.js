@@ -66,12 +66,14 @@ async function bootstrap() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
 
   if (storage.token) {
+    const isOffline = storage.token.startsWith('offline-token:');
     try {
       const { user } = await api.me();
-      setState({ user });
+      setState({ user, isOffline });
       await loadWorkspace();
     } catch {
       storage.token = null;
+      setState({ isOffline: false });
     }
   }
 
@@ -190,13 +192,18 @@ function renderAuth(signup) {
     const payload = Object.fromEntries(new FormData(event.currentTarget));
     try {
       const data = signup ? await api.register(payload) : await api.login(payload);
+      const isOffline = data.token.startsWith('offline-token:');
       storage.token = data.token;
-      setState({ user: data.user });
-      toast('Workspace opened');
+      setState({ user: data.user, isOffline });
+      if (isOffline) toast('Opened local workspace', 'info');
+      else toast('Workspace opened');
       await loadWorkspace();
       route('/app/dashboard');
     } catch (error) {
       let message = error.message;
+      if (message === 'Invalid email or password' && !signup) {
+        message = 'Invalid credentials. If you haven\'t registered on the cloud vault yet, please create an account first.';
+      }
       if (error.errors && Array.isArray(error.errors) && error.errors[0]?.msg) {
         message = `${message}: ${error.errors[0].msg}`;
       }
@@ -337,10 +344,10 @@ function renderApp() {
     <aside class="sidebar" id="sidebar">
       <a class="brand" href="#/app/dashboard" aria-label="MindVault Dashboard"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
       <div class="workspace-pill">
-        <span class="status-dot"></span>
+        <span class="status-dot ${state.isOffline ? 'offline' : ''}"></span>
         <div>
           <b>${escapeHTML(state.user?.name || 'Workspace')}</b>
-          <span class="muted">${insights.streak || 0} day streak</span>
+          <span class="muted">${state.isOffline ? 'Local Mode' : `${insights.streak || 0} day streak`}</span>
         </div>
       </div>
       <nav class="side-nav">
