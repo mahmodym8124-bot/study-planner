@@ -436,37 +436,29 @@ function sourceToOpenUrl(source) {
   }
 }
 
-function openPreviewSource(source, viewer = null) {
-  const { url, revoke } = sourceToOpenUrl(source);
+function openPreviewSource(url, viewer = null) {
   if (viewer && !viewer.closed) {
     viewer.location = url;
-    if (revoke) setTimeout(() => URL.revokeObjectURL(url), 120_000);
     return;
   }
   const popup = window.open(url, '_blank', 'noopener,noreferrer');
   if (!popup) window.location.assign(url);
-  if (revoke) setTimeout(() => URL.revokeObjectURL(url), 120_000);
 }
 
-async function openOfflineFile(id, viewer = null) {
-  openPreviewSource(resolveOfflineFilePreview(id), viewer);
+function offlineFilePreview(id) {
+  return sourceToOpenUrl(resolveOfflineFilePreview(id));
 }
 
-async function openFile(id) {
-  if (!id || previewLocks.has(id)) return;
-  previewLocks.add(id);
+async function filePreview(id) {
+  if (!id) throw makeError('File not found', 404);
 
-  let viewer = null;
   try {
     if (OFFLINE_HOST) {
       try {
-        openPreviewSource(resolveOfflineFilePreview(id));
-        return;
+        return offlineFilePreview(id);
       } catch {
         // Fallback to remote stream when no local preview source exists.
       }
-    } else {
-      viewer = window.open('', '_blank', 'noopener,noreferrer');
     }
 
     const headers = {};
@@ -476,15 +468,34 @@ async function openFile(id) {
     if (!response.ok) {
       const data = await parseJSON(response);
       const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message;
-      if (shouldFallback) return openOfflineFile(id, viewer);
-      if (viewer && !viewer.closed) viewer.close();
+      if (shouldFallback) return offlineFilePreview(id);
       throw new Error(data.message || 'Unable to open file');
     }
 
     const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    openPreviewSource(url, viewer);
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return { url: URL.createObjectURL(blob), revoke: true };
+  } catch (error) {
+    if (OFFLINE_HOST) return offlineFilePreview(id);
+    throw error;
+  }
+}
+
+async function openOfflineFile(id, viewer = null) {
+  const preview = offlineFilePreview(id);
+  openPreviewSource(preview.url, viewer);
+  if (preview.revoke && preview.url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(preview.url), 120_000);
+}
+
+async function openFile(id) {
+  if (!id || previewLocks.has(id)) return;
+  previewLocks.add(id);
+
+  let viewer = null;
+  try {
+    viewer = window.open('', '_blank', 'noopener,noreferrer');
+    const preview = await filePreview(id);
+    openPreviewSource(preview.url, viewer);
+    if (preview.revoke && preview.url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(preview.url), 120_000);
   } catch (error) {
     if (viewer && !viewer.closed) viewer.close();
     if (OFFLINE_HOST) return openOfflineFile(id);
@@ -507,6 +518,7 @@ export const api = {
   files: () => request('/files'),
   upload: (form) => request('/files', { method: 'POST', body: form }),
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
+  filePreview,
   openFile,
   ideas: () => request('/ideas'),
   saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }),

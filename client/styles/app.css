@@ -1142,6 +1142,17 @@ body.light .tag {
   margin-top: 18px;
 }
 
+.files-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.files-main {
+  min-width: 0;
+}
+
 .file-card {
   min-height: 284px;
   display: flex;
@@ -1167,6 +1178,67 @@ body.light .tag {
 .file-thumb .icon-mark svg {
   width: 26px;
   height: 26px;
+}
+
+.file-preview-panel {
+  position: sticky;
+  top: 86px;
+  display: grid;
+  gap: 0.8rem;
+  min-height: 420px;
+  max-height: calc(100vh - 120px);
+  padding: var(--space-4);
+}
+
+.file-preview-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.file-preview-head h3 {
+  margin: 0;
+}
+
+.file-preview-head .muted {
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-preview-body {
+  min-height: 320px;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  overflow: hidden;
+}
+
+.file-preview-frame {
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 0;
+  background: #fff;
+}
+
+.file-preview-image {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 720px);
+  object-fit: contain;
+  background: #fff;
+}
+
+.file-preview-empty {
+  display: grid;
+  place-items: center;
+  gap: 0.55rem;
+  min-height: 320px;
+  padding: var(--space-5);
+  text-align: center;
 }
 
 .graph-layout {
@@ -1645,6 +1717,15 @@ body.light .tag {
     grid-template-columns: 1fr;
   }
 
+  .files-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .file-preview-panel {
+    position: static;
+    max-height: none;
+  }
+
   .ideas-board {
     grid-template-columns: repeat(4, 260px);
   }
@@ -1859,6 +1940,12 @@ body.light .tag {
   .notes-grid,
   .files-grid {
     grid-template-columns: 1fr;
+  }
+
+  .file-preview-frame,
+  .file-preview-image {
+    max-height: 52vh;
+    height: 52vh;
   }
 
   .modal-backdrop,
