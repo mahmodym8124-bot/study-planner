@@ -171,9 +171,9 @@ function renderAuth(signup) {
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
         <h1>${signup ? 'Create your workspace' : 'Welcome back'}</h1>
         <p class="muted">${signup ? 'Start organizing your study material in a few seconds.' : 'Sign in to continue your workspace.'}</p>
-        ${signup ? '<div class="field"><label>Name</label><input class="input" name="name" required minlength="2" placeholder="Your name" /></div>' : ''}
-        <div class="field"><label>Email</label><input class="input" type="email" name="email" required placeholder="you@example.com" /></div>
-        <div class="field"><label>Password</label><input class="input" type="password" name="password" required minlength="8" placeholder="Minimum 8 characters" /></div>
+        ${signup ? '<div class="field"><label for="auth-name">Name</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="Your name" /></div>' : ''}
+        <div class="field"><label for="auth-email">Email</label><input id="auth-email" class="input" type="email" name="email" autocomplete="${signup ? 'email' : 'username'}" required placeholder="you@example.com" /></div>
+        <div class="field"><label for="auth-password">Password</label><input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="Minimum 8 characters" /></div>
         <button class="btn primary" style="width:100%" type="submit">${signup ? 'Create account' : 'Sign in'}</button>
         <p class="switch-auth">
           ${signup ? 'Already have an account?' : 'New to MindVault?'}
