@@ -10,6 +10,7 @@ let graphDispose = () => {};
 let ambientDispose = () => {};
 let scenesPromise;
 let focusTimerId;
+let activeFilePreview = null;
 
 document.body.classList.toggle('light', state.theme === 'light');
 
@@ -444,6 +445,10 @@ function bindShell() {
 
 function renderView(view) {
   const root = document.querySelector('#view-root');
+  if (view !== 'files' && activeFilePreview?.revoke && activeFilePreview.url?.startsWith('blob:')) {
+    URL.revokeObjectURL(activeFilePreview.url);
+    activeFilePreview = null;
+  }
   if (view === 'notes') return renderNotes(root);
   if (view === 'files') return renderFiles(root);
   if (view === 'graph') return renderGraph(root);
@@ -709,7 +714,45 @@ async function deleteNote(id) {
   renderView('notes');
 }
 
+function clearActiveFilePreview() {
+  if (activeFilePreview?.revoke && activeFilePreview.url?.startsWith('blob:')) URL.revokeObjectURL(activeFilePreview.url);
+  activeFilePreview = null;
+}
+
+function filePreviewMarkup(file, preview) {
+  if (!file || !preview) {
+    return `
+      <div class="file-preview-empty">
+        ${icon('files')}
+        <b>Select a file to preview</b>
+        <p class="muted">Preview opens in this side panel instead of a new tab.</p>
+      </div>
+    `;
+  }
+
+  if (preview.loading) {
+    return `
+      <div class="file-preview-empty">
+        <div class="skeleton"></div>
+        <p class="muted">Loading preview...</p>
+      </div>
+    `;
+  }
+
+  const src = encodeURI(preview.url || '');
+  const mime = String(file.mimeType || '').toLowerCase();
+
+  if (mime.startsWith('image/')) {
+    return `<img class="file-preview-image" src="${src}" alt="${escapeHTML(file.originalName)}" />`;
+  }
+
+  return `<iframe class="file-preview-frame" src="${src}" title="${escapeHTML(file.originalName)}"></iframe>`;
+}
+
 function renderFiles(root) {
+  const previewFile = activeFilePreview ? state.files.find((file) => file._id === activeFilePreview.id) : null;
+  if (activeFilePreview && !previewFile) clearActiveFilePreview();
+
   root.innerHTML = `
     <div class="section-head">
       <div>
@@ -717,12 +760,28 @@ function renderFiles(root) {
         <p class="muted">Upload study assets and keep them attached to your workspace.</p>
       </div>
     </div>
-    <div class="dropzone" id="dropzone">
-      <h3>${icon('upload')} Drop files here</h3>
-      <p class="muted">or click to browse</p>
-      <input type="file" id="file-input" multiple hidden />
+    <div class="files-layout">
+      <div class="files-main">
+        <div class="dropzone" id="dropzone">
+          <h3>${icon('upload')} Drop files here</h3>
+          <p class="muted">or click to browse</p>
+          <input type="file" id="file-input" multiple hidden />
+        </div>
+        <div class="files-grid">${state.files.length ? state.files.map(fileCard).join('') : emptyState('files', 'No files uploaded', 'Drop PDFs, references, and study assets here for protected access.')}</div>
+      </div>
+      <aside class="card file-preview-panel">
+        <div class="file-preview-head">
+          <div>
+            <h3>Preview</h3>
+            <p class="muted">${previewFile ? escapeHTML(previewFile.originalName) : 'Choose a file from the list'}</p>
+          </div>
+          ${previewFile ? `<button class="icon-button" id="close-file-preview" aria-label="Close preview">${icon('close')}</button>` : ''}
+        </div>
+        <div class="file-preview-body">
+          ${filePreviewMarkup(previewFile, activeFilePreview)}
+        </div>
+      </aside>
     </div>
-    <div class="files-grid">${state.files.length ? state.files.map(fileCard).join('') : emptyState('files', 'No files uploaded', 'Drop PDFs, references, and study assets here for protected access.')}</div>
   `;
 
   const dropzone = root.querySelector('#dropzone');
@@ -742,16 +801,44 @@ function renderFiles(root) {
   });
   dropzone.addEventListener('drop', (event) => uploadFiles(event.dataTransfer.files));
   input.onchange = () => uploadFiles(input.files);
+  root.querySelector('#close-file-preview')?.addEventListener('click', () => {
+    clearActiveFilePreview();
+    renderView('files');
+  });
   root.querySelectorAll('[data-delete-file]').forEach((button) => {
     button.onclick = () => deleteFile(button.dataset.deleteFile);
   });
   root.querySelectorAll('[data-open-file]').forEach((button) => {
     button.onclick = async () => {
+      const id = button.dataset.openFile;
+      const file = state.files.find((entry) => entry._id === id);
+      if (!id || !file) return;
+
+      if (activeFilePreview?.id === id && !activeFilePreview.loading) return;
+
+      if (activeFilePreview?.id !== id) clearActiveFilePreview();
+      activeFilePreview = { id, loading: true };
+      renderView('files');
+
       try {
-        await api.openFile(button.dataset.openFile);
+        const preview = await api.filePreview(id);
+        if (activeFilePreview?.id !== id) {
+          if (preview.revoke && preview.url?.startsWith('blob:')) URL.revokeObjectURL(preview.url);
+          return;
+        }
+        activeFilePreview = {
+          id,
+          loading: false,
+          url: preview.url,
+          revoke: preview.revoke,
+          mimeType: file.mimeType
+        };
       } catch (error) {
+        if (activeFilePreview?.id === id) clearActiveFilePreview();
         toast(error.message, 'error');
       }
+
+      renderView('files');
     };
   });
 }
