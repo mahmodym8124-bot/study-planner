@@ -85,6 +85,8 @@ npm run test:e2e
 
 The repository is linked to Vercel. Pushes to `main` trigger production deployments through the GitHub integration.
 
+For GitHub Pages builds, set repository variable `VITE_API_URL` to a **public** API base URL (for example `https://your-project.vercel.app/api`). Do not use protected Vercel preview URLs (`...git-main...vercel.app`) because they return auth pages and cause browser CORS failures.
+
 Production build command:
 
 ```bash
