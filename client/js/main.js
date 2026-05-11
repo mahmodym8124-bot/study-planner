@@ -378,7 +378,8 @@ function renderApp() {
         <button class="icon-button mobile-toggle" id="mobile-menu" aria-label="Open menu">${icon('menu')}</button>
         <div class="search-wrap">
           ${icon('search')}
-          <input class="input" id="global-search" placeholder="Search notes, files, ideas, tags..." />
+          <label class="sr-only" for="global-search">Search notes, files, ideas, and tags</label>
+          <input class="input" id="global-search" type="search" autocomplete="off" placeholder="Search notes, files, ideas, tags..." />
           <span class="shortcut">Ctrl K</span>
         </div>
         <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">New note</span></button>
@@ -399,7 +400,8 @@ function renderApp() {
     <div class="toast-stack" aria-live="polite"></div>
     <div class="command-backdrop" id="command">
       <div class="cmd surface">
-        <input class="input" id="cmd-input" placeholder="Type a command or search..." />
+        <label class="sr-only" for="cmd-input">Command palette</label>
+        <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="Type a command or search..." />
         <div class="cmd-results" id="cmd-results"></div>
       </div>
     </div>
@@ -688,16 +690,16 @@ function renderNotes(root) {
 
 async function openNoteEditor(note = {}) {
   modal(note._id ? 'Edit note' : 'Create note', `
-    <div class="field"><label>Title</label><input class="input" name="title" value="${escapeHTML(note.title || '')}" /></div>
+    <div class="field"><label for="modal-note-title">Title</label><input class="input" id="modal-note-title" name="title" value="${escapeHTML(note.title || '')}" /></div>
     <div class="form-row">
-      <div class="field"><label>Folder</label><input class="input" name="folder" value="${escapeHTML(note.folder || 'Personal')}" /></div>
-      <div class="field"><label>Tags</label><input class="input" name="tags" value="${escapeHTML((note.tags || []).join(', '))}" placeholder="study, exam, research" /></div>
+      <div class="field"><label for="modal-note-folder">Folder</label><input class="input" id="modal-note-folder" name="folder" value="${escapeHTML(note.folder || 'Personal')}" /></div>
+      <div class="field"><label for="modal-note-tags">Tags</label><input class="input" id="modal-note-tags" name="tags" value="${escapeHTML((note.tags || []).join(', '))}" placeholder="study, exam, research" /></div>
     </div>
     <div class="editor-tools">
-      <label class="btn"><input type="checkbox" name="pinned" ${note.pinned ? 'checked' : ''}/> Pin</label>
-      <label class="btn"><input type="checkbox" name="favorite" ${note.favorite ? 'checked' : ''}/> Favorite</label>
+      <label class="btn" for="modal-note-pinned"><input type="checkbox" id="modal-note-pinned" name="pinned" ${note.pinned ? 'checked' : ''}/> Pin</label>
+      <label class="btn" for="modal-note-favorite"><input type="checkbox" id="modal-note-favorite" name="favorite" ${note.favorite ? 'checked' : ''}/> Favorite</label>
     </div>
-    <div class="field"><label>Markdown content</label><textarea class="textarea" name="content">${escapeHTML(note.content || '')}</textarea></div>
+    <div class="field"><label for="modal-note-content">Markdown content</label><textarea class="textarea" id="modal-note-content" name="content">${escapeHTML(note.content || '')}</textarea></div>
     <div class="card"><b>Preview</b><div id="md-preview">${markdown(note.content || '')}</div></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
@@ -812,24 +814,24 @@ function ideaCard(idea) {
       <span class="priority">${escapeHTML(idea.priority)}</span>
       <h3>${escapeHTML(idea.title)}</h3>
       <p class="muted">${escapeHTML(idea.description || '')}</p>
-      <progress max="100" value="${idea.progress || 0}" style="width:100%"></progress>
+      <progress max="100" value="${idea.progress || 0}" style="width:100%" aria-label="Progress for this idea"></progress>
     </article>
   `;
 }
 
 function openIdeaEditor(idea = {}) {
   modal(idea._id ? 'Edit idea' : 'New idea', `
-    <div class="field"><label>Title</label><input class="input" name="title" value="${escapeHTML(idea.title || '')}" /></div>
-    <div class="field"><label>Description</label><textarea class="textarea" name="description">${escapeHTML(idea.description || '')}</textarea></div>
+    <div class="field"><label for="modal-idea-title">Title</label><input class="input" id="modal-idea-title" name="title" value="${escapeHTML(idea.title || '')}" /></div>
+    <div class="field"><label for="modal-idea-description">Description</label><textarea class="textarea" id="modal-idea-description" name="description">${escapeHTML(idea.description || '')}</textarea></div>
     <div class="form-row">
-      <div class="field"><label>Status</label><select class="select" name="status">${['Backlog', 'Active', 'Review', 'Done'].map((status) => `<option ${idea.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
-      <div class="field"><label>Priority</label><select class="select" name="priority">${['Low', 'Medium', 'High', 'Critical'].map((priority) => `<option ${idea.priority === priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></div>
+      <div class="field"><label for="modal-idea-status">Status</label><select class="select" id="modal-idea-status" name="status">${['Backlog', 'Active', 'Review', 'Done'].map((status) => `<option ${idea.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
+      <div class="field"><label for="modal-idea-priority">Priority</label><select class="select" id="modal-idea-priority" name="priority">${['Low', 'Medium', 'High', 'Critical'].map((priority) => `<option ${idea.priority === priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
-      <div class="field"><label>Category</label><input class="input" name="category" value="${escapeHTML(idea.category || 'General')}" /></div>
-      <div class="field"><label>Progress</label><input class="input" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
+      <div class="field"><label for="modal-idea-category">Category</label><input class="input" id="modal-idea-category" name="category" value="${escapeHTML(idea.category || 'General')}" /></div>
+      <div class="field"><label for="modal-idea-progress">Progress</label><input class="input" id="modal-idea-progress" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
     </div>
-    <div class="field"><label>Tags</label><input class="input" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="research, thesis, lab" /></div>
+    <div class="field"><label for="modal-idea-tags">Tags</label><input class="input" id="modal-idea-tags" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="research, thesis, lab" /></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
     await api.saveIdea({
@@ -893,8 +895,8 @@ function renderProductivity(root) {
           <span>Take a breath, then choose the next block.</span>
         </div>
         <div class="form-row compact-row">
-          <div class="field"><label>Work</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
-          <div class="field"><label>Break</label><input class="input" type="number" min="1" max="60" id="break-minutes" value="${breakMinutes}" /></div>
+          <div class="field"><label for="work-minutes">Work</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
+          <div class="field"><label for="break-minutes">Break</label><input class="input" type="number" min="1" max="60" id="break-minutes" value="${breakMinutes}" /></div>
         </div>
         <button class="btn" style="width: 100%; margin-top: 0.5rem;" id="save-pomodoro">${icon('check')} Save settings</button>
       </section>
@@ -911,13 +913,19 @@ function renderProductivity(root) {
           <div class="task-summary">${doneTodos} of ${todos.length || 0} tasks complete (${formatPercent(percentComplete)})</div>
         </div>
         <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
-          <input class="input" name="todo" placeholder="Add a task" required />
-          <select class="select" name="priority" style="width: auto;">
+          <div>
+            <label class="sr-only" for="todo-text">New task</label>
+            <input class="input" id="todo-text" name="todo" placeholder="Add a task" required style="width:100%" />
+          </div>
+          <div>
+            <label class="sr-only" for="todo-priority">Task priority</label>
+            <select class="select" id="todo-priority" name="priority" style="width: auto;">
             <option value="low">Low</option>
             <option value="medium" selected>Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </select>
+          </div>
           <button class="btn">${icon('plus')} Add</button>
         </form>
         <div class="todo-list">
@@ -935,7 +943,8 @@ function renderProductivity(root) {
           <h3>Daily focus</h3>
           <span class="metric-chip">${new Date().toLocaleDateString(undefined, { weekday: 'short' })}</span>
         </div>
-        <textarea class="textarea" id="focus-text" placeholder="What matters most today?">${escapeHTML(productivity.focus || '')}</textarea>
+        <label class="sr-only" for="focus-text">Daily focus</label>
+        <textarea class="textarea" id="focus-text" name="focus" placeholder="What matters most today?">${escapeHTML(productivity.focus || '')}</textarea>
         <button class="btn primary" id="save-focus">Save focus</button>
       </section>
       <section class="card focus-summary-card">
