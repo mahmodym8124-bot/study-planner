@@ -399,40 +399,68 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   }
 }
 
-async function openOfflineFile(id) {
+function offlinePreviewSource(file) {
+  if (typeof file?.dataUrl === 'string' && file.dataUrl.startsWith('data:')) return file.dataUrl;
+  if (typeof file?.url === 'string' && file.url.startsWith('data:')) return file.url;
+  return '';
+}
+
+function resolveOfflineFilePreview(id) {
   const store = readOfflineStore();
   const user = requireOfflineUser(store);
   const files = ensureArrayMapEntry(store, 'filesByUser', user.id);
   const file = files.find((entry) => entry._id === id);
   if (!file) throw makeError('File not found', 404);
-  if (!file.dataUrl) throw makeError('Preview is available for files up to 2MB in offline mode', 413);
-  const viewer = window.open('', '_blank', 'noopener,noreferrer');
-  if (viewer) viewer.location = file.dataUrl;
-  else window.open(file.dataUrl, '_blank', 'noopener,noreferrer');
+  const source = offlinePreviewSource(file);
+  if (!source) throw makeError('Preview is available for files up to 2MB in offline mode', 413);
+  return source;
+}
+
+function openPreviewSource(source, viewer = null) {
+  if (viewer && !viewer.closed) {
+    viewer.location = source;
+    return;
+  }
+  const popup = window.open(source, '_blank', 'noopener,noreferrer');
+  if (!popup) window.location.assign(source);
+}
+
+async function openOfflineFile(id, viewer = null) {
+  openPreviewSource(resolveOfflineFilePreview(id), viewer);
 }
 
 async function openFile(id) {
-  const viewer = window.open('', '_blank', 'noopener,noreferrer');
+  let viewer = null;
+  if (OFFLINE_HOST) {
+    try {
+      openPreviewSource(resolveOfflineFilePreview(id));
+      return;
+    } catch {
+      // Fallback to remote stream when no local preview source exists.
+    }
+  } else {
+    viewer = window.open('', '_blank', 'noopener,noreferrer');
+  }
+
   const headers = {};
   if (storage.token) headers.Authorization = `Bearer ${storage.token}`;
 
   try {
     const response = await fetch(`${API_BASE}/files/${id}/content`, { headers, cache: 'no-store' });
     if (!response.ok) {
-      if (viewer) viewer.close();
       const data = await parseJSON(response);
       const shouldFallback = OFFLINE_HOST && response.status === 401 && !data.message;
-      if (shouldFallback) return openOfflineFile(id);
+      if (shouldFallback) return openOfflineFile(id, viewer);
+      if (viewer && !viewer.closed) viewer.close();
       throw new Error(data.message || 'Unable to open file');
     }
 
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
-    if (viewer) viewer.location = url;
-    else window.open(url, '_blank', 'noopener,noreferrer');
+    openPreviewSource(url, viewer);
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } catch (error) {
-    if (viewer) viewer.close();
+    if (viewer && !viewer.closed) viewer.close();
     if (OFFLINE_HOST) return openOfflineFile(id);
     throw error;
   }
