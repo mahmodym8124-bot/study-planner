@@ -71,13 +71,6 @@ API health: `http://127.0.0.1:8091/api/health`
 npm run build
 ```
 
-## End-to-End Tests
-
-```bash
-npx playwright test --list
-npm run test:e2e
-```
-
 ## Deployment
 
 The repository is linked to Vercel. Pushes to `main` trigger production deployments through the GitHub integration.

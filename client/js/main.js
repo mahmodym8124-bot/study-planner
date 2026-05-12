@@ -1,8 +1,15 @@
 import '../styles/app.css';
 import gsap from 'gsap';
+import i18n from './i18n.js';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
+
+const t = i18n.t.bind(i18n);
+
+i18n.on('languageChanged', () => {
+  render();
+});
 
 const app = document.querySelector('#app');
 let heroDispose = () => {};
@@ -14,14 +21,6 @@ let focusTimerId;
 
 document.body.classList.toggle('light', state.theme === 'light');
 
-const STUDY_QUOTES = [
-  'Small focused blocks compound into real mastery.',
-  'Clarity beats intensity when the work needs to last.',
-  'Protect the next hour and the week starts to move.',
-  'One finished task is better than five half-open loops.',
-  'Review, refine, repeat. That is how knowledge sticks.'
-];
-
 const PRIORITY_WEIGHT = {
   critical: 4,
   high: 3,
@@ -29,11 +28,35 @@ const PRIORITY_WEIGHT = {
   low: 1
 };
 
+const IDEA_STATUS_I18N = {
+  Backlog: 'ideas.statusBacklog',
+  Active: 'ideas.statusActive',
+  Review: 'ideas.statusReview',
+  Done: 'ideas.statusDone'
+};
+
+const TODO_PRIORITY_I18N = {
+  low: 'ideas.priorityLow',
+  medium: 'ideas.priorityMedium',
+  high: 'ideas.priorityHigh',
+  critical: 'ideas.priorityCritical'
+};
+
+function tIdeaStatus(status) {
+  const key = IDEA_STATUS_I18N[status];
+  return key ? t(key) : String(status);
+}
+
+function tTodoPriority(p) {
+  const k = String(p || 'medium').toLowerCase();
+  return t(TODO_PRIORITY_I18N[k] || TODO_PRIORITY_I18N.medium);
+}
+
 window.addEventListener('mindvault:auth-expired', () => {
   if (!state.user) return;
   storage.token = null;
   setState({ user: null });
-  toast('Session expired. Please sign in again.', 'error');
+  toast(t('toast.sessionExpired'), 'error');
   route('/login');
 });
 
@@ -117,44 +140,48 @@ function renderLanding() {
       <nav class="nav surface">
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
         <div class="nav-links">
-          <a href="#/login">Sign in</a>
-          <a class="btn primary" href="#/signup">Start workspace</a>
+          <button type="button" class="btn lang-landing" id="lang-landing">${i18n.language?.startsWith('ar') ? t('lang.toEnglish') : t('lang.toArabic')}</button>
+          <a href="#/login">${t('landing.signIn')}</a>
+          <a class="btn primary" href="#/signup">${t('landing.startWorkspace')}</a>
         </div>
       </nav>
 
       <main class="hero">
         <div>
-          <span class="eyebrow">${icon('vault')} Notes, files, ideas, and focus in one place</span>
-          <h1>A cleaner workspace for <span class="gradient-text">serious study.</span></h1>
+          <span class="eyebrow">${icon('vault')} ${t('landing.eyebrow')}</span>
+          <h1>${t('landing.headline')} <span class="gradient-text">${t('landing.headlineAccent')}</span></h1>
           <p>
-            MindVault gives you a focused command center for capturing notes, storing files,
-            shaping ideas, and tracking daily work without a cluttered interface.
+            ${t('landing.intro')}
           </p>
           <div class="hero-actions">
-            <a class="btn primary" href="#/signup">${icon('plus')} Create account</a>
-            <a class="btn" href="#/login">Open workspace</a>
+            <a class="btn primary" href="#/signup">${icon('plus')} ${t('landing.createAccount')}</a>
+            <a class="btn" href="#/login">${t('landing.openWorkspace')}</a>
           </div>
           <div class="hero-meta">
-            <div class="mini-stat"><strong>Notes</strong><span class="muted">Markdown capture</span></div>
-            <div class="mini-stat"><strong>Graph</strong><span class="muted">3D relationships</span></div>
+            <div class="mini-stat"><strong>${t('landing.miniNotes')}</strong><span class="muted">${t('landing.miniNotesSub')}</span></div>
+            <div class="mini-stat"><strong>${t('landing.miniGraph')}</strong><span class="muted">${t('landing.miniGraphSub')}</span></div>
           </div>
         </div>
 
         <div id="visual" class="hero-visual">
           <div class="floating-card">
-            <b>Live workspace preview</b>
-            <p class="muted">A calm interface with enough depth to feel polished, without visual noise.</p>
+            <b>${t('landing.previewTitle')}</b>
+            <p class="muted">${t('landing.previewBody')}</p>
           </div>
         </div>
       </main>
 
       <section class="features">
-        <div class="feature"><b>Capture faster</b><span class="muted">Create notes and search your vault from the command palette.</span></div>
-        <div class="feature"><b>Plan clearly</b><span class="muted">Move ideas through a compact board and keep your focus list visible.</span></div>
-        <div class="feature"><b>Deploy ready</b><span class="muted">Vite, Express, MongoDB, JWT auth, and Vercel configuration are already wired.</span></div>
+        <div class="feature"><b>${t('landing.feat1Title')}</b><span class="muted">${t('landing.feat1Body')}</span></div>
+        <div class="feature"><b>${t('landing.feat2Title')}</b><span class="muted">${t('landing.feat2Body')}</span></div>
+        <div class="feature"><b>${t('landing.feat3Title')}</b><span class="muted">${t('landing.feat3Body')}</span></div>
       </section>
     </section>
   `;
+  document.querySelector('#lang-landing')?.addEventListener('click', () => {
+    const next = i18n.language?.startsWith('ar') ? 'en' : 'ar';
+    i18n.changeLanguage(next);
+  });
 
   const visual = document.querySelector('.hero-visual');
   loadScenes().then(({ createHeroScene }) => {
@@ -168,20 +195,27 @@ function renderAuth(signup) {
   app.innerHTML = `
     <section class="auth-page">
       <form class="auth-card surface" id="auth-form">
-        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
-        <h1>${signup ? 'Create your workspace' : 'Welcome back'}</h1>
-        <p class="muted">${signup ? 'Start organizing your study material in a few seconds.' : 'Sign in to continue your workspace.'}</p>
-        ${signup ? '<div class="field"><label for="auth-name">Name</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="Your name" /></div>' : ''}
-        <div class="field"><label for="auth-email">Email</label><input id="auth-email" class="input" type="email" name="email" autocomplete="${signup ? 'email' : 'username'}" required placeholder="you@example.com" /></div>
-        <div class="field"><label for="auth-password">Password</label><input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="Minimum 8 characters" /></div>
-        <button class="btn primary" style="width:100%" type="submit">${signup ? 'Create account' : 'Sign in'}</button>
+        <div class="auth-toolbar">
+          <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+          <button type="button" class="btn" id="lang-auth">${i18n.language?.startsWith('ar') ? t('lang.toEnglish') : t('lang.toArabic')}</button>
+        </div>
+        <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
+        <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
+        ${signup ? `<div class="field"><label for="auth-name">${t('auth.name')}</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="${t('auth.namePlaceholder')}" /></div>` : ''}
+        <div class="field"><label for="auth-email">${t('auth.email')}</label><input id="auth-email" class="input" type="email" name="email" autocomplete="${signup ? 'email' : 'username'}" required placeholder="${t('auth.emailPlaceholder')}" /></div>
+        <div class="field"><label for="auth-password">${t('auth.password')}</label><input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${t('auth.passwordPlaceholder')}" /></div>
+        <button class="btn primary" style="width:100%" type="submit">${signup ? t('auth.createAccount') : t('auth.signIn')}</button>
         <p class="switch-auth">
-          ${signup ? 'Already have an account?' : 'New to MindVault?'}
-          <button type="button" id="switch-auth">${signup ? 'Sign in' : 'Create one'}</button>
+          ${signup ? t('auth.alreadyHave') : t('auth.newHere')}
+          <button type="button" id="switch-auth">${signup ? t('auth.signInLink') : t('auth.createOne')}</button>
         </p>
       </form>
     </section>
   `;
+
+  document.querySelector('#lang-auth').onclick = () => {
+    i18n.changeLanguage(i18n.language?.startsWith('ar') ? 'en' : 'ar');
+  };
 
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');
   document.querySelector('#auth-form').onsubmit = async (event) => {
@@ -193,15 +227,15 @@ function renderAuth(signup) {
     const payload = Object.fromEntries(new FormData(form));
     try {
       btn.disabled = true;
-      btn.textContent = signup ? 'Creating...' : 'Opening...';
+      btn.textContent = signup ? t('auth.creating') : t('auth.opening');
       
       const data = signup ? await api.register(payload) : await api.login(payload);
       const isOffline = data.token.startsWith('offline-token:');
       storage.token = data.token;
       setState({ user: data.user, isOffline });
       
-      if (isOffline) toast('Opened local workspace', 'info');
-      else toast('Workspace opened');
+      if (isOffline) toast(t('toast.localOpened'), 'info');
+      else toast(t('toast.workspaceOpened'));
       
       await loadWorkspace();
       route('/app/dashboard');
@@ -211,7 +245,7 @@ function renderAuth(signup) {
       
       let message = error.message;
       if (message === 'Invalid email or password' && !signup) {
-        message = 'Invalid credentials. If you haven\'t registered on the cloud vault yet, please create an account first.';
+        message = t('auth.invalidCredentials');
       }
       if (error.errors && Array.isArray(error.errors) && error.errors[0]?.msg) {
         message = `${message}: ${error.errors[0].msg}`;
@@ -223,11 +257,11 @@ function renderAuth(signup) {
 
 function navItems() {
   return [
-    ['dashboard', 'Dashboard'],
-    ['notes', 'Notes'],
-    ['graph', 'Graph'],
-    ['ideas', 'Ideas'],
-    ['productivity', 'Focus']
+    ['dashboard', t('nav.dashboard')],
+    ['notes', t('nav.notes')],
+    ['graph', t('nav.graph')],
+    ['ideas', t('nav.ideas')],
+    ['productivity', t('nav.productivity')]
   ];
 }
 
@@ -255,8 +289,10 @@ function openTodosByPriority(todos = state.productivity.todos || []) {
 }
 
 function getStudyQuote() {
+  const quotes = t('studyQuotes', { returnObjects: true });
+  if (!Array.isArray(quotes)) return '';
   const day = Math.floor(Date.now() / 86_400_000);
-  return STUDY_QUOTES[day % STUDY_QUOTES.length];
+  return quotes[day % quotes.length];
 }
 
 function statSparkline(values) {
@@ -326,7 +362,7 @@ function weekActivityBars() {
   const counts = labels.map((date) => state.activity.filter((item) => new Date(item.createdAt).toDateString() === date.toDateString()).length);
   const max = Math.max(...counts, 1);
   return labels.map((date, index) => ({
-    label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+    label: date.toLocaleDateString(i18n.resolvedLanguage || i18n.language || undefined, { weekday: 'short' }),
     value: counts[index],
     active: counts[index] > 0,
     height: `${Math.max(12, (counts[index] / max) * 100)}%`
@@ -347,15 +383,16 @@ function emptyState(iconName, title, body, action = '') {
 function renderApp() {
   const view = currentView();
   const insights = dashboardInsights();
+  const langLabel = i18n.language?.startsWith('ar') ? t('lang.toEnglish') : t('lang.toArabic');
   app.className = 'dashboard-shell';
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#/app/dashboard" aria-label="MindVault Dashboard"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
+      <a class="brand" href="#/app/dashboard" aria-label="${t('a11y.dashboard')}"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
       <div class="workspace-pill">
         <span class="status-dot ${state.isOffline ? 'offline' : ''}"></span>
         <div>
-          <b>${escapeHTML(state.user?.name || 'Workspace')}</b>
-          <span class="muted">${state.isOffline ? 'Local Mode' : `${insights.streak || 0} day streak`}</span>
+          <b>${escapeHTML(state.user?.name || t('shell.workspace'))}</b>
+          <span class="muted">${state.isOffline ? t('shell.localMode') : t('shell.dayStreak', { count: insights.streak || 0 })}</span>
         </div>
       </div>
       <nav class="side-nav">
@@ -366,30 +403,31 @@ function renderApp() {
         `).join('')}
       </nav>
       <div class="sidebar-footer">
-        <button class="btn" id="cmd-open">${icon('command')} Command</button>
-        <button class="btn" id="theme-toggle">${icon('theme')} Theme</button>
-        <button class="btn danger" id="logout">${icon('logout')} Logout</button>
+        <button class="btn" id="lang-toggle" type="button">${langLabel}</button>
+        <button class="btn" id="cmd-open">${icon('command')} ${t('nav.command')}</button>
+        <button class="btn" id="theme-toggle">${icon('theme')} ${t('nav.theme')}</button>
+        <button class="btn danger" id="logout">${icon('logout')} ${t('nav.logout')}</button>
       </div>
     </aside>
-    <button class="sidebar-scrim" id="sidebar-scrim" aria-label="Close menu"></button>
+    <button class="sidebar-scrim" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
 
     <main class="main">
       <header class="topbar surface">
-        <button class="icon-button mobile-toggle" id="mobile-menu" aria-label="Open menu">${icon('menu')}</button>
+        <button class="icon-button mobile-toggle" id="mobile-menu" aria-label="${t('a11y.openMenu')}">${icon('menu')}</button>
         <div class="search-wrap">
           ${icon('search')}
-          <label class="sr-only" for="global-search">Search notes, files, ideas, and tags</label>
-          <input class="input" id="global-search" type="search" autocomplete="off" placeholder="Search notes, files, ideas, tags..." />
-          <span class="shortcut">Ctrl K</span>
+          <label class="sr-only" for="global-search">${t('a11y.searchLabel')}</label>
+          <input class="input" id="global-search" type="search" autocomplete="off" placeholder="${t('shell.searchPlaceholder')}" />
+          <span class="shortcut">${t('shell.shortcut')}</span>
         </div>
-        <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">New note</span></button>
+        <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">${t('nav.newNote')}</span></button>
         <div class="avatar">${escapeHTML(state.user?.name?.[0] || 'M')}</div>
       </header>
       <section id="view-root"></section>
     </main>
 
     <nav class="bottom-nav">
-      ${[['dashboard', 'Home'], ['notes', 'Notes'], ['productivity', 'Focus'], ['ideas', 'Ideas']].map(([id, label]) => `
+      ${[['dashboard', t('nav.home')], ['notes', t('nav.notes')], ['productivity', t('nav.productivity')], ['ideas', t('nav.ideas')]].map(([id, label]) => `
         <a class="bottom-nav-item ${view === id ? 'active' : ''}" href="#/app/${id}" aria-label="${label}">
           ${icon(id)}
           <span>${label}</span>
@@ -400,8 +438,8 @@ function renderApp() {
     <div class="toast-stack" aria-live="polite"></div>
     <div class="command-backdrop" id="command">
       <div class="cmd surface">
-        <label class="sr-only" for="cmd-input">Command palette</label>
-        <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="Type a command or search..." />
+        <label class="sr-only" for="cmd-input">${t('a11y.commandPalette')}</label>
+        <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="${t('shell.cmdPlaceholder')}" />
         <div class="cmd-results" id="cmd-results"></div>
       </div>
     </div>
@@ -413,6 +451,9 @@ function renderApp() {
 }
 
 function bindShell() {
+  document.querySelector('#lang-toggle').onclick = () => {
+    i18n.changeLanguage(i18n.language?.startsWith('ar') ? 'en' : 'ar');
+  };
   document.querySelector('#logout').onclick = () => {
     storage.token = null;
     setState({ user: null });
@@ -476,13 +517,13 @@ function renderView(view) {
 
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return t('dash.greetingMorning');
+  if (hour < 17) return t('dash.greetingAfternoon');
+  return t('dash.greetingEvening');
 }
 
 function renderDashboard(root) {
-  const firstName = state.user?.name?.split(' ')[0] || 'there';
+  const firstName = state.user?.name?.split(' ')[0] || t('dash.there');
   const insights = dashboardInsights();
   const bars = weekActivityBars();
   const topTasks = openTodosByPriority(insights.todos).slice(0, 4);
@@ -493,18 +534,18 @@ function renderDashboard(root) {
   root.innerHTML = `
     <section class="dashboard-hero">
       <div>
-        <p class="eyebrow">${icon('spark')} <span class="greeting-badge">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span></p>
+        <p class="eyebrow">${icon('spark')} <span class="greeting-badge">${new Date().toLocaleDateString(i18n.resolvedLanguage || i18n.language || undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span></p>
         <h2>${getGreeting()}, ${escapeHTML(firstName)}.</h2>
-        <p class="muted">A live control room for notes, files, ideas, and deep work. Your highest-leverage next actions are ready.</p>
+        <p class="muted">${t('dash.subtitle')}</p>
         <p class="study-quote">${escapeHTML(quote)}</p>
         <div class="hero-actions">
-          <button class="btn primary" id="dash-note">${icon('plus')} Note</button>
-          <button class="btn" id="dash-focus">${icon('focus')} Focus</button>
+          <button class="btn primary" id="dash-note">${icon('plus')} ${t('dash.note')}</button>
+          <button class="btn" id="dash-focus">${icon('focus')} ${t('dash.focus')}</button>
         </div>
       </div>
       <div class="focus-orb" style="--score:${insights.focusScore}">
         <span>${insights.focusScore}</span>
-        <small>Focus score</small>
+        <small>${t('dash.focusScore')}</small>
       </div>
     </section>
 
@@ -512,19 +553,19 @@ function renderDashboard(root) {
       <div class="next-up-card">
         ${icon('focus')}
         <div class="next-up-text">
-          <b class="gradient-text">Up next</b>
+          <b class="gradient-text">${t('dash.upNext')}</b>
           <span>${escapeHTML(nextTask.text)}</span>
         </div>
-        <button class="btn primary" id="dash-start-focus" data-focus-task="${escapeHTML(nextTask.text)}">Start focusing</button>
+        <button class="btn primary" id="dash-start-focus" data-focus-task="${escapeHTML(nextTask.text)}">${t('dash.startFocusing')}</button>
       </div>
     ` : ''}
 
     <div class="grid stats">
       ${[
-        ['Notes', state.stats.notes || 0, `${insights.recentNotes} this week`, 'var(--brand)', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
+        [t('dash.statNotes'), state.stats.notes || 0, t('dash.statRecentNotes', { n: insights.recentNotes }), 'var(--brand)', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
 
-        ['Ideas', state.stats.ideas || 0, `${insights.activeIdeas} in motion`, 'var(--accent)', sparkFromPercent(state.stats.ideas ? (insights.activeIdeas / state.stats.ideas) * 100 : 12)],
-        ['Tasks', insights.todos.length || 0, `${formatPercent(insights.completion)} done`, 'var(--success)', sparkFromPercent(insights.completion)]
+        [t('dash.statIdeas'), state.stats.ideas || 0, t('dash.statIdeasMotion', { n: insights.activeIdeas }), 'var(--accent)', sparkFromPercent(state.stats.ideas ? (insights.activeIdeas / state.stats.ideas) * 100 : 12)],
+        [t('dash.statTasks'), insights.todos.length || 0, t('dash.statTasksDone', { pct: formatPercent(insights.completion) }), 'var(--success)', sparkFromPercent(insights.completion)]
       ].map(([label, value, detail, color, spark]) => `
         <div class="card stat-card glass" style="--glow:${color}">
           <span class="muted eyebrow-small">${escapeHTML(label)}</span>
@@ -539,14 +580,14 @@ function renderDashboard(root) {
       <section class="card insight-card wide">
         <div class="card-head">
           <div>
-            <h3>Study rhythm</h3>
-            <p class="muted">Workspace activity over the last seven days.</p>
+            <h3>${t('dash.rhythmTitle')}</h3>
+            <p class="muted">${t('dash.rhythmBody')}</p>
           </div>
-          <span class="metric-chip">${insights.streak || 0} day streak</span>
+          <span class="metric-chip">${t('shell.dayStreak', { count: insights.streak || 0 })}</span>
         </div>
         <div class="bar-chart">
           ${bars.map((bar) => `
-            <div class="bar-wrap" data-active="${bar.active}" title="${bar.value} activity item${bar.value === 1 ? '' : 's'}">
+            <div class="bar-wrap" data-active="${bar.active}" title="${escapeHTML(bar.value === 1 ? t('dash.activityBarOne') : t('dash.activityBarMany', { count: bar.value }))}">
               <span class="bar" style="height:${bar.height}"></span>
               <small>${escapeHTML(bar.label)}</small>
               <em>${bar.value}</em>
@@ -557,40 +598,40 @@ function renderDashboard(root) {
 
       <section class="card insight-card">
         <div class="card-head">
-          <h3>Priority stack</h3>
+          <h3>${t('dash.priorityTitle')}</h3>
           <span class="metric-chip">${insights.doneTodos}/${insights.todos.length || 0}</span>
         </div>
         <div class="task-stack">
           ${topTasks.map((todo) => `
-            <button class="task-line" data-dashboard-todo="${todo.id}" aria-label="Mark task done">
+            <button class="task-line" data-dashboard-todo="${todo.id}" aria-label="${t('a11y.markTaskDone')}">
               ${icon('check')}
               <span>${escapeHTML(todo.text)}</span>
             </button>
-          `).join('') || emptyState('focus', 'No active tasks', 'Add tasks in Focus to create a daily execution lane.')}
+          `).join('') || emptyState('focus', t('dash.noActiveTasks'), t('dash.noActiveTasksBody'))}
         </div>
       </section>
 
       <section class="card insight-card glass">
         <div class="card-head">
-          <h3>Ideas in motion</h3>
+          <h3>${t('dash.ideasMotionTitle')}</h3>
           <span class="metric-chip">${insights.activeIdeas}</span>
         </div>
         <div class="idea-stack">
           ${activeIdeas.map((idea) => `
             <button class="idea-row glass" data-open-idea="${idea._id}">
-              <span class="status-badge">${escapeHTML(idea.status)}</span>
+              <span class="status-badge">${escapeHTML(tIdeaStatus(idea.status))}</span>
               <b>${escapeHTML(idea.title)}</b>
               <div class="progress-bar">
                 <div class="progress-fill" style="width: ${idea.progress || 0}%"></div>
               </div>
             </button>
-          `).join('') || emptyState('ideas', 'Nothing active', 'Move a research idea into Active or Review.')}
+          `).join('') || emptyState('ideas', t('dash.nothingActive'), t('dash.nothingActiveBody'))}
         </div>
       </section>
 
       <section class="card insight-card">
         <div class="card-head">
-          <h3>Recent activity</h3>
+          <h3>${t('dash.activityTitle')}</h3>
           <span class="metric-chip">${state.activity.length}</span>
         </div>
         <div class="timeline">
@@ -602,7 +643,7 @@ function renderDashboard(root) {
                 <div class="muted">${escapeHTML(item.subject)} - ${formatDate(item.createdAt)}</div>
               </div>
             </div>
-          `).join('') || emptyState('activity', 'No activity yet', 'Create a note or save focus work.')}
+          `).join('') || emptyState('activity', t('dash.noActivity'), t('dash.noActivityBody'))}
         </div>
       </section>
     </div>
@@ -610,12 +651,12 @@ function renderDashboard(root) {
     <section class="dashboard-section">
       <div class="section-head compact">
         <div>
-          <h2>Recent notes</h2>
-          <p class="muted">Fast access to your freshest study material.</p>
+          <h2>${t('dash.recentNotesTitle')}</h2>
+          <p class="muted">${t('dash.recentNotesBody')}</p>
         </div>
-        <button class="btn" id="dash-notes">${icon('notes')} All notes</button>
+        <button class="btn" id="dash-notes">${icon('notes')} ${t('dash.allNotes')}</button>
       </div>
-      <div class="notes-grid">${state.notes.slice(0, 4).map(noteCard).join('') || emptyState('notes', 'Your notebook is empty', 'Capture a lecture, assignment, or research thread to start.')}</div>
+      <div class="notes-grid">${state.notes.slice(0, 4).map(noteCard).join('') || emptyState('notes', t('dash.notebookEmpty'), t('dash.notebookEmptyBody'))}</div>
     </section>
   `;
   root.querySelector('#dash-note').onclick = () => openNoteEditor();
@@ -646,8 +687,8 @@ function noteCard(note) {
   return `
     <article class="card note-card">
       <div class="tags">
-        ${note.pinned ? '<span class="tag">Pinned</span>' : ''}
-        ${note.favorite ? '<span class="tag">Favorite</span>' : ''}
+        ${note.pinned ? `<span class="tag">${t('dash.tagPinned')}</span>` : ''}
+        ${note.favorite ? `<span class="tag">${t('dash.tagFavorite')}</span>` : ''}
         ${(note.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}
       </div>
       <h3>${escapeHTML(note.title)}</h3>
@@ -657,8 +698,8 @@ function noteCard(note) {
         <span>${formatDate(note.updatedAt || note.createdAt || new Date())}</span>
       </div>
       <div class="card-actions">
-        <button class="icon-button" data-edit-note="${note._id}" aria-label="Edit note">${icon('edit')}</button>
-        <button class="icon-button btn danger" data-delete-note="${note._id}" aria-label="Delete note">${icon('trash')}</button>
+        <button class="icon-button" data-edit-note="${note._id}" aria-label="${t('a11y.editNote')}">${icon('edit')}</button>
+        <button class="icon-button btn danger" data-delete-note="${note._id}" aria-label="${t('a11y.deleteNote')}">${icon('trash')}</button>
       </div>
     </article>
   `;
@@ -677,34 +718,34 @@ function renderNotes(root) {
   root.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>Notes</h2>
-        <p class="muted">Write markdown, organize folders, and mark important study material.</p>
+        <h2>${t('notes.title')}</h2>
+        <p class="muted">${t('notes.subtitle')}</p>
       </div>
-      <button class="btn primary" id="new-note">${icon('plus')} New note</button>
+      <button class="btn primary" id="new-note">${icon('plus')} ${t('notes.newNote')}</button>
     </div>
-    <div class="notes-grid">${state.notes.length ? state.notes.map(noteCard).join('') : emptyState('notes', 'No notes yet', 'Create a durable place for lectures, research, and revision plans.')}</div>
+    <div class="notes-grid">${state.notes.length ? state.notes.map(noteCard).join('') : emptyState('notes', t('notes.emptyTitle'), t('notes.emptyBody'))}</div>
   `;
   root.querySelector('#new-note').onclick = () => openNoteEditor();
   bindNoteCards(root);
 }
 
 async function openNoteEditor(note = {}) {
-  modal(note._id ? 'Edit note' : 'Create note', `
-    <div class="field"><label for="modal-note-title">Title</label><input class="input" id="modal-note-title" name="title" value="${escapeHTML(note.title || '')}" /></div>
+  modal(note._id ? t('notes.editTitle') : t('notes.createTitle'), `
+    <div class="field"><label for="modal-note-title">${t('notes.fieldTitle')}</label><input class="input" id="modal-note-title" name="title" value="${escapeHTML(note.title || '')}" /></div>
     <div class="form-row">
-      <div class="field"><label for="modal-note-folder">Folder</label><input class="input" id="modal-note-folder" name="folder" value="${escapeHTML(note.folder || 'Personal')}" /></div>
-      <div class="field"><label for="modal-note-tags">Tags</label><input class="input" id="modal-note-tags" name="tags" value="${escapeHTML((note.tags || []).join(', '))}" placeholder="study, exam, research" /></div>
+      <div class="field"><label for="modal-note-folder">${t('notes.fieldFolder')}</label><input class="input" id="modal-note-folder" name="folder" value="${escapeHTML(note.folder || 'Personal')}" /></div>
+      <div class="field"><label for="modal-note-tags">${t('notes.fieldTags')}</label><input class="input" id="modal-note-tags" name="tags" value="${escapeHTML((note.tags || []).join(', '))}" placeholder="${t('notes.tagsPlaceholder')}" /></div>
     </div>
     <div class="editor-tools">
-      <label class="btn" for="modal-note-pinned"><input type="checkbox" id="modal-note-pinned" name="pinned" ${note.pinned ? 'checked' : ''}/> Pin</label>
-      <label class="btn" for="modal-note-favorite"><input type="checkbox" id="modal-note-favorite" name="favorite" ${note.favorite ? 'checked' : ''}/> Favorite</label>
+      <label class="btn" for="modal-note-pinned"><input type="checkbox" id="modal-note-pinned" name="pinned" ${note.pinned ? 'checked' : ''}/> ${t('notes.pin')}</label>
+      <label class="btn" for="modal-note-favorite"><input type="checkbox" id="modal-note-favorite" name="favorite" ${note.favorite ? 'checked' : ''}/> ${t('notes.favorite')}</label>
     </div>
-    <div class="field"><label for="modal-note-content">Markdown content</label><textarea class="textarea" id="modal-note-content" name="content">${escapeHTML(note.content || '')}</textarea></div>
-    <div class="card"><b>Preview</b><div id="md-preview">${markdown(note.content || '')}</div></div>
+    <div class="field"><label for="modal-note-content">${t('notes.markdown')}</label><textarea class="textarea" id="modal-note-content" name="content">${escapeHTML(note.content || '')}</textarea></div>
+    <div class="card"><b>${t('notes.preview')}</b><div id="md-preview">${markdown(note.content || '')}</div></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
     const payload = {
-      title: form.querySelector('[name=title]').value || 'Untitled note',
+      title: form.querySelector('[name=title]').value || t('notes.untitled'),
       folder: form.querySelector('[name=folder]').value || 'Personal',
       tags: form.querySelector('[name=tags]').value.split(',').map((tag) => tag.trim()).filter(Boolean),
       content: form.querySelector('[name=content]').value,
@@ -712,7 +753,7 @@ async function openNoteEditor(note = {}) {
       favorite: form.querySelector('[name=favorite]').checked
     };
     await api.saveNote(payload, note._id);
-    toast('Note saved');
+    toast(t('toast.noteSaved'));
     await loadWorkspace();
     route('/app/notes');
   });
@@ -726,7 +767,7 @@ async function openNoteEditor(note = {}) {
 
 async function deleteNote(id) {
   await api.deleteNote(id);
-  toast('Note deleted');
+  toast(t('toast.noteDeleted'));
   await loadWorkspace();
   renderView('notes');
 }
@@ -742,15 +783,15 @@ function renderGraph(root) {
   root.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>Knowledge graph</h2>
-        <p class="muted">Explore notes and ideas as connected objects.</p>
+        <h2>${t('graph.title')}</h2>
+        <p class="muted">${t('graph.subtitle')}</p>
       </div>
     </div>
     <div class="graph-layout">
       <div class="graph-panel card" id="graph"><div class="skeleton"></div></div>
       <aside class="card inspector" id="inspector">
-        <h3>Select a node</h3>
-        <p class="muted">Click a graph object to inspect its details.</p>
+        <h3>${t('graph.selectNode')}</h3>
+        <p class="muted">${t('graph.selectHint')}</p>
       </aside>
     </div>
   `;
@@ -759,15 +800,17 @@ function renderGraph(root) {
   loadScenes().then(({ createKnowledgeGraph }) => {
     if (!document.body.contains(graph)) return;
     graphDispose = createKnowledgeGraph(graph, graphData, (node) => {
+      const typeLabel = node.type === 'idea' ? t('graph.typeIdea') : t('graph.typeNote');
+      const meta = escapeHTML(node.folder || node.status || t('graph.workspace'));
       root.querySelector('#inspector').innerHTML = `
         <h3>${escapeHTML(node.title)}</h3>
-        <p class="muted">${escapeHTML(node.type)} - ${escapeHTML(node.folder || node.status || 'Workspace')}</p>
+        <p class="muted">${escapeHTML(typeLabel)} - ${meta}</p>
         <div class="tags">${(node.tags || []).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>
         <p>${markdown((node.content || node.description || '').slice(0, 500))}</p>
       `;
     });
   }).catch(() => {
-    graph.innerHTML = '<p class="muted">3D graph could not be loaded.</p>';
+    graph.innerHTML = `<p class="muted">${t('graph.loadError')}</p>`;
   });
 }
 
@@ -776,15 +819,15 @@ function renderIdeas(root) {
   root.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>Ideas</h2>
-        <p class="muted">A compact board for projects, research threads, and next steps.</p>
+        <h2>${t('ideas.title')}</h2>
+        <p class="muted">${t('ideas.subtitle')}</p>
       </div>
-      <button class="btn primary" id="new-idea">${icon('plus')} New idea</button>
+      <button class="btn primary" id="new-idea">${icon('plus')} ${t('ideas.newIdea')}</button>
     </div>
     <div class="ideas-board">
       ${statuses.map((status) => `
         <section class="lane" data-status="${status}">
-          <h3>${status}<span class="muted">${state.ideas.filter((idea) => idea.status === status).length}</span></h3>
+          <h3>${escapeHTML(tIdeaStatus(status))}<span class="muted">${state.ideas.filter((idea) => idea.status === status).length}</span></h3>
           ${state.ideas.filter((idea) => idea.status === status).map(ideaCard).join('')}
         </section>
       `).join('')}
@@ -811,31 +854,33 @@ function renderIdeas(root) {
 function ideaCard(idea) {
   return `
     <article class="idea-card" data-id="${idea._id}">
-      <span class="priority">${escapeHTML(idea.priority)}</span>
+      <span class="priority">${escapeHTML(tTodoPriority(idea.priority))}</span>
       <h3>${escapeHTML(idea.title)}</h3>
       <p class="muted">${escapeHTML(idea.description || '')}</p>
-      <progress max="100" value="${idea.progress || 0}" style="width:100%" aria-label="Progress for this idea"></progress>
+      <progress max="100" value="${idea.progress || 0}" style="width:100%" aria-label="${t('a11y.ideaProgress')}"></progress>
     </article>
   `;
 }
 
 function openIdeaEditor(idea = {}) {
-  modal(idea._id ? 'Edit idea' : 'New idea', `
-    <div class="field"><label for="modal-idea-title">Title</label><input class="input" id="modal-idea-title" name="title" value="${escapeHTML(idea.title || '')}" /></div>
-    <div class="field"><label for="modal-idea-description">Description</label><textarea class="textarea" id="modal-idea-description" name="description">${escapeHTML(idea.description || '')}</textarea></div>
+  const statusOpts = ['Backlog', 'Active', 'Review', 'Done'];
+  const priorityOpts = ['Low', 'Medium', 'High', 'Critical'];
+  modal(idea._id ? t('ideas.editTitle') : t('ideas.newTitle'), `
+    <div class="field"><label for="modal-idea-title">${t('ideas.fieldTitle')}</label><input class="input" id="modal-idea-title" name="title" value="${escapeHTML(idea.title || '')}" /></div>
+    <div class="field"><label for="modal-idea-description">${t('ideas.fieldDescription')}</label><textarea class="textarea" id="modal-idea-description" name="description">${escapeHTML(idea.description || '')}</textarea></div>
     <div class="form-row">
-      <div class="field"><label for="modal-idea-status">Status</label><select class="select" id="modal-idea-status" name="status">${['Backlog', 'Active', 'Review', 'Done'].map((status) => `<option ${idea.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
-      <div class="field"><label for="modal-idea-priority">Priority</label><select class="select" id="modal-idea-priority" name="priority">${['Low', 'Medium', 'High', 'Critical'].map((priority) => `<option ${idea.priority === priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></div>
+      <div class="field"><label for="modal-idea-status">${t('ideas.status')}</label><select class="select" id="modal-idea-status" name="status">${statusOpts.map((status) => `<option value="${status}" ${idea.status === status ? 'selected' : ''}>${escapeHTML(tIdeaStatus(status))}</option>`).join('')}</select></div>
+      <div class="field"><label for="modal-idea-priority">${t('ideas.priority')}</label><select class="select" id="modal-idea-priority" name="priority">${priorityOpts.map((priority) => `<option value="${priority}" ${idea.priority === priority ? 'selected' : ''}>${escapeHTML(tTodoPriority(priority.toLowerCase()))}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
-      <div class="field"><label for="modal-idea-category">Category</label><input class="input" id="modal-idea-category" name="category" value="${escapeHTML(idea.category || 'General')}" /></div>
-      <div class="field"><label for="modal-idea-progress">Progress</label><input class="input" id="modal-idea-progress" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
+      <div class="field"><label for="modal-idea-category">${t('ideas.category')}</label><input class="input" id="modal-idea-category" name="category" value="${escapeHTML(idea.category || 'General')}" /></div>
+      <div class="field"><label for="modal-idea-progress">${t('ideas.progress')}</label><input class="input" id="modal-idea-progress" type="number" min="0" max="100" name="progress" value="${idea.progress || 0}" /></div>
     </div>
-    <div class="field"><label for="modal-idea-tags">Tags</label><input class="input" id="modal-idea-tags" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="research, thesis, lab" /></div>
+    <div class="field"><label for="modal-idea-tags">${t('ideas.tags')}</label><input class="input" id="modal-idea-tags" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="${t('ideas.tagsPlaceholder')}" /></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
     await api.saveIdea({
-      title: form.querySelector('[name=title]').value || 'Untitled idea',
+      title: form.querySelector('[name=title]').value || t('ideas.untitled'),
       description: form.querySelector('[name=description]').value,
       status: form.querySelector('[name=status]').value,
       priority: form.querySelector('[name=priority]').value,
@@ -843,7 +888,7 @@ function openIdeaEditor(idea = {}) {
       progress: Number(form.querySelector('[name=progress]').value),
       tags: form.querySelector('[name=tags]').value.split(',').map((tag) => tag.trim()).filter(Boolean)
     }, idea._id);
-    toast('Idea saved');
+    toast(t('toast.ideaSaved'));
     await loadWorkspace();
     route('/app/ideas');
   });
@@ -860,15 +905,15 @@ function renderProductivity(root) {
   root.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>Focus</h2>
-        <p class="muted">Run the day from one clear execution surface: timer, tasks, and the one thing that matters.</p>
+        <h2>${t('focus.title')}</h2>
+        <p class="muted">${t('focus.subtitle')}</p>
       </div>
     </div>
     <div class="grid productivity">
       <section class="card focus-timer-card">
         <div class="card-head">
-          <h3>Pomodoro</h3>
-          <span class="metric-chip" id="timer-counter">Work session</span>
+          <h3>${t('focus.pomodoro')}</h3>
+          <span class="metric-chip" id="timer-counter">${t('focus.workSession')}</span>
         </div>
         <div class="timer-ring-wrap">
           <svg class="timer-ring" viewBox="0 0 100 100">
@@ -877,82 +922,82 @@ function renderProductivity(root) {
           </svg>
           <div class="timer-display">
             <div class="timer" id="timer">${String(workMinutes).padStart(2, '0')}:00</div>
-            <span class="timer-mode-label muted" id="timer-mode">Ready</span>
+            <span class="timer-mode-label muted" id="timer-mode">${t('focus.ready')}</span>
           </div>
         </div>
         <div class="actions" style="justify-content: center; margin-bottom: 1rem;">
-          <button class="btn primary" id="timer-start" aria-label="Start focus timer">Start</button>
-          <button class="btn" id="timer-pause" aria-label="Pause focus timer">Pause</button>
-          <button class="btn" id="timer-reset" aria-label="Reset focus timer">Reset</button>
+          <button class="btn primary" id="timer-start" aria-label="${t('a11y.startFocusTimer')}">${t('focus.start')}</button>
+          <button class="btn" id="timer-pause" aria-label="${t('a11y.pauseFocusTimer')}">${t('focus.pause')}</button>
+          <button class="btn" id="timer-reset" aria-label="${t('a11y.resetFocusTimer')}">${t('focus.reset')}</button>
         </div>
         <div class="current-task-card">
-          <span class="metric-chip">Current task</span>
-          <b>${currentTask ? escapeHTML(currentTask.text) : 'No active task selected'}</b>
-          <small class="muted">${currentTask ? `${escapeHTML(currentTask.priority || 'medium')} priority` : 'Add a task to give the timer a clear target.'}</small>
+          <span class="metric-chip">${t('focus.currentTask')}</span>
+          <b>${currentTask ? escapeHTML(currentTask.text) : t('focus.noTask')}</b>
+          <small class="muted">${currentTask ? escapeHTML(t('focus.priorityLine', { priority: tTodoPriority(currentTask.priority) })) : t('focus.addTaskHint')}</small>
         </div>
         <div class="timer-complete" id="timer-complete" aria-live="polite" hidden>
-          <b>Session complete</b>
-          <span>Take a breath, then choose the next block.</span>
+          <b>${t('focus.sessionComplete')}</b>
+          <span>${t('focus.sessionCompleteBody')}</span>
         </div>
         <div class="form-row compact-row">
-          <div class="field"><label for="work-minutes">Work</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
-          <div class="field"><label for="break-minutes">Break</label><input class="input" type="number" min="1" max="60" id="break-minutes" value="${breakMinutes}" /></div>
+          <div class="field"><label for="work-minutes">${t('focus.workLabel')}</label><input class="input" type="number" min="5" max="120" id="work-minutes" value="${workMinutes}" /></div>
+          <div class="field"><label for="break-minutes">${t('focus.breakLabel')}</label><input class="input" type="number" min="1" max="60" id="break-minutes" value="${breakMinutes}" /></div>
         </div>
-        <button class="btn" style="width: 100%; margin-top: 0.5rem;" id="save-pomodoro">${icon('check')} Save settings</button>
+        <button class="btn" style="width: 100%; margin-top: 0.5rem;" id="save-pomodoro">${icon('check')} ${t('focus.saveSettings')}</button>
       </section>
       <section class="card task-panel">
         <div class="card-head">
-          <h3>Tasks</h3>
+          <h3>${t('focus.tasks')}</h3>
           <span class="metric-chip">${doneTodos}/${todos.length || 0}</span>
         </div>
         <div class="task-progress-wrap">
-          <span class="task-progress-label muted">Completion progress</span>
+          <span class="task-progress-label muted">${t('focus.completionProgress')}</span>
           <div class="task-progress">
             <div class="task-progress-fill" style="width: ${percentComplete}%"></div>
           </div>
-          <div class="task-summary">${doneTodos} of ${todos.length || 0} tasks complete (${formatPercent(percentComplete)})</div>
+          <div class="task-summary">${t('focus.taskSummary', { done: doneTodos, total: todos.length || 0, pct: formatPercent(percentComplete) })}</div>
         </div>
         <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
           <div>
-            <label class="sr-only" for="todo-text">New task</label>
-            <input class="input" id="todo-text" name="todo" placeholder="Add a task" required style="width:100%" />
+            <label class="sr-only" for="todo-text">${t('a11y.newTask')}</label>
+            <input class="input" id="todo-text" name="todo" placeholder="${t('focus.addTaskPlaceholder')}" required style="width:100%" />
           </div>
           <div>
-            <label class="sr-only" for="todo-priority">Task priority</label>
+            <label class="sr-only" for="todo-priority">${t('a11y.taskPriority')}</label>
             <select class="select" id="todo-priority" name="priority" style="width: auto;">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="low">${t('ideas.priorityLow')}</option>
+            <option value="medium" selected>${t('ideas.priorityMedium')}</option>
+            <option value="high">${t('ideas.priorityHigh')}</option>
+            <option value="critical">${t('ideas.priorityCritical')}</option>
           </select>
           </div>
-          <button class="btn">${icon('plus')} Add</button>
+          <button class="btn">${icon('plus')} ${t('focus.add')}</button>
         </form>
         <div class="todo-list">
           ${todos.map((todo) => `
             <div class="todo ${todo.done ? 'done' : ''}" data-todo="${todo.id}" data-priority="${todo.priority || 'medium'}">
-              <button class="todo-check" data-toggle-todo="${todo.id}" aria-label="Toggle task">${icon(todo.done ? 'check' : 'focus')}</button>
+              <button class="todo-check" data-toggle-todo="${todo.id}" aria-label="${t('a11y.toggleTask')}">${icon(todo.done ? 'check' : 'focus')}</button>
               <span>${escapeHTML(todo.text)}</span>
-              <button class="icon-button" data-delete-todo="${todo.id}" aria-label="Delete task">${icon('trash')}</button>
+              <button class="icon-button" data-delete-todo="${todo.id}" aria-label="${t('a11y.deleteTask')}">${icon('trash')}</button>
             </div>
-          `).join('') || emptyState('check', 'No tasks queued', 'Add one clear task to start a focused session.')}
+          `).join('') || emptyState('check', t('focus.noTasksTitle'), t('focus.noTasksBody'))}
         </div>
       </section>
       <section class="card focus-note-card">
         <div class="card-head">
-          <h3>Daily focus</h3>
-          <span class="metric-chip">${new Date().toLocaleDateString(undefined, { weekday: 'short' })}</span>
+          <h3>${t('focus.dailyFocusTitle')}</h3>
+          <span class="metric-chip">${new Date().toLocaleDateString(i18n.resolvedLanguage || i18n.language || undefined, { weekday: 'short' })}</span>
         </div>
-        <label class="sr-only" for="focus-text">Daily focus</label>
-        <textarea class="textarea" id="focus-text" name="focus" placeholder="What matters most today?">${escapeHTML(productivity.focus || '')}</textarea>
-        <button class="btn primary" id="save-focus">Save focus</button>
+        <label class="sr-only" for="focus-text">${t('a11y.dailyFocus')}</label>
+        <textarea class="textarea" id="focus-text" name="focus" placeholder="${t('focus.focusPlaceholder')}">${escapeHTML(productivity.focus || '')}</textarea>
+        <button class="btn primary" id="save-focus">${t('focus.saveFocus')}</button>
       </section>
       <section class="card focus-summary-card">
-        <h3>Execution summary</h3>
+        <h3>${t('focus.executionSummary')}</h3>
         <div class="summary-list">
-          <div><span class="muted">Completion</span><b>${formatPercent(percentComplete)}</b></div>
-          <div><span class="muted">Open tasks</span><b>${Math.max(0, todos.length - doneTodos)}</b></div>
-          <div><span class="muted">Focus note</span><b>${productivity.focus?.trim() ? 'Set' : 'Empty'}</b></div>
+          <div><span class="muted">${t('focus.completion')}</span><b>${formatPercent(percentComplete)}</b></div>
+          <div><span class="muted">${t('focus.openTasks')}</span><b>${Math.max(0, todos.length - doneTodos)}</b></div>
+          <div><span class="muted">${t('focus.focusNote')}</span><b>${productivity.focus?.trim() ? t('focus.set') : t('focus.empty')}</b></div>
         </div>
       </section>
     </div>
@@ -961,21 +1006,21 @@ function renderProductivity(root) {
 }
 
 function bindProductivity(root) {
-  let mode = 'work'; // 'work' or 'break'
+  let mode = 'work';
   let isPaused = false;
   let totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
   let seconds = totalSeconds;
   let sessions = 0;
-  
+  let faceIsReady = true;
+
   const timerCircle = root.querySelector('.timer-ring-progress');
   const timerLabel = root.querySelector('#timer-mode');
   const timerCounter = root.querySelector('#timer-counter');
   const completionPanel = root.querySelector('#timer-complete');
-  
+
   const display = () => {
     root.querySelector('#timer').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-    
-    // Update SVG stroke-dashoffset (283 is the circumference for r=45)
+
     const progress = seconds / totalSeconds;
     const offset = 283 - (progress * 283);
     if (timerCircle) {
@@ -986,23 +1031,23 @@ function bindProductivity(root) {
 
   const nextMode = () => {
     if (mode === 'work') {
-      sessions++;
-      timerCounter.textContent = `${sessions} session${sessions > 1 ? 's' : ''} completed`;
+      sessions += 1;
+      timerCounter.textContent = sessions === 1 ? t('focus.sessionsDoneOne') : t('focus.sessionsDoneMany', { count: sessions });
       completionPanel.hidden = false;
-      completionPanel.querySelector('b').textContent = 'Work session complete';
-      completionPanel.querySelector('span').textContent = 'Take the scheduled break before your next block.';
+      completionPanel.querySelector('b').textContent = t('focus.workCompleteTitle');
+      completionPanel.querySelector('span').textContent = t('focus.workCompleteBody');
       mode = 'break';
       totalSeconds = Number(state.productivity.pomodoro?.break || 5) * 60;
-      timerLabel.textContent = 'Break';
-      toast('Work session complete! Take a break.');
+      timerLabel.textContent = t('focus.break');
+      toast(t('toast.workComplete'));
     } else {
       mode = 'work';
       totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
-      timerLabel.textContent = 'Focusing';
+      timerLabel.textContent = t('focus.focusing');
       completionPanel.hidden = false;
-      completionPanel.querySelector('b').textContent = 'Break complete';
-      completionPanel.querySelector('span').textContent = 'Ready for the next focused block.';
-      toast('Break over. Back to focus!');
+      completionPanel.querySelector('b').textContent = t('focus.breakCompleteTitle');
+      completionPanel.querySelector('span').textContent = t('focus.breakCompleteBody');
+      toast(t('toast.breakOver'));
     }
     seconds = totalSeconds;
     display();
@@ -1012,15 +1057,16 @@ function bindProductivity(root) {
     completionPanel.hidden = true;
     if (isPaused) {
       isPaused = false;
-      timerLabel.textContent = mode === 'work' ? 'Focusing' : 'Break';
+      timerLabel.textContent = mode === 'work' ? t('focus.focusing') : t('focus.break');
       display();
     } else {
-      if (timerLabel.textContent === 'Ready') {
+      if (faceIsReady) {
         mode = 'work';
         totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
         seconds = totalSeconds;
+        faceIsReady = false;
       }
-      timerLabel.textContent = mode === 'work' ? 'Focusing' : 'Break';
+      timerLabel.textContent = mode === 'work' ? t('focus.focusing') : t('focus.break');
     }
     clearInterval(focusTimerId);
     focusTimerId = setInterval(() => {
@@ -1033,25 +1079,26 @@ function bindProductivity(root) {
       }
     }, 1000);
   };
-  
+
   root.querySelector('#timer-pause').onclick = () => {
     isPaused = true;
-    timerLabel.textContent = 'Paused';
+    timerLabel.textContent = t('focus.paused');
     display();
   };
-  
+
   root.querySelector('#timer-reset').onclick = () => {
     clearInterval(focusTimerId);
     isPaused = false;
     mode = 'work';
     totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
     seconds = totalSeconds;
-    timerLabel.textContent = 'Ready';
-    timerCounter.textContent = 'Work session';
+    faceIsReady = true;
+    timerLabel.textContent = t('focus.ready');
+    timerCounter.textContent = t('focus.workSession');
     completionPanel.hidden = true;
     display();
   };
-  
+
   root.querySelector('#save-pomodoro').onclick = async () => {
     await saveProd({
       pomodoro: {
@@ -1059,10 +1106,10 @@ function bindProductivity(root) {
         break: Number(root.querySelector('#break-minutes').value || 5)
       }
     });
-    toast('Timer settings saved');
+    toast(t('toast.timerSettingsSaved'));
     renderView('productivity');
   };
-  
+
   root.querySelector('#todo-form').onsubmit = async (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -1072,7 +1119,7 @@ function bindProductivity(root) {
     await saveProd({ todos: [...(state.productivity.todos || []), { id: uid(), text, priority, done: false }] });
     renderView('productivity');
   };
-  
+
   root.querySelectorAll('[data-toggle-todo]').forEach((element) => {
     element.onclick = async (event) => {
       event.stopPropagation();
@@ -1082,7 +1129,7 @@ function bindProductivity(root) {
       renderView('productivity');
     };
   });
-  
+
   root.querySelectorAll('[data-delete-todo]').forEach((element) => {
     element.onclick = async (event) => {
       event.stopPropagation();
@@ -1090,12 +1137,12 @@ function bindProductivity(root) {
       renderView('productivity');
     };
   });
-  
+
   root.querySelector('#save-focus').onclick = async () => {
     await saveProd({ focus: root.querySelector('#focus-text').value });
-    toast('Focus saved');
+    toast(t('toast.focusSaved'));
   };
-  
+
   display();
 }
 
@@ -1116,18 +1163,18 @@ function openCommand(seed = '') {
   const renderResults = () => {
     const query = input.value.toLowerCase();
     const items = [
-      { label: 'Create note', action: () => openNoteEditor() },
-      { label: 'Open graph', action: () => route('/app/graph') },
-      ...state.notes.map((note) => ({ label: `Note: ${note.title}`, action: () => openNoteEditor(note) })),
-      ...state.ideas.map((idea) => ({ label: `Idea: ${idea.title}`, action: () => openIdeaEditor(idea) }))
+      { label: t('command.createNote'), action: () => openNoteEditor() },
+      { label: t('command.openGraph'), action: () => route('/app/graph') },
+      ...state.notes.map((note) => ({ label: `${t('command.notePrefix')} ${note.title}`, action: () => openNoteEditor(note) })),
+      ...state.ideas.map((idea) => ({ label: `${t('command.ideaPrefix')} ${idea.title}`, action: () => openIdeaEditor(idea) }))
     ].filter((item) => item.label.toLowerCase().includes(query));
 
     results.innerHTML = items.slice(0, 12).map((item, index) => `
       <button class="cmd-item" data-idx="${index}">
         <span>${escapeHTML(item.label)}</span>
-        <span>Enter</span>
+        <span>${t('command.enter')}</span>
       </button>
-    `).join('') || '<p class="muted">No matches</p>';
+    `).join('') || `<p class="muted">${t('command.noMatches')}</p>`;
     results.querySelectorAll('[data-idx]').forEach((button) => {
       button.onclick = () => {
         root.classList.remove('open');

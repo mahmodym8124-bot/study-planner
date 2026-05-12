@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import i18n from './i18n.js';
 
 const pointer = { x: 0, y: 0 };
 
@@ -238,7 +239,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
   })]));
   const sphere = new THREE.SphereGeometry(0.35, 24, 24);
   const fileSphere = new THREE.SphereGeometry(0.44, 24, 24);
-  const source = data.length ? data : [{ id: 'welcome', type: 'note', title: 'Create your first note' }];
+  const source = data.length ? data : [{ id: 'welcome', type: 'note', title: i18n.t('graph.placeholderNode') }];
 
   source.forEach((item, index) => {
     const mesh = new THREE.Mesh(item.type === 'file' ? fileSphere : sphere, materials[item.type] || materials.note);
