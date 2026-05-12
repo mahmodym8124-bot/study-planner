@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import i18n from './i18n.js';
 
 const icons = {
   vault: '<path d="M12 3 4.5 7.2v9.6L12 21l7.5-4.2V7.2L12 3Z"/><path d="M12 12 4.8 7.4"/><path d="m12 12 7.2-4.6"/><path d="M12 12v8.4"/>',
@@ -82,12 +83,12 @@ export function modal(title, body, onSave) {
     <div class="modal surface">
       <div class="modal-head">
         <h2>${escapeHTML(title)}</h2>
-        <button class="icon-button" data-close aria-label="Close">${icon('close')}</button>
+        <button class="icon-button" data-close aria-label="${i18n.t('common.close')}">${icon('close')}</button>
       </div>
       <div class="modal-body">${body}</div>
       <div class="actions">
-        <button class="btn primary" data-save>${icon('check')} Save</button>
-        <button class="btn" data-close>Cancel</button>
+        <button class="btn primary" data-save>${icon('check')} ${i18n.t('common.save')}</button>
+        <button class="btn" data-close>${i18n.t('common.cancel')}</button>
       </div>
     </div>
   `;

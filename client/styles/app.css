@@ -80,6 +80,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html[lang='ar'] body {
+  font-family: 'Tajawal', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+html[dir='rtl'] .search-wrap .icon-mark {
+  left: auto;
+  right: 12px;
+}
+
+html[dir='rtl'] .search-wrap input {
+  padding-left: 78px;
+  padding-right: 44px;
+}
+
+html[dir='rtl'] .shortcut {
+  right: auto;
+  left: 10px;
+}
+
 button,
 input,
 textarea,
@@ -567,6 +587,18 @@ body.light .floating-card {
   width: min(440px, 100%);
   padding: var(--space-6);
   border-radius: var(--radius);
+}
+
+.auth-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.auth-toolbar .brand {
+  margin-bottom: 0;
 }
 
 .auth-card h1 {

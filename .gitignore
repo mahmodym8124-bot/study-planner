@@ -8,5 +8,5 @@ uploads/
 
 .vercel
 .vercel-env-check
-playwright-report/
 test-results/
+playwright-report/
