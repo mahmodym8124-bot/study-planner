@@ -7,6 +7,7 @@ const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
 const OFFLINE_TOKEN_PREFIX = 'offline-token:';
 const OFFLINE_HOST = window.location.hostname.endsWith('github.io');
+const OFFLINE_MODE_ENABLED = false;
 
 export const storage = {
   get token() {
@@ -315,7 +316,11 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const isOfflineToken = storage.token?.startsWith(OFFLINE_TOKEN_PREFIX);
   const isAuthRoute = path.startsWith('/auth/login') || path.startsWith('/auth/register');
   
-  if (OFFLINE_HOST && isOfflineToken && !isAuthRoute) {
+  if (!OFFLINE_MODE_ENABLED && isOfflineToken) {
+    storage.token = null;
+  }
+
+  if (OFFLINE_MODE_ENABLED && OFFLINE_HOST && isOfflineToken && !isAuthRoute) {
     return offlineRequest(path, { method, body, headers });
   }
 
@@ -342,9 +347,8 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     const data = await parseJSON(response);
 
     if (!response.ok) {
-      // Improved fallback logic: allow auth routes to fallback if the server returns a bare 401 or if we're in offline host.
       const isBareError = !data.message && !data.errors;
-      const shouldFallback = OFFLINE_HOST && (response.status === 401 || response.status === 404 || response.status >= 500) && isBareError;
+      const shouldFallback = OFFLINE_MODE_ENABLED && OFFLINE_HOST && (response.status === 401 || response.status === 404 || response.status >= 500) && isBareError;
       
       if (shouldFallback) return offlineRequest(path, { method, body, headers });
       
@@ -368,8 +372,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 
     return data;
   } catch (error) {
-    // If the network request fails completely, fallback to offline if on GitHub Pages.
-    if (OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
+    if (OFFLINE_MODE_ENABLED && OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
     throw error;
   }
 }
