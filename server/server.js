@@ -137,15 +137,7 @@ app.use(['/api/auth/login', '/api/auth/register'], rateLimit({
 }));
 
 async function requireDatabase(_req, res, next) {
-  if (databaseStatus().connected) return next();
-
-  try {
-    await connectDB(process.env.MONGODB_URI);
-  } catch (error) {
-    console.error('MongoDB connection failed:', error.message);
-  }
-
-  if (!databaseStatus().connected) {
+  if (!(await ensureDatabaseConnected())) {
     return res.status(503).json({
       message: 'Database is not connected. Check MONGODB_URI and MongoDB Atlas Network Access.'
     });
@@ -154,7 +146,27 @@ async function requireDatabase(_req, res, next) {
   return next();
 }
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'MindVault API', database: databaseStatus() }));
+async function ensureDatabaseConnected() {
+  if (databaseStatus().connected) return true;
+  try {
+    await connectDB(process.env.MONGODB_URI);
+  } catch (error) {
+    console.error('MongoDB connection failed:', error.message);
+  }
+  return databaseStatus().connected;
+}
+
+app.get('/api/health', async (_req, res) => {
+  const configured = Boolean(String(process.env.MONGODB_URI || '').trim());
+  const connected = configured && (await ensureDatabaseConnected());
+  const database = databaseStatus();
+  return res.status(connected ? 200 : 503).json({
+    ok: connected,
+    name: 'MindVault API',
+    database,
+    configured
+  });
+});
 app.use('/api/auth', requireDatabase, authRoutes);
 app.use('/api/notes', requireDatabase, noteRoutes);
 app.use('/api/ideas', requireDatabase, ideaRoutes);
