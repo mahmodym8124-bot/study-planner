@@ -12,6 +12,8 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "lint": "eslint client server --ext .js"
+    ,
+    "ts:build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -36,6 +38,7 @@
     "eslint": "^10.2.1",
     "globals": "^17.5.0",
     "nodemon": "^3.1.9",
+    "typescript": "^6.0.3",
     "vite": "^8.0.10"
   }
 }

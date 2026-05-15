@@ -1,0 +1,15 @@
+{
+  "project":"study-planner",
+  "summary":"Node+Express backend, Vite frontend (vanilla JS), MongoDB. Key files and recommended read order for agents.",
+  "files":{
+    "root": ["README.md","AGENTS.md","AGENT_CONTEXT.md","package.json"],
+    "server": ["server/server.js","server/controllers/","server/routes/","server/models/"],
+    "api": ["api/index.js"],
+    "client": ["client/js/main.js","client/js/api.js","client/js/store.js","index.html","styles/app.css"],
+    "docs": ["docs/README.md","docs/api.md","docs/agent.md"]
+  },
+  "indexing":{
+    "include": ["docs/","server/","client/js/"],
+    "exclude": ["*.env*","node_modules/","public/manifest.webmanifest"]
+  }
+}
