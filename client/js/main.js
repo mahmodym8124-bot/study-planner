@@ -135,12 +135,20 @@ function render() {
 
 function renderLanding() {
   app.className = 'app-shell';
+  const currentLang = i18n.language?.split('-')[0] || 'en';
+  const langOptions = {
+    'en': { next: 'ar', label: t('lang.toArabic') },
+    'ar': { next: 'ckb', label: t('lang.toKurdish') },
+    'ckb': { next: 'en', label: t('lang.toEnglish') }
+  };
+  const langOption = langOptions[currentLang] || langOptions['en'];
+  
   app.innerHTML = `
     <section class="landing">
       <nav class="nav surface">
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
         <div class="nav-links">
-          <button type="button" class="btn lang-landing" id="lang-landing">${i18n.language?.startsWith('ar') ? t('lang.toEnglish') : t('lang.toArabic')}</button>
+          <button type="button" class="btn lang-landing" id="lang-landing">${langOption.label}</button>
           <a href="#/login">${t('landing.signIn')}</a>
           <a class="btn primary" href="#/signup">${t('landing.startWorkspace')}</a>
         </div>
@@ -179,8 +187,7 @@ function renderLanding() {
     </section>
   `;
   document.querySelector('#lang-landing')?.addEventListener('click', () => {
-    const next = i18n.language?.startsWith('ar') ? 'en' : 'ar';
-    i18n.changeLanguage(next);
+    i18n.changeLanguage(langOption.next);
   });
 
   const visual = document.querySelector('.hero-visual');
@@ -192,12 +199,20 @@ function renderLanding() {
 
 function renderAuth(signup) {
   app.className = 'app-shell';
+  const currentLang = i18n.language?.split('-')[0] || 'en';
+  const langOptions = {
+    'en': { next: 'ar', label: t('lang.toArabic') },
+    'ar': { next: 'ckb', label: t('lang.toKurdish') },
+    'ckb': { next: 'en', label: t('lang.toEnglish') }
+  };
+  const langOption = langOptions[currentLang] || langOptions['en'];
+  
   app.innerHTML = `
     <section class="auth-page">
       <form class="auth-card surface" id="auth-form">
         <div class="auth-toolbar">
           <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
-          <button type="button" class="btn" id="lang-auth">${i18n.language?.startsWith('ar') ? t('lang.toEnglish') : t('lang.toArabic')}</button>
+          <button type="button" class="btn" id="lang-auth">${langOption.label}</button>
         </div>
         <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
         <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
@@ -214,7 +229,7 @@ function renderAuth(signup) {
   `;
 
   document.querySelector('#lang-auth').onclick = () => {
-    i18n.changeLanguage(i18n.language?.startsWith('ar') ? 'en' : 'ar');
+    i18n.changeLanguage(langOption.next);
   };
 
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');

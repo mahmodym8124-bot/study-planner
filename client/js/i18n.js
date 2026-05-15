@@ -2,12 +2,20 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import en from '../locales/en.json';
 import ar from '../locales/ar.json';
+import ckb from '../locales/ckb.json';
+
+// RTL languages
+const RTL_LANGUAGES = ['ar', 'ckb'];
 
 export function syncDocumentLang() {
   const lng = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
-  const isAr = lng === 'ar';
-  document.documentElement.lang = isAr ? 'ar' : 'en';
-  document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+  const isRTL = RTL_LANGUAGES.includes(lng);
+  
+  document.documentElement.lang = lng;
+  document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+  document.body.classList.toggle('rtl', isRTL);
+  document.body.classList.toggle('ltr', !isRTL);
+  
   document.title = i18n.t('meta.pageTitle');
   const metaDesc = document.querySelector('meta[name="description"]');
   if (metaDesc) metaDesc.setAttribute('content', i18n.t('meta.description'));
@@ -18,10 +26,11 @@ export function syncDocumentLang() {
 i18n.use(LanguageDetector).init({
   resources: {
     en: { translation: en },
-    ar: { translation: ar }
+    ar: { translation: ar },
+    ckb: { translation: ckb }
   },
   fallbackLng: 'en',
-  supportedLngs: ['en', 'ar'],
+  supportedLngs: ['en', 'ar', 'ckb'],
   interpolation: { escapeValue: false },
   detection: {
     order: ['localStorage', 'navigator'],
