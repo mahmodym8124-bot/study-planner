@@ -55,7 +55,7 @@
     "feat2Title": "Plan clearly",
     "feat2Body": "Move ideas through a compact board and keep your focus list visible.",
     "feat3Title": "Deploy ready",
-    "feat3Body": "Vite, Express, MongoDB, JWT auth, and Vercel configuration are already wired."
+    "feat3Body": "Built with modern tools. Ship with confidence from day one."
   },
   "auth": {
     "createWorkspace": "Create your workspace",

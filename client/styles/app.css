@@ -83,11 +83,14 @@ body {
 html[lang='ar'] body {
   font-family: 'Tajawal', 'Inter', ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0;
+  line-height: 1.7;
 }
 
 html[lang='kmr'] body {
   font-family: 'Tajawal', 'Inter', ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0;
+  line-height: 1.8;
+  word-spacing: 0.15em;
 }
 
 html[dir='rtl'] .search-wrap .icon-mark {
@@ -484,6 +487,23 @@ body.light .select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  line-height: 1.65;
+}
+
+.feature {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feature b {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+html[dir='rtl'] .feature b,
+html[dir='rtl'] .feature span {
+  text-align: right;
 }
 
 .mini-stat strong {

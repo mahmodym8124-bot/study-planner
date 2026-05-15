@@ -55,7 +55,7 @@
     "feat2Title": "پلانکردنی روونتر",
     "feat2Body": "ئیدیا بەسەر بۆردی یەکپارچە جوڵاندنی بکە و لیستی تێدەرکەوی هیناردەکات.",
     "feat3Title": "ئامادەی بڵاوکردنەوە",
-    "feat3Body": "Vite، Express، MongoDB، JWT authentication، و Vercel setup پێشتر ئامادە بوون."
+    "feat3Body": "بە ئامرازی نوێدا بنیات کراو. لە ڕۆژی یەکەمدا بە باوەڕ بڵاو بکە."
   },
   "auth": {
     "createWorkspace": "جهێ کاریت دروستت بکە",
