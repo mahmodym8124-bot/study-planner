@@ -1699,6 +1699,77 @@ body.light .tag {
   font-weight: 600;
 }
 
+/* ── Language Menu ── */
+.lang-menu {
+  position: relative;
+}
+
+.lang-toggle {
+  padding: 0.55rem 0.85rem !important;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 160px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.lang-menu.open .lang-dropdown {
+  display: flex;
+}
+
+.lang-option {
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.lang-option:hover {
+  background: var(--card);
+}
+
+.lang-option.active {
+  background: rgba(101, 228, 212, 0.12);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.lang-option .checkmark {
+  color: var(--brand);
+  font-weight: 900;
+  margin-left: auto;
+}
+
+html[dir='rtl'] .lang-dropdown {
+  right: auto;
+  left: 0;
+}
+
+html[dir='rtl'] .lang-option .checkmark {
+  margin-left: 0;
+  margin-right: auto;
+}
+
 /* ── Next-up card ── */
 .next-up-card {
   display: flex;

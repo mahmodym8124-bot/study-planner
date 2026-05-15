@@ -7,6 +7,32 @@ import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 
 const t = i18n.t.bind(i18n);
 
+function setupLanguageMenu(menuId, toggleId, dropdownId) {
+  const menu = document.getElementById(menuId);
+  const toggle = document.getElementById(toggleId);
+  const dropdown = document.getElementById(dropdownId);
+  
+  if (!menu || !toggle || !dropdown) return;
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+
+  dropdown.querySelectorAll('.lang-option').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const lang = btn.dataset.lang;
+      i18n.changeLanguage(lang);
+      menu.classList.remove('open');
+    });
+  });
+
+  document.addEventListener('click', () => {
+    menu.classList.remove('open');
+  });
+}
+
 i18n.on('languageChanged', () => {
   render();
 });
@@ -136,20 +162,24 @@ function render() {
 function renderLanding() {
   app.className = 'app-shell';
   const currentLang = i18n.language?.split('-')[0] || 'en';
-  const langCycle = { 'en': 'ar', 'ar': 'kmr', 'kmr': 'en' };
-  const nextLang = langCycle[currentLang] || 'ar';
-  const langLabel = {
-    'en': t('lang.toArabic'),
-    'ar': t('lang.toKurdish'),
-    'kmr': t('lang.toEnglish')
-  };
+  const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
 
   app.innerHTML = `
     <section class="landing">
       <nav class="nav surface">
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
         <div class="nav-links">
-          <button type="button" class="btn lang-landing" id="lang-landing">${langLabel[currentLang]}</button>
+          <div class="lang-menu" id="lang-menu-landing">
+            <button type="button" class="btn lang-toggle" id="lang-toggle-landing">${langs[currentLang]}</button>
+            <div class="lang-dropdown" id="lang-dropdown-landing">
+              ${['en', 'ar', 'kmr'].map(lang => `
+                <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+                  ${langs[lang]}
+                  ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+                </button>
+              `).join('')}
+            </div>
+          </div>
           <a href="#/login">${t('landing.signIn')}</a>
           <a class="btn primary" href="#/signup">${t('landing.startWorkspace')}</a>
         </div>
@@ -187,9 +217,8 @@ function renderLanding() {
       </section>
     </section>
   `;
-  document.querySelector('#lang-landing')?.addEventListener('click', () => {
-    i18n.changeLanguage(nextLang);
-  });
+  
+  setupLanguageMenu('lang-menu-landing', 'lang-toggle-landing', 'lang-dropdown-landing');
 
   const visual = document.querySelector('.hero-visual');
   loadScenes().then(({ createHeroScene }) => {
@@ -201,20 +230,24 @@ function renderLanding() {
 function renderAuth(signup) {
   app.className = 'app-shell';
   const currentLang = i18n.language?.split('-')[0] || 'en';
-  const langCycle = { 'en': 'ar', 'ar': 'kmr', 'kmr': 'en' };
-  const nextLang = langCycle[currentLang] || 'ar';
-  const langLabel = {
-    'en': t('lang.toArabic'),
-    'ar': t('lang.toKurdish'),
-    'kmr': t('lang.toEnglish')
-  };
+  const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
   
   app.innerHTML = `
     <section class="auth-page">
       <form class="auth-card surface" id="auth-form">
         <div class="auth-toolbar">
           <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
-          <button type="button" class="btn" id="lang-auth">${langLabel[currentLang]}</button>
+          <div class="lang-menu" id="lang-menu-auth">
+            <button type="button" class="btn lang-toggle" id="lang-toggle-auth">${langs[currentLang]}</button>
+            <div class="lang-dropdown" id="lang-dropdown-auth">
+              ${['en', 'ar', 'kmr'].map(lang => `
+                <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+                  ${langs[lang]}
+                  ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+                </button>
+              `).join('')}
+            </div>
+          </div>
         </div>
         <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
         <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
@@ -230,9 +263,7 @@ function renderAuth(signup) {
     </section>
   `;
 
-  document.querySelector('#lang-auth').onclick = () => {
-    i18n.changeLanguage(nextLang);
-  };
+  setupLanguageMenu('lang-menu-auth', 'lang-toggle-auth', 'lang-dropdown-auth');
 
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');
   document.querySelector('#auth-form').onsubmit = async (event) => {
