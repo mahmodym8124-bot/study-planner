@@ -11,7 +11,7 @@ Quick facts
 Key files & folders
 - Backend: `server/server.js`, `server/controllers/`, `server/models/`, `server/routes/`.
 - Serverless API: `api/index.js` (Vercel entry).
-- Frontend: `client/js/` (main app code), `index.html`, `styles/app.css`, `public/`.
+- Frontend: `client/js/` (main app code), `index.html`, `client/styles/app.css`, `public/`.
 - Docs/help: `README.md`, `AGENTS.md` (agent guidance).
 
 How to make an agent aware of this codebase

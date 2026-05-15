@@ -10,3 +10,5 @@ uploads/
 .vercel-env-check
 test-results/
 playwright-report/
+.continue/config.yaml
+
