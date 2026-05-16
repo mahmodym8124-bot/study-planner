@@ -222,14 +222,35 @@ export function createKnowledgeGraph(container, data, onSelect) {
   if (!renderer) return () => {};
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   camera.position.set(0, 0, 18);
+  camera.userData.targetRadius = 18;
 
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
   const nodes = [];
   const lines = [];
   const palette = { note: 0x65e4d4, file: 0x5ba7ff, idea: 0xf5c66b };
+  
+  // LOD geometries: low/med/high detail
+  const lodGeometries = {
+    note: [
+      new THREE.SphereGeometry(0.35, 8, 8),
+      new THREE.SphereGeometry(0.35, 16, 16),
+      new THREE.SphereGeometry(0.35, 24, 24)
+    ],
+    file: [
+      new THREE.SphereGeometry(0.44, 8, 8),
+      new THREE.SphereGeometry(0.44, 16, 16),
+      new THREE.SphereGeometry(0.44, 24, 24)
+    ],
+    idea: [
+      new THREE.SphereGeometry(0.35, 8, 8),
+      new THREE.SphereGeometry(0.35, 16, 16),
+      new THREE.SphereGeometry(0.35, 24, 24)
+    ]
+  };
+
   const materials = Object.fromEntries(Object.entries(palette).map(([type, color]) => [type, new THREE.MeshStandardMaterial({
     color,
     emissive: color,
@@ -237,37 +258,50 @@ export function createKnowledgeGraph(container, data, onSelect) {
     roughness: 0.28,
     metalness: 0.35
   })]));
-  const sphere = new THREE.SphereGeometry(0.35, 24, 24);
-  const fileSphere = new THREE.SphereGeometry(0.44, 24, 24);
+
   const source = data.length ? data : [{ id: 'welcome', type: 'note', title: i18n.t('graph.placeholderNode') }];
+  
+  // Limit edges by weight for performance
+  const edgesByWeight = [];
 
   source.forEach((item, index) => {
-    const mesh = new THREE.Mesh(item.type === 'file' ? fileSphere : sphere, materials[item.type] || materials.note);
+    const type = item.type || 'note';
+    const mesh = new THREE.Mesh(lodGeometries[type][2], materials[type] || materials.note);
     const angle = (index / source.length) * Math.PI * 2;
     const radius = 3.2 + (index % 5) * 0.72;
     mesh.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, (Math.random() - 0.5) * 4);
     mesh.userData = {
       ...item,
-      velocity: new THREE.Vector3((Math.random() - 0.5) * 0.005, (Math.random() - 0.5) * 0.005, 0)
+      velocity: new THREE.Vector3((Math.random() - 0.5) * 0.005, (Math.random() - 0.5) * 0.005, 0),
+      lodLevel: 2
     };
     scene.add(mesh);
     nodes.push(mesh);
   });
 
   const lineMat = new THREE.LineBasicMaterial({ color: 0x8ad9ff, transparent: true, opacity: 0.26 });
-  function createLine(a, b) {
+  function createLine(a, b, weight = 1) {
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
     const line = new THREE.Line(lineGeo, lineMat);
     scene.add(line);
-    lines.push({ line, a, b });
+    lines.push({ line, a, b, weight });
   }
 
+  // Create edges with weight tracking
   for (let i = 0; i < nodes.length; i += 1) {
     for (let j = i + 1; j < nodes.length; j += 1) {
-      if (i % 3 === j % 3 || Math.random() > 0.8) createLine(nodes[i], nodes[j]);
+      const weight = (i % 3 === j % 3 ? 2 : 0) + (Math.random() > 0.8 ? 1 : 0);
+      if (weight > 0) edgesByWeight.push({ i, j, weight });
     }
   }
+
+  // Sort by weight and take top 50%
+  edgesByWeight.sort((a, b) => b.weight - a.weight);
+  const maxEdges = Math.ceil(edgesByWeight.length * 0.5);
+  edgesByWeight.slice(0, maxEdges).forEach(({ i, j, weight }) => {
+    createLine(nodes[i], nodes[j], weight);
+  });
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.72));
   const light = new THREE.PointLight(0x65e4d4, 3.8, 30);
@@ -276,6 +310,13 @@ export function createKnowledgeGraph(container, data, onSelect) {
 
   let dragging = null;
   const stopResize = observeElementSize(container, renderer, camera);
+
+  // Orbit controls state
+  const orbit = {
+    theta: 0,
+    phi: Math.PI * 0.35,
+    radius: camera.userData.targetRadius
+  };
 
   function setMouse(event) {
     const rect = canvas.getBoundingClientRect();
@@ -289,25 +330,42 @@ export function createKnowledgeGraph(container, data, onSelect) {
     return raycaster.intersectObjects(nodes)[0];
   }
 
+  // Orbit controls with mouse
+  let lastX = 0, lastY = 0;
   canvas.addEventListener('pointerdown', (event) => {
     const hit = intersect(event);
-    if (!hit) return;
-    dragging = hit.object;
-    canvas.setPointerCapture(event.pointerId);
+    if (hit && event.button === 0) {
+      dragging = hit.object;
+      canvas.setPointerCapture(event.pointerId);
+    } else if (event.button === 0 || event.isPrimary) {
+      lastX = event.clientX;
+      lastY = event.clientY;
+    }
   });
 
   canvas.addEventListener('pointermove', (event) => {
     setMouse(event);
-    if (!dragging) return;
-    const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
-    const direction = vector.sub(camera.position).normalize();
-    const distance = -camera.position.z / direction.z;
-    dragging.position.copy(camera.position.clone().add(direction.multiplyScalar(distance)));
+    if (dragging) {
+      const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
+      const direction = vector.sub(camera.position).normalize();
+      const distance = -orbit.radius / direction.z;
+      dragging.position.copy(camera.position.clone().add(direction.multiplyScalar(distance)));
+    } else if (event.buttons & 1) {
+      const dX = event.clientX - lastX;
+      const dY = event.clientY - lastY;
+      orbit.theta -= dX * 0.008;
+      orbit.phi -= dY * 0.008;
+      orbit.phi = Math.max(0.1, Math.min(Math.PI - 0.1, orbit.phi));
+      lastX = event.clientX;
+      lastY = event.clientY;
+    }
   });
 
   canvas.addEventListener('pointerup', (event) => {
-    const hit = intersect(event);
-    if (hit && (!dragging || hit.object === dragging)) onSelect?.(hit.object.userData);
+    if (dragging) {
+      const hit = intersect(event);
+      if (hit && hit.object === dragging) onSelect?.(hit.object.userData);
+    }
     dragging = null;
     try {
       canvas.releasePointerCapture(event.pointerId);
@@ -316,8 +374,39 @@ export function createKnowledgeGraph(container, data, onSelect) {
     }
   });
 
+  canvas.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    orbit.radius *= 1 + (event.deltaY > 0 ? 0.1 : -0.1);
+    orbit.radius = Math.max(5, Math.min(50, orbit.radius));
+  }, { passive: false });
+
+  function updateLOD() {
+    nodes.forEach((node) => {
+      const distToCamera = node.position.distanceTo(camera.position);
+      const newLOD = distToCamera < 8 ? 2 : (distToCamera < 15 ? 1 : 0);
+
+      if (node.userData.lodLevel !== newLOD) {
+        const type = node.userData.type || 'note';
+        node.geometry.dispose();
+        node.geometry = lodGeometries[type][newLOD];
+        node.userData.lodLevel = newLOD;
+      }
+    });
+  }
+
   const stopLoop = createLoop((time) => {
     const motion = prefersReducedMotion() ? 0.2 : 1;
+
+    // Update orbit camera position
+    camera.position.x = orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
+    camera.position.y = orbit.radius * Math.cos(orbit.phi);
+    camera.position.z = orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
+    camera.lookAt(0, 0, 0);
+
+    // Update LOD based on distance
+    updateLOD();
+
+    // Update nodes
     nodes.forEach((node, index) => {
       if (node !== dragging) {
         node.position.addScaledVector(node.userData.velocity, motion);
@@ -328,6 +417,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
       node.rotation.y += 0.009 * motion;
     });
 
+    // Update lines
     lines.forEach(({ line, a, b }) => {
       const position = line.geometry.attributes.position;
       position.setXYZ(0, a.position.x, a.position.y, a.position.z);
@@ -335,7 +425,6 @@ export function createKnowledgeGraph(container, data, onSelect) {
       position.needsUpdate = true;
     });
 
-    scene.rotation.y += (pointer.x * 0.08 - scene.rotation.y) * 0.03;
     renderer.render(scene, camera);
   });
 

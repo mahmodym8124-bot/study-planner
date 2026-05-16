@@ -72,7 +72,12 @@ export async function getGraphNodes(req, res) {
     });
   });
 
-  res.json({ nodes, edges, count: { notes: notes.length, ideas: ideas.length } });
+  // Sort by weight and limit to top N edges for performance
+  edges.sort((a, b) => b.weight - a.weight);
+  const maxEdges = Math.min(edges.length, nodes.length * 3);
+  const limitedEdges = edges.slice(0, maxEdges);
+
+  res.json({ nodes, edges: limitedEdges, count: { notes: notes.length, ideas: ideas.length } });
 }
 
 export async function getGraphNode(req, res) {
