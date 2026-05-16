@@ -288,6 +288,19 @@ export function createKnowledgeGraph(container, data, onSelect) {
     lines.push({ line, a, b, weight });
   }
 
+  // Frustum for culling
+  const frustum = new THREE.Frustum();
+  const projScreenMatrix = new THREE.Matrix4();
+
+  function updateFrustumCulling() {
+    projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    frustum.setFromProjectionMatrix(projScreenMatrix);
+  }
+
+  function isSphereInFrustum(position, radius = 0.35) {
+    return frustum.intersectsSphere(new THREE.Sphere(position, radius));
+  }
+
   // Create edges with weight tracking
   for (let i = 0; i < nodes.length; i += 1) {
     for (let j = i + 1; j < nodes.length; j += 1) {
@@ -403,10 +416,16 @@ export function createKnowledgeGraph(container, data, onSelect) {
     camera.position.z = orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
     camera.lookAt(0, 0, 0);
 
+    // Update frustum for culling
+    updateFrustumCulling();
+
     // Update LOD based on distance
     updateLOD();
 
-    // Update nodes
+    let visibleNodes = 0;
+    let visibleEdges = 0;
+
+    // Update nodes with frustum culling
     nodes.forEach((node, index) => {
       if (node !== dragging) {
         node.position.addScaledVector(node.userData.velocity, motion);
@@ -415,17 +434,33 @@ export function createKnowledgeGraph(container, data, onSelect) {
         node.position.z += Math.sin(time * 0.001 + index) * 0.0016 * motion;
       }
       node.rotation.y += 0.009 * motion;
+      node.visible = isSphereInFrustum(node.position, 0.44);
+      if (node.visible) visibleNodes += 1;
     });
 
-    // Update lines
+    // Update lines with frustum culling
     lines.forEach(({ line, a, b }) => {
-      const position = line.geometry.attributes.position;
-      position.setXYZ(0, a.position.x, a.position.y, a.position.z);
-      position.setXYZ(1, b.position.x, b.position.y, b.position.z);
-      position.needsUpdate = true;
+      const bothVisible = a.visible && b.visible;
+      line.visible = bothVisible;
+      if (bothVisible) {
+        visibleEdges += 1;
+        const position = line.geometry.attributes.position;
+        position.setXYZ(0, a.position.x, a.position.y, a.position.z);
+        position.setXYZ(1, b.position.x, b.position.y, b.position.z);
+        position.needsUpdate = true;
+      }
     });
 
     renderer.render(scene, camera);
+
+    // Store for debugging
+    window.__graphMetrics = {
+      totalNodes: nodes.length,
+      visibleNodes,
+      totalEdges: lines.length,
+      visibleEdges,
+      cameraDistance: orbit.radius
+    };
   });
 
   return () => cleanup(renderer, scene, stopLoop, stopResize);
