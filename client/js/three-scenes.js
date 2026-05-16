@@ -331,6 +331,10 @@ export function createKnowledgeGraph(container, data, onSelect) {
     radius: camera.userData.targetRadius
   };
 
+  // Touch tracking
+  const touches = new Map();
+  let lastTouchDistance = 0;
+
   function setMouse(event) {
     const rect = canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -343,27 +347,39 @@ export function createKnowledgeGraph(container, data, onSelect) {
     return raycaster.intersectObjects(nodes)[0];
   }
 
-  // Orbit controls with mouse
+  function getTouchDistance(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Orbit controls with mouse and touch
   let lastX = 0, lastY = 0;
   canvas.addEventListener('pointerdown', (event) => {
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const hit = intersect(event);
-    if (hit && event.button === 0) {
+    if (hit && event.button === 0 && touches.size === 1) {
       dragging = hit.object;
       canvas.setPointerCapture(event.pointerId);
-    } else if (event.button === 0 || event.isPrimary) {
+    } else if ((event.button === 0 || event.isPrimary) && touches.size === 1) {
       lastX = event.clientX;
       lastY = event.clientY;
+    }
+    if (touches.size === 2) {
+      const touchArray = Array.from(touches.values());
+      lastTouchDistance = getTouchDistance(touchArray[0], touchArray[1]);
     }
   });
 
   canvas.addEventListener('pointermove', (event) => {
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     setMouse(event);
     if (dragging) {
       const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
       const direction = vector.sub(camera.position).normalize();
       const distance = -orbit.radius / direction.z;
       dragging.position.copy(camera.position.clone().add(direction.multiplyScalar(distance)));
-    } else if (event.buttons & 1) {
+    } else if (touches.size === 1 && (event.buttons & 1)) {
       const dX = event.clientX - lastX;
       const dY = event.clientY - lastY;
       orbit.theta -= dX * 0.008;
@@ -371,6 +387,24 @@ export function createKnowledgeGraph(container, data, onSelect) {
       orbit.phi = Math.max(0.1, Math.min(Math.PI - 0.1, orbit.phi));
       lastX = event.clientX;
       lastY = event.clientY;
+    } else if (touches.size === 2) {
+      const touchArray = Array.from(touches.values());
+      const currentDistance = getTouchDistance(touchArray[0], touchArray[1]);
+      if (lastTouchDistance > 0) {
+        const scale = currentDistance / lastTouchDistance;
+        orbit.radius /= scale;
+        orbit.radius = Math.max(5, Math.min(50, orbit.radius));
+      }
+      lastTouchDistance = currentDistance;
+      const centerX = (touchArray[0].x + touchArray[1].x) / 2;
+      const centerY = (touchArray[0].y + touchArray[1].y) / 2;
+      const dX = centerX - (lastX + event.clientX) / 2;
+      const dY = centerY - (lastY + event.clientY) / 2;
+      orbit.theta -= dX * 0.004;
+      orbit.phi -= dY * 0.004;
+      orbit.phi = Math.max(0.1, Math.min(Math.PI - 0.1, orbit.phi));
+      lastX = centerX;
+      lastY = centerY;
     }
   });
 
@@ -380,6 +414,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
       if (hit && hit.object === dragging) onSelect?.(hit.object.userData);
     }
     dragging = null;
+    touches.delete(event.pointerId);
     try {
       canvas.releasePointerCapture(event.pointerId);
     } catch {
