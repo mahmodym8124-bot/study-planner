@@ -1,11 +1,26 @@
 import '../styles/app.css';
+import '../styles/error-boundary.css';
 import gsap from 'gsap';
 import i18n from './i18n.js';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
+import { globalErrorBoundary, setupErrorMonitoring, safeAPI, safeFetch, safeAddEventListener, safeAsync } from './error-utils.js';
 
 const t = i18n.t.bind(i18n);
+
+// Expose error boundary globally for API error handling
+window.__errorBoundary = globalErrorBoundary;
+
+// Initialize error monitoring and boundaries
+setupErrorMonitoring({
+  enabled: true,
+  onError: (errorObj) => {
+    if (import.meta.env.MODE === 'development') {
+      console.warn('Error boundary captured:', errorObj);
+    }
+  }
+});
 
 function setupLanguageMenu(menuId, toggleId, dropdownId) {
   const menu = document.getElementById(menuId);
@@ -148,106 +163,131 @@ async function loadWorkspace() {
 }
 
 function render() {
-  clearInterval(focusTimerId);
-  heroDispose();
-  graphDispose();
-  heroDispose = () => {};
-  graphDispose = () => {};
+  try {
+    clearInterval(focusTimerId);
+    heroDispose();
+    graphDispose();
+    heroDispose = () => {};
+    graphDispose = () => {};
 
-  if (state.route === '/' || state.route === '/landing') return renderLanding();
-  if (state.route === '/login' || state.route === '/signup') return renderAuth(state.route === '/signup');
-  return renderApp();
+    if (state.route === '/' || state.route === '/landing') return renderLanding();
+    if (state.route === '/login' || state.route === '/signup') return renderAuth(state.route === '/signup');
+    return renderApp();
+  } catch (error) {
+    globalErrorBoundary.captureError(error, 'render-error', { route: state.route });
+    
+    app.className = 'app-shell error-state';
+    app.innerHTML = `
+      <div class="error-recovery-content" style="margin: 48px auto; max-width: 480px; text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+        <h2 style="margin: 16px 0 8px;">Rendering Error</h2>
+        <p style="color: #666; margin: 0 0 24px;">Failed to render the page. Please try refreshing.</p>
+        <button class="btn primary" onclick="location.reload()" style="width: 100%;">Refresh Page</button>
+      </div>
+    `;
+  }
 }
 
 function renderLanding() {
-  app.className = 'app-shell';
-  const currentLang = i18n.language?.split('-')[0] || 'en';
-  const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
+  try {
+    app.className = 'app-shell';
+    const currentLang = i18n.language?.split('-')[0] || 'en';
+    const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
 
-  app.innerHTML = `
-    <section class="landing">
-      <nav class="nav surface">
-        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
-        <div class="nav-links">
-          <div class="lang-menu" id="lang-menu-landing">
-            <button type="button" class="btn lang-toggle" id="lang-toggle-landing">${langs[currentLang]}</button>
-            <div class="lang-dropdown" id="lang-dropdown-landing">
-              ${['en', 'ar', 'kmr'].map(lang => `
-                <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                  ${langs[lang]}
-                  ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
-                </button>
-              `).join('')}
+    app.innerHTML = `
+      <section class="landing">
+        <nav class="nav surface">
+          <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+          <div class="nav-links">
+            <div class="lang-menu" id="lang-menu-landing">
+              <button type="button" class="btn lang-toggle" id="lang-toggle-landing">${langs[currentLang]}</button>
+              <div class="lang-dropdown" id="lang-dropdown-landing">
+                ${['en', 'ar', 'kmr'].map(lang => `
+                  <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+                    ${langs[lang]}
+                    ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+            <a href="#/login">${t('landing.signIn')}</a>
+            <a class="btn primary" href="#/signup">${t('landing.startWorkspace')}</a>
+          </div>
+        </nav>
+
+        <main class="hero">
+          <div>
+            <span class="eyebrow">${icon('vault')} ${t('landing.eyebrow')}</span>
+            <h1>${t('landing.headline')} <span class="gradient-text">${t('landing.headlineAccent')}</span></h1>
+            <p>
+              ${t('landing.intro')}
+            </p>
+            <div class="hero-actions">
+              <a class="btn primary" href="#/signup">${icon('plus')} ${t('landing.createAccount')}</a>
+              <a class="btn" href="#/login">${t('landing.openWorkspace')}</a>
+            </div>
+            <div class="hero-meta">
+              <div class="mini-stat"><strong>${t('landing.miniNotes')}</strong><span class="muted">${t('landing.miniNotesSub')}</span></div>
+              <div class="mini-stat"><strong>${t('landing.miniGraph')}</strong><span class="muted">${t('landing.miniGraphSub')}</span></div>
             </div>
           </div>
-          <a href="#/login">${t('landing.signIn')}</a>
-          <a class="btn primary" href="#/signup">${t('landing.startWorkspace')}</a>
-        </div>
-      </nav>
 
-      <main class="hero">
-        <div>
-          <span class="eyebrow">${icon('vault')} ${t('landing.eyebrow')}</span>
-          <h1>${t('landing.headline')} <span class="gradient-text">${t('landing.headlineAccent')}</span></h1>
-          <p>
-            ${t('landing.intro')}
-          </p>
-          <div class="hero-actions">
-            <a class="btn primary" href="#/signup">${icon('plus')} ${t('landing.createAccount')}</a>
-            <a class="btn" href="#/login">${t('landing.openWorkspace')}</a>
+          <div id="visual" class="hero-visual">
+            <div class="floating-card">
+              <b>${t('landing.previewTitle')}</b>
+              <p class="muted">${t('landing.previewBody')}</p>
+            </div>
           </div>
-          <div class="hero-meta">
-            <div class="mini-stat"><strong>${t('landing.miniNotes')}</strong><span class="muted">${t('landing.miniNotesSub')}</span></div>
-            <div class="mini-stat"><strong>${t('landing.miniGraph')}</strong><span class="muted">${t('landing.miniGraphSub')}</span></div>
-          </div>
-        </div>
+        </main>
 
-        <div id="visual" class="hero-visual">
-          <div class="floating-card">
-            <b>${t('landing.previewTitle')}</b>
-            <p class="muted">${t('landing.previewBody')}</p>
-          </div>
-        </div>
-      </main>
-
-      <section class="features">
-        <div class="feature"><b>${t('landing.feat1Title')}</b><span class="muted">${t('landing.feat1Body')}</span></div>
-        <div class="feature"><b>${t('landing.feat2Title')}</b><span class="muted">${t('landing.feat2Body')}</span></div>
-        <div class="feature"><b>${t('landing.feat3Title')}</b><span class="muted">${t('landing.feat3Body')}</span></div>
+        <section class="features">
+          <div class="feature"><b>${t('landing.feat1Title')}</b><span class="muted">${t('landing.feat1Body')}</span></div>
+          <div class="feature"><b>${t('landing.feat2Title')}</b><span class="muted">${t('landing.feat2Body')}</span></div>
+          <div class="feature"><b>${t('landing.feat3Title')}</b><span class="muted">${t('landing.feat3Body')}</span></div>
+        </section>
       </section>
-    </section>
-  `;
-  
-  setupLanguageMenu('lang-menu-landing', 'lang-toggle-landing', 'lang-dropdown-landing');
+    `;
+    
+    setupLanguageMenu('lang-menu-landing', 'lang-toggle-landing', 'lang-dropdown-landing');
 
-  const visual = document.querySelector('.hero-visual');
-  loadScenes().then(({ createHeroScene }) => {
-    if (document.body.contains(visual)) heroDispose = createHeroScene(visual);
-  }).catch(() => {});
-  gsap.from('.hero > *, .feature', { y: 18, opacity: 0, stagger: 0.06, duration: 0.5, ease: 'power2.out' });
+    const visual = document.querySelector('.hero-visual');
+    loadScenes().then(({ createHeroScene }) => {
+      if (document.body.contains(visual)) heroDispose = createHeroScene(visual);
+    }).catch(() => {});
+    gsap.from('.hero > *, .feature', { y: 18, opacity: 0, stagger: 0.06, duration: 0.5, ease: 'power2.out' });
+  } catch (error) {
+    globalErrorBoundary.captureError(error, 'render-landing', {});
+    app.className = 'app-shell error-state';
+    app.innerHTML = `
+      <div style="padding: 48px; text-align: center;">
+        <p style="color: #666;">Failed to load landing page. Please refresh.</p>
+      </div>
+    `;
+  }
 }
 
 function renderAuth(signup) {
-  app.className = 'app-shell';
-  const currentLang = i18n.language?.split('-')[0] || 'en';
-  const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
-  
-  app.innerHTML = `
-    <section class="auth-page">
-      <form class="auth-card surface" id="auth-form">
-        <div class="auth-toolbar">
-          <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
-          <div class="lang-menu" id="lang-menu-auth">
-            <button type="button" class="btn lang-toggle" id="lang-toggle-auth">${langs[currentLang]}</button>
-            <div class="lang-dropdown" id="lang-dropdown-auth">
-              ${['en', 'ar', 'kmr'].map(lang => `
-                <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                  ${langs[lang]}
-                  ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
-                </button>
-              `).join('')}
+  try {
+    app.className = 'app-shell';
+    const currentLang = i18n.language?.split('-')[0] || 'en';
+    const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
+    
+    app.innerHTML = `
+      <section class="auth-page">
+        <form class="auth-card surface" id="auth-form">
+          <div class="auth-toolbar">
+            <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+            <div class="lang-menu" id="lang-menu-auth">
+              <button type="button" class="btn lang-toggle" id="lang-toggle-auth">${langs[currentLang]}</button>
+              <div class="lang-dropdown" id="lang-dropdown-auth">
+                ${['en', 'ar', 'kmr'].map(lang => `
+                  <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+                    ${langs[lang]}
+                    ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+                  </button>
+                `).join('')}
+              </div>
             </div>
-          </div>
         </div>
         <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
         <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
@@ -301,6 +341,15 @@ function renderAuth(signup) {
       toast(message, 'error');
     }
   };
+  } catch (error) {
+    globalErrorBoundary.captureError(error, 'render-auth', { signup });
+    app.className = 'app-shell error-state';
+    app.innerHTML = `
+      <div style="padding: 48px; text-align: center;">
+        <p style="color: #666;">Failed to load authentication page. Please refresh.</p>
+      </div>
+    `;
+  }
 }
 
 function navItems() {

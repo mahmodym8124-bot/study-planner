@@ -342,8 +342,14 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     opts.body = JSON.stringify(body);
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
   try {
-    const response = await fetch(`${API_BASE}${path}`, opts);
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...opts,
+      signal: controller.signal
+    });
     const data = await parseJSON(response);
 
     if (!response.ok) {
@@ -372,8 +378,19 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 
     return data;
   } catch (error) {
+    clearTimeout(timeout);
+    
+    // Capture error for error boundary
+    if (typeof window !== 'undefined' && window.__errorBoundary) {
+      const source = error.name === 'AbortError' ? 'api-timeout' : 'api-error';
+      const context = { path, method, status: error.status };
+      window.__errorBoundary.captureError(error, source, context);
+    }
+    
     if (OFFLINE_MODE_ENABLED && OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
