@@ -13,6 +13,9 @@ import noteRoutes from './routes/noteRoutes.js';
 import ideaRoutes from './routes/ideaRoutes.js';
 import workspaceRoutes from './routes/workspaceRoutes.js';
 import productivityRoutes from './routes/productivityRoutes.js';
+import focusRoutes from './routes/focusRoutes.js';
+import graphRoutes from './routes/graphRoutes.js';
+import searchRoutes from './routes/searchRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,7 +113,26 @@ function startupMetadata(port) {
 }
 
 app.set('trust proxy', 1);
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://*.mongodb.net']
+    }
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  permissionsPolicy: {
+    camera: [],
+    microphone: [],
+    geolocation: []
+  }
+}));
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = parseAllowedOrigins();
@@ -172,6 +194,9 @@ app.use('/api/notes', requireDatabase, noteRoutes);
 app.use('/api/ideas', requireDatabase, ideaRoutes);
 app.use('/api/workspace', requireDatabase, workspaceRoutes);
 app.use('/api/productivity', requireDatabase, productivityRoutes);
+app.use('/api/focus', requireDatabase, focusRoutes);
+app.use('/api/graph', requireDatabase, graphRoutes);
+app.use('/api/search', requireDatabase, searchRoutes);
 
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {

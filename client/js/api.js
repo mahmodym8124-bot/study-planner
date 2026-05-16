@@ -385,7 +385,7 @@ export const api = {
   me: () => request('/auth/me'),
   stats: () => request('/workspace/stats'),
   activity: () => request('/workspace/activity'),
-  search: (q) => request(`/workspace/search?q=${encodeURIComponent(q)}`),
+  search: (q) => request(`/search?q=${encodeURIComponent(q)}`),
   notes: () => request('/notes'),
   saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
@@ -393,5 +393,16 @@ export const api = {
   saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }),
   deleteIdea: (id) => request(`/ideas/${id}`, { method: 'DELETE' }),
   productivity: () => request('/productivity'),
-  saveProductivity: (payload) => request('/productivity', { method: 'PUT', body: payload })
+  saveProductivity: (payload) => request('/productivity', { method: 'PUT', body: payload }),
+  // Focus sessions
+  startFocusSession: (payload) => request('/focus/sessions', { method: 'POST', body: payload }),
+  getFocusSessions: (limit = 30, skip = 0) => request(`/focus/sessions?limit=${limit}&skip=${skip}`),
+  updateFocusSession: (id, payload) => request(`/focus/sessions/${id}`, { method: 'PUT', body: payload }),
+  // Daily focus
+  getDailyFocus: () => request('/focus/daily'),
+  saveDailyFocus: (payload) => request('/focus/daily', { method: 'POST', body: payload }),
+  completeDailyFocus: () => request('/focus/daily/complete', { method: 'POST' }),
+  // Graph
+  getGraphNodes: () => request('/graph/nodes'),
+  getGraphNode: (id) => request(`/graph/nodes/${id}`)
 };
