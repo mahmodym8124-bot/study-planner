@@ -381,9 +381,9 @@ function computeStreak(activity = []) {
 function dashboardInsights() {
   const todos = state.productivity.todos || [];
   const doneTodos = todos.filter((todo) => todo.done).length;
-  const activeIdeas = state.ideas.filter((idea) => idea.status === 'Active' || idea.status === 'Review').length;
+  const activeIdeas = state.stats.ideasInMotion || state.ideas.filter((idea) => idea.status === 'Active' || idea.status === 'Review').length;
   const pinnedNotes = state.notes.filter((note) => note.pinned || note.favorite).length;
-  const recentNotes = state.notes.filter((note) => daysAgo(note.updatedAt || note.createdAt) <= 7).length;
+  const recentNotes = state.stats.recentNotes || state.notes.filter((note) => daysAgo(note.updatedAt || note.createdAt) <= 7).length;
   const streak = computeStreak(state.activity);
   const completion = todos.length ? (doneTodos / todos.length) * 100 : 0;
   const focusDepth = state.productivity.focus?.trim() ? 18 : 0;
@@ -397,7 +397,9 @@ function dashboardInsights() {
     recentNotes,
     streak,
     completion,
-    focusScore
+    focusScore,
+    focusSessionsToday: state.stats.focusSessionsToday || 0,
+    focusSessionsTotal: state.stats.focusSessionsTotal || 0
   };
 }
 
@@ -611,9 +613,9 @@ function renderDashboard(root) {
     <div class="grid stats">
       ${[
         [t('dash.statNotes'), state.stats.notes || 0, t('dash.statRecentNotes', { n: insights.recentNotes }), 'var(--brand)', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
-
         [t('dash.statIdeas'), state.stats.ideas || 0, t('dash.statIdeasMotion', { n: insights.activeIdeas }), 'var(--accent)', sparkFromPercent(state.stats.ideas ? (insights.activeIdeas / state.stats.ideas) * 100 : 12)],
-        [t('dash.statTasks'), insights.todos.length || 0, t('dash.statTasksDone', { pct: formatPercent(insights.completion) }), 'var(--success)', sparkFromPercent(insights.completion)]
+        [t('dash.statTasks'), insights.todos.length || 0, t('dash.statTasksDone', { pct: formatPercent(insights.completion) }), 'var(--success)', sparkFromPercent(insights.completion)],
+        [t('dash.focus'), insights.focusSessionsToday || 0, t('focus.sessionsDoneMany', { count: insights.focusSessionsToday }), 'var(--info)', sparkFromPercent(Math.min((insights.focusSessionsToday / 4) * 100, 100))]
       ].map(([label, value, detail, color, spark]) => `
         <div class="card stat-card glass" style="--glow:${color}">
           <span class="muted eyebrow-small">${escapeHTML(label)}</span>
