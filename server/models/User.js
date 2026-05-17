@@ -19,7 +19,7 @@ userSchema.methods.comparePassword = function comparePassword(candidate) {
 };
 
 userSchema.methods.toSafeJSON = function toSafeJSON() {
-  return { id: this._id, name: this.name, email: this.email, theme: this.theme };
+  return { _id: this._id, name: this.name, email: this.email, theme: this.theme };
 };
 
 export default mongoose.model('User', userSchema);

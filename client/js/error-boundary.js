@@ -285,7 +285,7 @@ export class ComponentBoundary {
     }
   }
 
-  defaultFallback(error) {
+  defaultFallback() {
     return `
       <div class="component-error-boundary">
         <div class="error-icon">⚠️</div>

@@ -15,8 +15,8 @@ import { validate } from '../middleware/validate.js';
 const router = Router();
 router.use(asyncHandler(protect));
 
-// Focus sessions
-router.post('/sessions', [
+// Focus sessions - simplified paths
+router.post('/start', [
   body('taskId').optional().isMongoId(),
   body('taskModel').optional().isIn(['Note', 'Idea']),
   body('taskName').optional().trim().isLength({ max: 256 }),
@@ -24,9 +24,9 @@ router.post('/sessions', [
   body('breakDurationMinutes').optional().isInt({ min: 1, max: 60 }).toInt()
 ], validate, asyncHandler(startFocusSession));
 
-router.get('/sessions', asyncHandler(getFocusSessions));
+router.get('/', asyncHandler(getFocusSessions));
 
-router.put('/sessions/:id', [
+router.put('/:id', [
   body('status').optional().isIn(['active', 'paused', 'completed', 'abandoned']),
   body('elapsedSeconds').optional().isInt({ min: 0 }).toInt(),
   body('currentPhase').optional().isIn(['work', 'break']),
@@ -34,12 +34,12 @@ router.put('/sessions/:id', [
 ], validate, asyncHandler(updateFocusSession));
 
 // Daily focus
-router.get('/daily', asyncHandler(getDailyFocus));
+router.get('/daily-focus', asyncHandler(getDailyFocus));
 
-router.post('/daily', [
+router.post('/daily-focus', [
   body('focusStatement').optional().trim().isLength({ max: 2000 })
 ], validate, asyncHandler(saveDailyFocus));
 
-router.post('/daily/complete', asyncHandler(completeDailyFocus));
+router.post('/daily-focus/complete', asyncHandler(completeDailyFocus));
 
 export default router;

@@ -79,7 +79,7 @@ export async function safeAPI(apiMethod, context = {}) {
  * Get user-friendly error message
  */
 export function getErrorMessage(errorInfo) {
-  const { source, status } = errorInfo;
+  const { source } = errorInfo;
 
   const messages = {
     'auth-error': 'Your session has expired. Please log in again.',
@@ -181,7 +181,7 @@ export const safeStorage = {
  * Provides recovery actions for specific error scenarios
  */
 export class ErrorRecovery {
-  static async handleAuthError(message) {
+  static async handleAuthError() {
     // Trigger auth refresh or redirect to login
     window.dispatchEvent(new CustomEvent('mindvault:auth-expired'));
   }

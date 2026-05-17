@@ -1,11 +1,11 @@
 export const testUser = {
-  username: 'testuser',
+  name: 'Test User',
   email: 'test@example.com',
   password: 'TestPassword123!'
 };
 
 export const testUser2 = {
-  username: 'testuser2',
+  name: 'Test User 2',
   email: 'test2@example.com',
   password: 'TestPassword456!'
 };
@@ -40,8 +40,8 @@ export const testIdea2 = {
 };
 
 export const testFocusSession = {
-  workDuration: 25,
-  breakDuration: 5,
+  workDurationMinutes: 25,
+  breakDurationMinutes: 5,
   status: 'pending'
 };
 

@@ -31,7 +31,7 @@ export async function stats(req, res) {
   });
 
   res.json({
-    stats: {
+    data: {
       notes,
       files,
       ideas,

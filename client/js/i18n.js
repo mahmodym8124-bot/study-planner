@@ -1,8 +1,8 @@
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import en from '../locales/en.json';
-import ar from '../locales/ar.json';
-import kmr from '../locales/kmr.json';
+import en from '../locales/en.json' with { type: 'json' };
+import ar from '../locales/ar.json' with { type: 'json' };
+import kmr from '../locales/kmr.json' with { type: 'json' };
 
 // RTL languages
 const RTL_LANGUAGES = ['ar', 'kmr'];

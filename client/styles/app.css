@@ -704,6 +704,11 @@ body.light .floating-card {
   -webkit-backdrop-filter: blur(22px);
 }
 
+html[dir='rtl'] .sidebar {
+  border-right: 0;
+  border-left: 1px solid var(--border);
+}
+
 body.light .sidebar {
   background: rgba(255, 255, 255, 0.84);
 }
@@ -784,12 +789,31 @@ body.light .sidebar {
   background: linear-gradient(180deg, var(--brand), var(--brand-strong));
 }
 
+html[dir='rtl'] .side-link.active::before {
+  left: auto;
+  right: -1px;
+  border-radius: 3px 0 0 3px;
+}
+
 .sidebar-footer {
   margin-top: auto;
 }
 
 .sidebar-footer .btn {
   justify-content: flex-start;
+  width: 100%;
+}
+
+.sidebar-footer .lang-menu {
+  width: 100%;
+}
+
+.sidebar-footer .lang-toggle {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sidebar-footer .lang-dropdown {
   width: 100%;
 }
 
@@ -925,6 +949,12 @@ body.light .sidebar {
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 680;
+}
+
+html[dir='rtl'] .study-quote {
+  border-left: 0;
+  border-right: 3px solid var(--brand);
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .focus-orb {
@@ -1892,6 +1922,10 @@ html[dir='rtl'] .lang-option .checkmark {
     width: min(var(--sidebar), calc(100vw - 48px));
     transform: translateX(-105%);
     transition: transform 0.22s ease;
+  }
+
+  html[dir='rtl'] .sidebar {
+    transform: translateX(105%);
   }
 
   .sidebar.open {

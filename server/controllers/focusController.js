@@ -20,7 +20,7 @@ export async function startFocusSession(req, res) {
   await session.save();
   await recordActivity(req.user._id, 'Started focus session', 'FocusSession', 'focus', session._id);
 
-  res.json({ session });
+  res.status(201).json({ data: session });
 }
 
 export async function getFocusSessions(req, res) {
@@ -33,7 +33,7 @@ export async function getFocusSessions(req, res) {
   
   const total = await FocusSession.countDocuments({ user: req.user._id });
   
-  res.json({ sessions, total, limit: parseInt(limit), skip: parseInt(skip) });
+  res.json({ data: sessions, total, limit: parseInt(limit), skip: parseInt(skip) });
 }
 
 export async function updateFocusSession(req, res) {
@@ -60,36 +60,29 @@ export async function updateFocusSession(req, res) {
   await session.save();
   await recordActivity(req.user._id, `Session ${status}`, 'FocusSession', 'focus', session._id);
 
-  res.json({ session });
+  res.json({ data: session });
 }
 
 export async function getDailyFocus(req, res) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let dailyFocus = await DailyFocus.findOne({
+  const dailyFocus = await DailyFocus.findOne({
     user: req.user._id,
     date: { $gte: today }
   }).lean();
 
-  if (!dailyFocus) {
-    dailyFocus = await DailyFocus.create({
-      user: req.user._id,
-      date: today,
-      focusStatement: '',
-      tasksCompleted: 0,
-      totalSessions: 0,
-      totalMinutes: 0
-    });
-  }
-
-  res.json({ dailyFocus });
+  res.json({ data: dailyFocus || null });
 }
 
 export async function saveDailyFocus(req, res) {
   const { focusStatement } = req.body;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Check if one exists first
+  const existing = await DailyFocus.findOne({ user: req.user._id, date: { $gte: today } });
+  const isNew = !existing;
 
   const dailyFocus = await DailyFocus.findOneAndUpdate(
     { user: req.user._id, date: { $gte: today } },
@@ -99,7 +92,7 @@ export async function saveDailyFocus(req, res) {
 
   await recordActivity(req.user._id, 'Updated daily focus', 'DailyFocus', 'focus', dailyFocus._id);
 
-  res.json({ dailyFocus });
+  res.status(isNew ? 201 : 200).json({ data: dailyFocus });
 }
 
 export async function completeDailyFocus(req, res) {
@@ -140,5 +133,5 @@ export async function completeDailyFocus(req, res) {
     { new: true }
   ).lean();
 
-  res.json({ dailyFocus });
+  res.json({ data: dailyFocus });
 }

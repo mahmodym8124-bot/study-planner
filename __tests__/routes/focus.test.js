@@ -29,8 +29,8 @@ describe('Focus Session APIs', () => {
         .post('/api/focus/start')
         .send(testFocusSession);
 
-      expect(res.body.data.workDuration).toBe(testFocusSession.workDuration);
-      expect(res.body.data.breakDuration).toBe(testFocusSession.breakDuration);
+      expect(res.body.data.workDurationMinutes).toBe(testFocusSession.workDurationMinutes);
+      expect(res.body.data.breakDurationMinutes).toBe(testFocusSession.breakDurationMinutes);
     });
 
     it('should set createdAt timestamp', async () => {
@@ -129,23 +129,23 @@ describe('Focus Session APIs', () => {
     it('should set daily focus statement', async () => {
       const res = await req
         .post('/api/focus/daily-focus')
-        .send({ statement: 'Complete the project milestone' });
+        .send({ focusStatement: 'Complete the project milestone' });
 
       expect(res.status).toBe(201);
-      expect(res.body.data.statement).toBe('Complete the project milestone');
+      expect(res.body.data.focusStatement).toBe('Complete the project milestone');
     });
 
     it('should update daily focus on duplicate', async () => {
       await req
         .post('/api/focus/daily-focus')
-        .send({ statement: 'First statement' });
+        .send({ focusStatement: 'First statement' });
 
       const res = await req
         .post('/api/focus/daily-focus')
-        .send({ statement: 'Updated statement' });
+        .send({ focusStatement: 'Updated statement' });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.statement).toBe('Updated statement');
+      expect(res.body.data.focusStatement).toBe('Updated statement');
     });
   });
 
@@ -153,12 +153,12 @@ describe('Focus Session APIs', () => {
     it('should get today\'s daily focus', async () => {
       await req
         .post('/api/focus/daily-focus')
-        .send({ statement: 'Daily goal' });
+        .send({ focusStatement: 'Daily goal' });
 
       const res = await req.get('/api/focus/daily-focus');
 
       expect(res.status).toBe(200);
-      expect(res.body.data).toHaveProperty('statement');
+      expect(res.body.data).toHaveProperty('focusStatement');
     });
 
     it('should return null if not set', async () => {

@@ -7,7 +7,7 @@ export default [
   {
     files: ['client/**/*.js', 'server/**/*.js'],
     languageOptions: {
-      ecmaVersion: 2023,
+      ecmaVersion: 'latest',
       sourceType: 'module',
       globals: { ...globals.browser, ...globals.node }
     },

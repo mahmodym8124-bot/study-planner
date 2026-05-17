@@ -5,7 +5,8 @@ import i18n from './i18n.js';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
-import { globalErrorBoundary, setupErrorMonitoring, safeAPI, safeFetch, safeAddEventListener, safeAsync } from './error-utils.js';
+import { setupLanguageMenu } from './language-menu.js';
+import { globalErrorBoundary, setupErrorMonitoring } from './error-utils.js';
 
 const t = i18n.t.bind(i18n);
 
@@ -21,32 +22,6 @@ setupErrorMonitoring({
     }
   }
 });
-
-function setupLanguageMenu(menuId, toggleId, dropdownId) {
-  const menu = document.getElementById(menuId);
-  const toggle = document.getElementById(toggleId);
-  const dropdown = document.getElementById(dropdownId);
-  
-  if (!menu || !toggle || !dropdown) return;
-
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.classList.toggle('open');
-  });
-
-  dropdown.querySelectorAll('.lang-option').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const lang = btn.dataset.lang;
-      i18n.changeLanguage(lang);
-      menu.classList.remove('open');
-    });
-  });
-
-  document.addEventListener('click', () => {
-    menu.classList.remove('open');
-  });
-}
 
 i18n.on('languageChanged', () => {
   render();
@@ -482,7 +457,8 @@ function emptyState(iconName, title, body, action = '') {
 function renderApp() {
   const view = currentView();
   const insights = dashboardInsights();
-  const langLabel = i18n.language?.startsWith('ar') ? t('lang.toEnglish') : t('lang.toArabic');
+  const currentLang = i18n.language?.split('-')[0] || 'en';
+  const langLabel = currentLang === 'ar' ? t('lang.toArabic') : t('lang.toEnglish');
   app.className = 'dashboard-shell';
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
@@ -502,7 +478,17 @@ function renderApp() {
         `).join('')}
       </nav>
       <div class="sidebar-footer">
-        <button class="btn" id="lang-toggle" type="button">${langLabel}</button>
+        <div class="lang-menu" id="lang-menu-sidebar">
+          <button class="btn lang-toggle" id="lang-toggle-sidebar" type="button">${langLabel}</button>
+          <div class="lang-dropdown" id="lang-dropdown-sidebar">
+            ${['en', 'ar'].map((lang) => `
+              <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+                ${lang === 'en' ? t('lang.toEnglish') : t('lang.toArabic')}
+                ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+              </button>
+            `).join('')}
+          </div>
+        </div>
         <button class="btn" id="cmd-open">${icon('command')} ${t('nav.command')}</button>
         <button class="btn" id="theme-toggle">${icon('theme')} ${t('nav.theme')}</button>
         <button class="btn danger" id="logout">${icon('logout')} ${t('nav.logout')}</button>
@@ -544,15 +530,14 @@ function renderApp() {
     </div>
   `;
 
+  setupLanguageMenu('lang-menu-sidebar', 'lang-toggle-sidebar', 'lang-dropdown-sidebar');
   bindShell();
   renderView(view);
   gsap.from('.main', { opacity: 0, y: 10, duration: 0.25, ease: 'power2.out' });
 }
 
 function bindShell() {
-  document.querySelector('#lang-toggle').onclick = () => {
-    i18n.changeLanguage(i18n.language?.startsWith('ar') ? 'en' : 'ar');
-  };
+  // Language menu handled by lang-menu dropdowns (landing/auth/sidebar). No direct toggle needed here.
   document.querySelector('#logout').onclick = () => {
     storage.token = null;
     setState({ user: null });

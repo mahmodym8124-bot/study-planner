@@ -46,7 +46,13 @@ export const getAuthToken = async (credentials = testUser) => {
 
 export const makeAuthenticatedRequest = async (credentials = testUser) => {
   const token = await getAuthToken(credentials);
-  return request(app).set('Authorization', `Bearer ${token}`);
+  // Return an object that can be used like: req.get('/path')
+  return {
+    get(path) { return request(app).get(path).set('Authorization', `Bearer ${token}`); },
+    post(path) { return request(app).post(path).set('Authorization', `Bearer ${token}`); },
+    put(path) { return request(app).put(path).set('Authorization', `Bearer ${token}`); },
+    delete(path) { return request(app).delete(path).set('Authorization', `Bearer ${token}`); }
+  };
 };
 
 export const expectStatusAndBody = (res, status, expectedKeys = []) => {

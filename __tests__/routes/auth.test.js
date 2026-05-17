@@ -27,7 +27,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send(testUser);
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       expect(res.body).toHaveProperty('error');
     });
 
@@ -36,7 +36,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send({ ...testUser, email: 'invalid' });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
     });
 
     it('should reject short password', async () => {
@@ -44,7 +44,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send({ ...testUser, password: 'short' });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
     });
   });
 
