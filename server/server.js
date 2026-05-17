@@ -226,7 +226,9 @@ export async function startServer() {
   dotenv.config();
   validateEnvironment();
   const port = getPort();
-  console.log('MindVault startup metadata:', startupMetadata(port));
+  if (process.env.NODE_ENV === 'development') {
+    console.log('MindVault startup metadata:', startupMetadata(port));
+  }
 
   await connectDB(process.env.MONGODB_URI);
 

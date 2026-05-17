@@ -31,6 +31,7 @@ const app = document.querySelector('#app');
 let heroDispose = () => {};
 let graphDispose = () => {};
 let ambientDispose = () => {};
+let ambientMounted = false;
 let scenesPromise;
 let focusTimerId;
 
@@ -82,11 +83,20 @@ function loadScenes() {
 }
 
 async function mountAmbientBackground() {
+  if (ambientMounted) return;
   const canvas = document.querySelector('#ambient-bg');
   if (!canvas) return;
   const { createAmbientBackground } = await loadScenes();
   ambientDispose();
   ambientDispose = createAmbientBackground(canvas);
+  ambientMounted = true;
+}
+
+function unmountAmbientBackground() {
+  if (!ambientMounted) return;
+  ambientDispose();
+  ambientDispose = () => {};
+  ambientMounted = false;
 }
 
 function route(path = location.hash.replace('#', '') || '/') {
@@ -101,7 +111,6 @@ function route(path = location.hash.replace('#', '') || '/') {
 window.addEventListener('hashchange', () => route(location.hash.replace('#', '') || '/'));
 
 async function bootstrap() {
-  mountAmbientBackground().catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
 
   if (storage.token) {
@@ -165,6 +174,7 @@ function render() {
 
 function renderLanding() {
   try {
+    mountAmbientBackground().catch(() => {});
     app.className = 'app-shell';
     const currentLang = i18n.language?.split('-')[0] || 'en';
     const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
@@ -243,6 +253,7 @@ function renderLanding() {
 
 function renderAuth(signup) {
   try {
+    mountAmbientBackground().catch(() => {});
     app.className = 'app-shell';
     const currentLang = i18n.language?.split('-')[0] || 'en';
     const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
@@ -455,6 +466,7 @@ function emptyState(iconName, title, body, action = '') {
 }
 
 function renderApp() {
+  unmountAmbientBackground();
   const view = currentView();
   const insights = dashboardInsights();
   const currentLang = i18n.language?.split('-')[0] || 'en';

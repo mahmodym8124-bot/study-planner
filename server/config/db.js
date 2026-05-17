@@ -53,7 +53,9 @@ export async function connectDB(uri, options = {}) {
     });
 
   await connectionPromise;
-  console.log('MongoDB connected');
+  if (process.env.NODE_ENV !== 'test') {
+    console.log('MongoDB connected');
+  }
   return mongoose.connection;
 }
 

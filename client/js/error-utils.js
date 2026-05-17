@@ -246,7 +246,7 @@ export function setupErrorMonitoring(config = {}) {
     }
   });
 
-  if (config.enabled !== false) {
+  if (config.enabled !== false && import.meta.env.MODE === 'development') {
     console.log('✅ Error monitoring initialized');
   }
 
