@@ -4,7 +4,7 @@ import {
   createTestIdea,
   makeAuthenticatedRequest
 } from '../utils.js';
-import { testNote, testIdea, testFocusSession } from '../fixtures/data.fixture.js';
+import { testNote, testIdea, testFocusSession, testUser } from '../fixtures/data.fixture.js';
 
 describe('Workspace APIs', () => {
   let user;

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param } from 'express-validator';
-import { createNote, deleteNote, listNotes, updateNote } from '../controllers/noteController.js';
+import { createNote, deleteNote, listNotes, updateNote, getNote } from '../controllers/noteController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -8,6 +8,7 @@ import { validate } from '../middleware/validate.js';
 const router = Router();
 router.use(asyncHandler(protect));
 router.get('/', asyncHandler(listNotes));
+router.get('/:id', [param('id').isMongoId()], validate, asyncHandler(getNote));
 router.post('/', [
   body('title').trim().isLength({ min: 1, max: 180 }),
   body('content').optional().isString().isLength({ max: 100000 }),

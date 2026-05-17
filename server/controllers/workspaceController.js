@@ -15,26 +15,25 @@ export async function stats(req, res) {
     FileAsset.countDocuments({ user: req.user._id }),
     Idea.countDocuments({ user: req.user._id }),
     Productivity.findOne({ user: req.user._id }).select('todos reminders focus pomodoro').lean(),
-    FocusSession.countDocuments({ user: req.user._id, status: 'completed' }),
+    FocusSession.countDocuments({ user: req.user._id }),
     DailyFocus.findOne({ user: req.user._id, date: { $gte: today } }).lean(),
-    FocusSession.countDocuments({ user: req.user._id, status: 'completed', createdAt: { $gte: today } })
+    FocusSession.countDocuments({ user: req.user._id, createdAt: { $gte: today } })
   ]);
 
   const ideasInMotion = await Idea.countDocuments({
     user: req.user._id,
-    status: { $in: ['Active', 'Review'] }
+    status: { $in: ['active', 'review'] }
   });
 
-  const recentNotes = await Note.countDocuments({
+  const recentNotes = await Note.find({
     user: req.user._id,
-    updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-  });
+  }).sort({ updatedAt: -1 }).limit(10).lean();
 
   res.json({
     data: {
-      notes,
-      files,
-      ideas,
+      notesCount: notes,
+      filesCount: files,
+      ideasCount: ideas,
       ideasInMotion,
       recentNotes,
       todos: productivity?.todos?.length || 0,
@@ -50,6 +49,30 @@ export async function activity(req, res) {
   const rows = await Activity.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(25).lean();
   res.json({ activity: rows });
 }
+
+export async function updateSettings(req, res) {
+  const { defaultFocusTime, theme } = req.body;
+  // Update productivity/pomodoro work time
+  const productivity = await Productivity.findOneAndUpdate(
+    { user: req.user._id },
+    { $set: { 'pomodoro.work': defaultFocusTime } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ).lean();
+
+  // Update user theme if provided
+  if (theme) {
+    await (await import('../models/User.js')).default.findByIdAndUpdate(req.user._id, { theme }, { new: true });
+  }
+
+  res.json({ data: { defaultFocusTime: productivity?.pomodoro?.work || defaultFocusTime, theme } });
+}
+
+export async function getSettings(req, res) {
+  const productivity = await Productivity.findOne({ user: req.user._id }).lean();
+  const user = await (await import('../models/User.js')).default.findById(req.user._id).lean();
+  res.json({ data: { defaultFocusTime: productivity?.pomodoro?.work || 25, theme: user?.theme || 'dark' } });
+}
+
 export async function search(req, res) {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json({ results: [] });

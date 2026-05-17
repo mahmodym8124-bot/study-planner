@@ -28,7 +28,7 @@ describe('Notes CRUD', () => {
     it('should reject note without title', async () => {
       const res = await req.post('/api/notes').send({ content: 'No title' });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
     });
 
     it('should create note with tags', async () => {
@@ -158,7 +158,7 @@ describe('Ideas CRUD', () => {
         .post('/api/ideas')
         .send({ description: 'No title' });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
     });
 
     it('should set default status to active', async () => {

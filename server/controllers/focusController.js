@@ -25,40 +25,45 @@ export async function startFocusSession(req, res) {
 
 export async function getFocusSessions(req, res) {
   const { limit = 30, skip = 0 } = req.query;
-  const sessions = await FocusSession.find({ user: req.user._id })
-    .sort({ createdAt: -1 })
-    .limit(parseInt(limit))
-    .skip(parseInt(skip))
-    .lean();
+  const limitValue = Number.parseInt(limit, 10);
+  const skipValue = Number.parseInt(skip, 10);
+  const sessions = (await FocusSession.find({ user: req.user._id }).lean())
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(Number.isNaN(skipValue) ? 0 : skipValue, (Number.isNaN(skipValue) ? 0 : skipValue) + (Number.isNaN(limitValue) ? 30 : limitValue));
   
   const total = await FocusSession.countDocuments({ user: req.user._id });
   
-  res.json({ data: sessions, total, limit: parseInt(limit), skip: parseInt(skip) });
+   res.json({ data: sessions, total, limit: Number.isNaN(limitValue) ? 30 : limitValue, skip: Number.isNaN(skipValue) ? 0 : skipValue });
 }
 
 export async function updateFocusSession(req, res) {
   const { id } = req.params;
   const { status, elapsedSeconds, currentPhase, sessionsCompleted } = req.body;
 
-  const session = await FocusSession.findById(id);
-  if (!session || session.user.toString() !== req.user._id.toString()) {
+  const update = {};
+  if (status) update.status = status;
+  if (elapsedSeconds !== undefined) update.elapsedSeconds = elapsedSeconds;
+  if (currentPhase) update.currentPhase = currentPhase;
+  if (sessionsCompleted !== undefined) update.sessionsCompleted = sessionsCompleted;
+
+  if (status === 'completed') {
+    update.completedAt = new Date();
+  }
+  if (status === 'paused') {
+    update.pausedAt = new Date();
+  }
+
+  const session = await FocusSession.findOneAndUpdate(
+    { _id: id, user: req.user._id },
+    { $set: update },
+    { new: true, runValidators: true }
+  );
+
+  if (!session) {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  if (status) session.status = status;
-  if (elapsedSeconds !== undefined) session.elapsedSeconds = elapsedSeconds;
-  if (currentPhase) session.currentPhase = currentPhase;
-  if (sessionsCompleted !== undefined) session.sessionsCompleted = sessionsCompleted;
-
-  if (status === 'completed' && !session.completedAt) {
-    session.completedAt = new Date();
-  }
-  if (status === 'paused' && !session.pausedAt) {
-    session.pausedAt = new Date();
-  }
-
-  await session.save();
-  await recordActivity(req.user._id, `Session ${status}`, 'FocusSession', 'focus', session._id);
+  await recordActivity(req.user._id, status ? `Session ${status}` : 'Updated focus session', 'FocusSession', 'focus', session._id);
 
   res.json({ data: session });
 }
@@ -76,7 +81,7 @@ export async function getDailyFocus(req, res) {
 }
 
 export async function saveDailyFocus(req, res) {
-  const { focusStatement } = req.body;
+  const focusStatement = req.body.focusStatement || req.body.statement;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

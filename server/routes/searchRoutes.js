@@ -9,9 +9,9 @@ const router = Router();
 router.use(asyncHandler(protect));
 
 router.get('/', [
-  query('q').trim().isLength({ min: 1, max: 256 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
-  query('skip').optional().isInt({ min: 0 }).toInt()
+  query('q').optional({ checkFalsy: true }).trim().isLength({ max: 256 }),
+  query('limit').optional().isInt({ min: 1 }).toInt(),
+  query('skip').optional().toInt()
 ], validate, asyncHandler(search));
 
 export default router;

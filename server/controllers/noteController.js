@@ -10,23 +10,39 @@ function notePayload(body) {
 }
 
 export async function listNotes(req, res) {
-  const notes = await Note.find({ user: req.user._id }).sort({ pinned: -1, updatedAt: -1 }).lean();
-  res.json({ notes });
+  const q = { user: req.user._id };
+  if (req.query.folder) q.folder = req.query.folder;
+  const notes = await Note.find(q).sort({ pinned: -1, updatedAt: -1 }).lean();
+  res.json({ data: notes });
 }
 export async function createNote(req, res) {
+  if (!req.body.title || String(req.body.title).trim().length === 0) return res.status(400).json({ message: 'Title is required' });
   const note = await Note.create({ ...notePayload(req.body), user: req.user._id });
   await recordActivity(req.user._id, 'Created note', note.title, 'note', note._id);
-  res.status(201).json({ note });
+  res.status(201).json({ data: note });
+}
+
+export async function getNote(req, res) {
+  const note = await Note.findById(req.params.id).lean();
+  if (!note) return res.status(404).json({ message: 'Note not found' });
+  // Hide existence of other users' notes
+  if (note.user.toString() !== req.user._id.toString()) return res.status(404).json({ message: 'Note not found' });
+  res.json({ data: note });
 }
 export async function updateNote(req, res) {
-  const note = await Note.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, notePayload(req.body), { new: true, runValidators: true }).lean();
+  const note = await Note.findById(req.params.id);
   if (!note) return res.status(404).json({ message: 'Note not found' });
+  if (note.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
+  Object.assign(note, notePayload(req.body));
+  await note.save();
   await recordActivity(req.user._id, 'Updated note', note.title, 'note', note._id);
-  res.json({ note });
+  res.json({ data: note.toObject() });
 }
 export async function deleteNote(req, res) {
-  const note = await Note.findOneAndDelete({ _id: req.params.id, user: req.user._id }).lean();
+  const note = await Note.findById(req.params.id);
   if (!note) return res.status(404).json({ message: 'Note not found' });
+  if (note.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
+  await Note.findByIdAndDelete(req.params.id);
   await recordActivity(req.user._id, 'Deleted note', note.title, 'note', note._id);
   res.json({ ok: true });
 }

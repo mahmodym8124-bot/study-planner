@@ -77,7 +77,7 @@ export async function getGraphNodes(req, res) {
   const maxEdges = Math.min(edges.length, nodes.length * 3);
   const limitedEdges = edges.slice(0, maxEdges);
 
-  res.json({ nodes, edges: limitedEdges, count: { notes: notes.length, ideas: ideas.length } });
+  res.json({ data: { nodes, edges: limitedEdges, count: { notes: notes.length, ideas: ideas.length } } });
 }
 
 export async function getGraphNode(req, res) {
@@ -90,7 +90,7 @@ export async function getGraphNode(req, res) {
     if (!node || node.user.toString() !== req.user._id.toString()) {
       return res.status(404).json({ error: 'Note not found' });
     }
-    return res.json({ node: { ...node, type: 'note' } });
+    return res.json({ data: { node: { ...node, type: 'note' } } });
   }
 
   if (id.startsWith('idea_')) {
@@ -99,7 +99,7 @@ export async function getGraphNode(req, res) {
     if (!node || node.user.toString() !== req.user._id.toString()) {
       return res.status(404).json({ error: 'Idea not found' });
     }
-    return res.json({ node: { ...node, type: 'idea' } });
+    return res.json({ data: { node: { ...node, type: 'idea' } } });
   }
 
   res.status(400).json({ error: 'Invalid node ID format' });

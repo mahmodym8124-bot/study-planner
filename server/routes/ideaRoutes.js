@@ -12,8 +12,8 @@ router.post('/', [
   body('title').trim().isLength({ min: 1, max: 180 }),
   body('description').optional().isString().isLength({ max: 12000 }),
   body('category').optional().trim().isLength({ min: 1, max: 80 }),
-  body('status').optional().isIn(['Backlog','Active','Review','Done']),
-  body('priority').optional().isIn(['Low','Medium','High','Critical']),
+  body('status').optional().isIn(['backlog','active','review','completed']),
+  body('priority').optional().isIn(['low','medium','high','critical']),
   body('progress').optional().isInt({ min: 0, max: 100 }).toInt(),
   body('tags').optional().isArray({ max: 20 }),
   body('tags.*').optional().trim().isLength({ min: 1, max: 32 })
@@ -23,8 +23,8 @@ router.put('/:id', [
   body('title').optional().trim().isLength({ min: 1, max: 180 }),
   body('description').optional().isString().isLength({ max: 12000 }),
   body('category').optional().trim().isLength({ min: 1, max: 80 }),
-  body('status').optional().isIn(['Backlog','Active','Review','Done']),
-  body('priority').optional().isIn(['Low','Medium','High','Critical']),
+  body('status').optional().isIn(['backlog','active','review','completed']),
+  body('priority').optional().isIn(['low','medium','high','critical']),
   body('progress').optional().isInt({ min: 0, max: 100 }).toInt(),
   body('tags').optional().isArray({ max: 20 }),
   body('tags.*').optional().trim().isLength({ min: 1, max: 32 })

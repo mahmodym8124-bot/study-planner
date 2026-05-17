@@ -5,8 +5,8 @@ const ideaSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 180 },
   description: { type: String, default: '', maxlength: 12000 },
   category: { type: String, default: 'General', trim: true, maxlength: 80 },
-  status: { type: String, enum: ['Backlog', 'Active', 'Review', 'Done'], default: 'Backlog', index: true },
-  priority: { type: String, enum: ['Low', 'Medium', 'High', 'Critical'], default: 'Medium' },
+  status: { type: String, enum: ['backlog', 'active', 'review', 'completed'], default: 'active', index: true },
+  priority: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' },
   progress: { type: Number, min: 0, max: 100, default: 0 },
   tags: [{ type: String, trim: true, maxlength: 32 }]
 }, { timestamps: true });

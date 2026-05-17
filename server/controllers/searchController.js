@@ -2,10 +2,15 @@ import Note from '../models/Note.js';
 import Idea from '../models/Idea.js';
 
 export async function search(req, res) {
-  const { q, limit = 20, skip = 0 } = req.query;
+  const { q } = req.query;
+  let limit = parseInt(req.query.limit) || 20;
+  const skip = parseInt(req.query.skip) || 0;
+  // cap limit to a reasonable max for performance/tests
+  const MAX_LIMIT = 50;
+  if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 
   if (!q || q.trim().length === 0) {
-    return res.json({ results: [], total: 0, limit, skip });
+    return res.json({ data: [], total: 0, limit, skip });
   }
 
   const searchRegex = new RegExp(q, 'i');
@@ -23,8 +28,8 @@ export async function search(req, res) {
     { content: 0 }
   )
     .sort({ updatedAt: -1 })
-    .limit(parseInt(limit))
-    .skip(parseInt(skip))
+    .limit(limit)
+    .skip(skip)
     .lean();
 
   const ideaPromise = Idea.find(
@@ -39,8 +44,8 @@ export async function search(req, res) {
     }
   )
     .sort({ updatedAt: -1 })
-    .limit(parseInt(limit))
-    .skip(parseInt(skip))
+    .limit(limit)
+    .skip(skip)
     .lean();
 
   const [notes, ideas] = await Promise.all([notePromise, ideaPromise]);
@@ -71,10 +76,10 @@ export async function search(req, res) {
   });
 
   res.json({
-    results: results.slice(0, parseInt(limit)),
+    data: results.slice(0, limit),
     total: totalNotes + totalIdeas,
-    limit: parseInt(limit),
-    skip: parseInt(skip),
+    limit,
+    skip,
     query: q
   });
 }
