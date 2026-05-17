@@ -1,7 +1,7 @@
 {
   "meta": {
     "pageTitle": "MindVault - Personal Workspace",
-    "description": "MindVault is a premium study workspace for notes, files, ideas, and focused planning."
+    "description": "MindVault is a professional study workspace for notes, files, ideas, and focused planning."
   },
   "a11y": {
     "skipToContent": "Skip to content",
@@ -41,7 +41,7 @@
     "eyebrow": "Notes, files, ideas, and focus in one place",
     "headline": "A cleaner workspace for",
     "headlineAccent": "serious study.",
-    "intro": "MindVault gives you a focused command center for capturing notes, storing files, shaping ideas, and tracking daily work without a cluttered interface.",
+    "intro": "MindVault gives you a focused command center to capture notes, organize files, shape ideas, and track daily work in a clean interface.",
     "createAccount": "Create account",
     "openWorkspace": "Open workspace",
     "miniNotes": "Notes",
@@ -49,13 +49,13 @@
     "miniGraph": "Graph",
     "miniGraphSub": "3D relationships",
     "previewTitle": "Live workspace preview",
-    "previewBody": "A calm interface with enough depth to feel polished, without visual noise.",
+    "previewBody": "A calm interface with professional depth and minimal visual noise.",
     "feat1Title": "Capture faster",
     "feat1Body": "Create notes and search your vault from the command palette.",
     "feat2Title": "Plan clearly",
     "feat2Body": "Move ideas through a compact board and keep your focus list visible.",
-    "feat3Title": "Deploy ready",
-    "feat3Body": "Built with modern tools. Ship with confidence from day one."
+    "feat3Title": "Production ready",
+    "feat3Body": "Built with modern tools so you can ship with confidence from day one."
   },
   "auth": {
     "createWorkspace": "Create your workspace",
@@ -76,7 +76,7 @@
     "createOne": "Create one",
     "creating": "Creating...",
     "opening": "Opening...",
-    "invalidCredentials": "Invalid credentials. If you haven't registered on the cloud vault yet, please create an account first."
+    "invalidCredentials": "Invalid email or password. If you do not have an account yet, please create one first."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -95,7 +95,7 @@
     "localMode": "Local Mode",
     "dayStreak": "{{count}} day streak",
     "searchPlaceholder": "Search notes, files, ideas, tags...",
-    "shortcut": "Ctrl K",
+    "shortcut": "Ctrl+K",
     "cmdPlaceholder": "Type a command or search..."
   },
   "toast": {
@@ -250,7 +250,7 @@
     "openGraph": "Open graph",
     "notePrefix": "Note:",
     "ideaPrefix": "Idea:",
-    "enter": "Enter",
+    "enter": "Enter key",
     "noMatches": "No matches"
   },
   "common": {

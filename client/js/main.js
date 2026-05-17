@@ -458,7 +458,12 @@ function renderApp() {
   const view = currentView();
   const insights = dashboardInsights();
   const currentLang = i18n.language?.split('-')[0] || 'en';
-  const langLabel = currentLang === 'ar' ? t('lang.toArabic') : t('lang.toEnglish');
+  const langs = {
+    en: t('lang.toEnglish'),
+    ar: t('lang.toArabic'),
+    kmr: t('lang.toKurdish')
+  };
+  const langLabel = langs[currentLang] || langs.en;
   app.className = 'dashboard-shell';
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
@@ -481,9 +486,9 @@ function renderApp() {
         <div class="lang-menu" id="lang-menu-sidebar">
           <button class="btn lang-toggle" id="lang-toggle-sidebar" type="button">${langLabel}</button>
           <div class="lang-dropdown" id="lang-dropdown-sidebar">
-            ${['en', 'ar'].map((lang) => `
+            ${['en', 'ar', 'kmr'].map((lang) => `
               <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                ${lang === 'en' ? t('lang.toEnglish') : t('lang.toArabic')}
+                ${langs[lang]}
                 ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
               </button>
             `).join('')}
