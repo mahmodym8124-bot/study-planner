@@ -44,7 +44,7 @@ export async function requestPasswordReset(req, res) {
   );
 
   try {
-    await sendPasswordResetEmail({ email: user.email, name: user.name, token: resetToken });
+    await sendPasswordResetEmail(user.email, resetToken);
   } catch (error) {
     console.error('Failed to send password reset email:', error.message);
   }

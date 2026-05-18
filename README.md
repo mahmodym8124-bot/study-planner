@@ -53,12 +53,8 @@ PORT=8091
 CLIENT_URL=http://localhost:5173
 VITE_API_URL=/api
 PASSWORD_RESET_BASE_URL=http://localhost:5173
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM_EMAIL=
-SMTP_FROM_NAME=MindVault
+RESEND_API_KEY=
+EMAIL_FROM=MindVault <onboarding@resend.dev>
 ```
 
 
