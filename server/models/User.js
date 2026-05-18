@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   password: { type: String, required: true, minlength: 8, select: false },
+  googleId: { type: String, unique: true, sparse: true, index: true },
+  authProviders: { type: [String], default: ['password'], enum: ['password', 'google'] },
   verified: { type: Boolean, default: false },
   verificationToken: { type: String, minlength: 64, maxlength: 64, index: true },
   verificationTokenExpires: { type: Date, index: true },

@@ -117,15 +117,17 @@ function startupMetadata(port) {
 
 app.set('trust proxy', 1);
 app.use(helmet({
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
       fontSrc: ["'self'"],
-      connectSrc: ["'self'", 'https://*.mongodb.net']
+      frameSrc: ["'self'", 'https://accounts.google.com'],
+      connectSrc: ["'self'", 'https://*.mongodb.net', 'https://accounts.google.com', 'https://play.google.com']
     }
   },
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
@@ -153,7 +155,7 @@ app.use('/api', (_req, res, next) => {
   next();
 });
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 800, standardHeaders: true, legacyHeaders: false }));
-app.use(['/api/auth/login', '/api/auth/register'], rateLimit({
+app.use(['/api/auth/login', '/api/auth/register', '/api/auth/google'], rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   standardHeaders: true,

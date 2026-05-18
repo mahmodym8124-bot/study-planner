@@ -56,7 +56,7 @@ function buildPasswordResetUrl(resetToken) {
 
 function buildVerificationUrl(token) {
   const baseUrl = getPasswordResetBaseUrl();
-  return `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+  return `${baseUrl}/verify-email?token=${token}`;
 }
 
 function buildPasswordResetEmail(resetUrl) {
@@ -164,16 +164,23 @@ function buildVerificationEmail(verificationUrl) {
                 <p style="margin:0 0 22px;font-size:16px;line-height:1.6;color:#334155;">
                   Click the button below to confirm your email address and activate your account.
                 </p>
-                <p style="margin:0 0 24px;">
-                  <a href="${safeVerificationUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;border-radius:10px;">
-                    Verify Email
-                  </a>
-                </p>
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
+                  <tr>
+                    <td style="border-radius:10px;background:#16a34a;">
+                      <a href="${safeVerificationUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#16a34a;border-radius:10px;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">
+                        Verify Email
+                      </a>
+                    </td>
+                  </tr>
+                </table>
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:#64748b;">
                   If the button does not work, copy and paste this link into your browser:
                 </p>
-                <p style="margin:0 0 18px;font-size:13px;line-height:1.5;word-break:break-all;">
+                <p style="margin:0 0 8px;font-size:13px;line-height:1.5;word-break:break-all;">
                   <a href="${safeVerificationUrl}" style="color:#15803d;">${safeVerificationUrl}</a>
+                </p>
+                <p style="margin:0 0 18px;font-size:12px;line-height:1.5;color:#64748b;word-break:break-all;">
+                  ${safeVerificationUrl}
                 </p>
                 <p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#14532d;font-weight:700;">
                   This link expires in 24 hours.

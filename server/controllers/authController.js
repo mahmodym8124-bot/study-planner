@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
 import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
@@ -9,6 +10,24 @@ import { sendPasswordResetEmail, sendVerificationEmail } from '../services/email
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
 function hashResetToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
+const googleClient = new OAuth2Client();
+
+function getGoogleClientId() {
+  return process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+}
+
+function safeGoogleName(payload) {
+  const name = String(payload.name || payload.given_name || payload.email?.split('@')[0] || 'MindVault User').trim();
+  return (name.length >= 2 ? name : 'MindVault User').slice(0, 80);
+}
+
+async function ensureProductivity(userId) {
+  await Productivity.updateOne(
+    { user: userId },
+    { $setOnInsert: { user: userId, todos: [], reminders: [] } },
+    { upsert: true }
+  );
+}
 
 export async function register(req, res) {
   const { name, email, password } = req.body;
@@ -85,6 +104,57 @@ export async function login(req, res) {
   }
   await recordActivity(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
   res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
+}
+
+export async function googleLogin(req, res) {
+  const { credential } = req.body;
+  const googleClientId = getGoogleClientId();
+
+  if (!googleClientId) {
+    return res.status(503).json({ error: 'Google sign-in is not configured' });
+  }
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: googleClientId
+  });
+  const payload = ticket.getPayload();
+  const email = String(payload?.email || '').toLowerCase();
+
+  if (!payload?.sub || !email || !payload.email_verified) {
+    return res.status(401).json({ error: 'Google account could not be verified' });
+  }
+
+  let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] });
+  const providerUpdate = { $addToSet: { authProviders: 'google' } };
+
+  if (user) {
+    const update = {
+      googleId: payload.sub,
+      verified: true,
+      verificationToken: null,
+      verificationTokenExpires: null,
+      resetToken: null,
+      resetExpires: null
+    };
+    if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
+    user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
+    await ensureProductivity(user._id);
+    await recordActivity(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
+    return res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
+  }
+
+  user = await User.create({
+    name: safeGoogleName(payload),
+    email,
+    password: crypto.randomBytes(32).toString('hex'),
+    googleId: payload.sub,
+    authProviders: ['google'],
+    verified: true
+  });
+  await Productivity.create({ user: user._id, todos: [], reminders: [] });
+  await recordActivity(user._id, 'Created vault', 'Google account', 'auth', user._id);
+  return res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
 export async function requestPasswordReset(req, res, next) {

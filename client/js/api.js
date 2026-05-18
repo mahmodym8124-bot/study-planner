@@ -316,6 +316,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const isOfflineToken = storage.token?.startsWith(OFFLINE_TOKEN_PREFIX);
   const isAuthRoute = path.startsWith('/auth/login')
     || path.startsWith('/auth/register')
+    || path.startsWith('/auth/google')
     || path.startsWith('/auth/forgot-password')
     || path.startsWith('/auth/reset-password');
   
@@ -412,6 +413,7 @@ function normalizeListPayload(response, key) {
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
+  googleLogin: (payload) => request('/auth/google', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   verifyEmail: (token) => request('/auth/verify-email', { method: 'POST', body: { token } }),
   forgotPassword: (payload) => request('/auth/forgot-password', { method: 'POST', body: payload }),
   resetPassword: (payload) => request('/auth/reset-password', { method: 'POST', body: payload }),

@@ -111,6 +111,29 @@ describe('Auth Routes', () => {
     });
   });
 
+  describe('POST /api/auth/google', () => {
+    it('should require Google auth configuration', async () => {
+      const previousClientId = process.env.GOOGLE_CLIENT_ID;
+      const previousViteClientId = process.env.VITE_GOOGLE_CLIENT_ID;
+      delete process.env.GOOGLE_CLIENT_ID;
+      delete process.env.VITE_GOOGLE_CLIENT_ID;
+
+      try {
+        const res = await request(app)
+          .post('/api/auth/google')
+          .send({ credential: 'fake-google-credential-with-enough-length' });
+
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe('Google sign-in is not configured');
+      } finally {
+        if (previousClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+        else process.env.GOOGLE_CLIENT_ID = previousClientId;
+        if (previousViteClientId === undefined) delete process.env.VITE_GOOGLE_CLIENT_ID;
+        else process.env.VITE_GOOGLE_CLIENT_ID = previousViteClientId;
+      }
+    });
+  });
+
   describe('POST /api/auth/verify-email', () => {
     itIfMongo('should verify email with a valid token', async () => {
       const token = crypto.randomBytes(32).toString('hex');

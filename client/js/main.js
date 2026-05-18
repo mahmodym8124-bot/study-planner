@@ -11,6 +11,8 @@ import { globalErrorBoundary, setupErrorMonitoring } from './error-utils.js';
 import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+let googleIdentityPromise;
 
 // Expose error boundary globally for API error handling
 window.__errorBoundary = globalErrorBoundary;
@@ -98,6 +100,65 @@ async function mountAmbientBackground() {
   ambientMounted = true;
 }
 
+function loadGoogleIdentity() {
+  if (window.google?.accounts?.id) return Promise.resolve(window.google);
+  if (googleIdentityPromise) return googleIdentityPromise;
+  googleIdentityPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-google-identity]');
+    const script = existing || document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleIdentity = 'true';
+    script.onload = () => resolve(window.google);
+    script.onerror = () => reject(new Error('Google sign-in failed to load'));
+    if (!existing) document.head.appendChild(script);
+  });
+  return googleIdentityPromise;
+}
+
+async function setupGoogleAuthButton() {
+  const block = document.querySelector('#google-auth-block');
+  const button = document.querySelector('#google-signin-button');
+  if (!block || !button) return;
+  if (!GOOGLE_CLIENT_ID) {
+    block.hidden = true;
+    return;
+  }
+
+  try {
+    const google = await loadGoogleIdentity();
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async ({ credential }) => {
+        if (!credential) return;
+        try {
+          const data = await api.googleLogin({ credential });
+          storage.token = data.token;
+          setState({ user: data.user, isOffline: false });
+          toast(t('toast.workspaceOpened'));
+          await loadWorkspace();
+          route('/app/dashboard');
+        } catch (error) {
+          toast(error.message || t('auth.googleFailed'), 'error');
+        }
+      }
+    });
+    button.innerHTML = '';
+    google.accounts.id.renderButton(button, {
+      type: 'standard',
+      theme: state.theme === 'light' ? 'outline' : 'filled_black',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'rectangular',
+      width: Math.min(360, button.clientWidth || 320),
+      locale: i18n.resolvedLanguage || i18n.language || 'en'
+    });
+  } catch {
+    block.hidden = true;
+  }
+}
+
 function unmountAmbientBackground() {
   if (!ambientMounted) return;
   ambientDispose();
@@ -139,7 +200,11 @@ function passwordStrength(value = '') {
 window.addEventListener('hashchange', () => route(location.hash.replace('#', '') || '/'));
 
 async function bootstrap() {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => {});
+  }
 
   // Support direct-path links from email providers in hash-based routing.
   if (!location.hash && (location.pathname === '/verify-email' || location.pathname === '/reset-password')) {
@@ -316,6 +381,10 @@ function renderAuth(signup) {
         </div>
         <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
         <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
+        <div class="google-auth-block" id="google-auth-block">
+          <div id="google-signin-button" class="google-signin-button" aria-label="${t('auth.continueWithGoogle')}"></div>
+          <div class="auth-divider"><span>${t('auth.or')}</span></div>
+        </div>
         ${signup ? `<div class="field"><label for="auth-name">${t('auth.name')}</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="${t('auth.namePlaceholder')}" /></div>` : ''}
         <div class="field"><label for="auth-email">${t('auth.email')}</label><input id="auth-email" class="input" type="email" name="email" autocomplete="${signup ? 'email' : 'username'}" required placeholder="${t('auth.emailPlaceholder')}" /></div>
         <div class="field"><label for="auth-password">${t('auth.password')}</label><input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${t('auth.passwordPlaceholder')}" /></div>
@@ -330,6 +399,7 @@ function renderAuth(signup) {
   `;
 
   setupLanguageMenu('lang-menu-auth', 'lang-toggle-auth', 'lang-dropdown-auth');
+  setupGoogleAuthButton();
 
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');
   if (!signup) {
