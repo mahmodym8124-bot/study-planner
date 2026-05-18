@@ -111,7 +111,7 @@ describe('Auth Routes', () => {
     });
   });
 
-  describe('GET /api/auth/verify-email', () => {
+  describe('POST /api/auth/verify-email', () => {
     itIfMongo('should verify email with a valid token', async () => {
       const token = crypto.randomBytes(32).toString('hex');
       await createTestUser({
@@ -121,7 +121,8 @@ describe('Auth Routes', () => {
       });
 
       const res = await request(app)
-        .get(`/api/auth/verify-email?token=${token}`);
+        .post('/api/auth/verify-email')
+        .send({ token });
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Email verified successfully. You can now log in.');
@@ -134,7 +135,8 @@ describe('Auth Routes', () => {
 
     it('should reject invalid verification token', async () => {
       const res = await request(app)
-        .get(`/api/auth/verify-email?token=${crypto.randomBytes(32).toString('hex')}`);
+        .post('/api/auth/verify-email')
+        .send({ token: crypto.randomBytes(32).toString('hex') });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toBe('Invalid or expired verification link.');

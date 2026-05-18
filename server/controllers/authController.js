@@ -58,7 +58,7 @@ export async function register(req, res) {
 }
 
 export async function verifyEmail(req, res) {
-  const { token } = req.query;
+  const { token } = req.body;
   const user = await User.findOne({
     verificationToken: token,
     verificationTokenExpires: { $gt: new Date() }

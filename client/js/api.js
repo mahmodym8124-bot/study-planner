@@ -412,7 +412,7 @@ function normalizeListPayload(response, key) {
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
-  verifyEmail: (token) => request(`/auth/verify-email?token=${encodeURIComponent(token)}`),
+  verifyEmail: (token) => request('/auth/verify-email', { method: 'POST', body: { token } }),
   forgotPassword: (payload) => request('/auth/forgot-password', { method: 'POST', body: payload }),
   resetPassword: (payload) => request('/auth/reset-password', { method: 'POST', body: payload }),
   me: () => request('/auth/me'),

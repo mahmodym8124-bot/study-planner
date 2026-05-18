@@ -396,37 +396,42 @@ function renderVerifyEmail() {
       <div class="auth-card surface">
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
         <h1>Verify email</h1>
-        <p class="muted" id="verify-status">Verifying your email...</p>
-        <button class="btn primary" style="width:100%" type="button" id="verify-login" disabled>Go to Sign In</button>
+        <p class="muted" id="verify-status">Click below to verify your email address.</p>
+        <button class="btn primary" style="width:100%" type="button" id="verify-action">Click to verify</button>
+        <button class="btn" style="width:100%;margin-top:10px;" type="button" id="verify-login">Go to Sign In</button>
       </div>
     </section>
   `;
 
   const statusEl = document.querySelector('#verify-status');
+  const verifyBtn = document.querySelector('#verify-action');
   const loginBtn = document.querySelector('#verify-login');
   loginBtn.onclick = () => route('/login');
 
   if (!token) {
     statusEl.textContent = 'Invalid or expired verification link.';
-    loginBtn.disabled = false;
+    verifyBtn.disabled = true;
     toast('Invalid or expired verification link.', 'error');
     return;
   }
 
-  (async () => {
+  verifyBtn.onclick = async () => {
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verifying...';
     try {
       const response = await api.verifyEmail(token);
       const message = response.message || 'Email verified successfully. You can now log in.';
       statusEl.textContent = message;
       toast(message);
+      verifyBtn.textContent = 'Verified';
     } catch (error) {
       const message = error.message || 'Invalid or expired verification link.';
       statusEl.textContent = message;
       toast(message, 'error');
-    } finally {
-      loginBtn.disabled = false;
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Click to verify';
     }
-  })();
+  };
 }
 
 function renderForgotPassword() {
