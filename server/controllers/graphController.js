@@ -1,9 +1,9 @@
 import Note from '../models/Note.js';
 import Idea from '../models/Idea.js';
 
-export async function getGraphNodes(req, res) {
-  const notes = await Note.find({ user: req.user._id }).lean();
-  const ideas = await Idea.find({ user: req.user._id }).lean();
+async function buildGraphData(userId) {
+  const notes = await Note.find({ user: userId }).lean();
+  const ideas = await Idea.find({ user: userId }).lean();
 
   const nodes = [];
   const nodeMap = new Map();
@@ -20,6 +20,8 @@ export async function getGraphNodes(req, res) {
         title: note.title,
         tags: note.tags || [],
         folder: note.folder,
+        thumbnail: note.thumbnail || '',
+        content: note.content || '',
         createdAt: note.createdAt
       }
     });
@@ -77,7 +79,17 @@ export async function getGraphNodes(req, res) {
   const maxEdges = Math.min(edges.length, nodes.length * 3);
   const limitedEdges = edges.slice(0, maxEdges);
 
-  res.json({ data: { nodes, edges: limitedEdges, count: { notes: notes.length, ideas: ideas.length } } });
+  return { nodes, edges: limitedEdges, count: { notes: notes.length, ideas: ideas.length } };
+}
+
+export async function getGraphNodes(req, res) {
+  const graph = await buildGraphData(req.user._id);
+  res.json({ data: graph });
+}
+
+export async function getGraphData(req, res) {
+  const graph = await buildGraphData(req.user._id);
+  res.json(graph);
 }
 
 export async function getGraphNode(req, res) {

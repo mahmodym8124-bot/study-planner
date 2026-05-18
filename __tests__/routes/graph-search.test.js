@@ -77,6 +77,22 @@ describe('Graph APIs', () => {
     });
   });
 
+  describe('GET /api/graph-data', () => {
+    it('should return direct D3 graph payload', async () => {
+      await createTestNote(user, { title: 'Note 1', tags: ['shared'] });
+      await createTestNote(user, { title: 'Note 2', tags: ['shared'] });
+
+      const res = await req.get('/api/graph-data');
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.nodes)).toBe(true);
+      expect(Array.isArray(res.body.edges)).toBe(true);
+      expect(res.body.nodes[0].id).toEqual(expect.any(String));
+      expect(res.body.edges[0].source).toEqual(expect.any(String));
+      expect(res.body.edges[0].target).toEqual(expect.any(String));
+    });
+  });
+
   describe('GET /api/graph/nodes/:id', () => {
     it('should return note detail by ID', async () => {
       const note = await createTestNote(user, testNote);

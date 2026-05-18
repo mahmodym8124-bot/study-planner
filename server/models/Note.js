@@ -8,7 +8,8 @@ const noteSchema = new mongoose.Schema({
   tags: [{ type: String, trim: true, maxlength: 32 }],
   pinned: { type: Boolean, default: false },
   favorite: { type: Boolean, default: false },
-  links: [{ type: String, trim: true }]
+  links: [{ type: String, trim: true }],
+  thumbnail: { type: String, trim: true, maxlength: 2048 }
 }, { timestamps: true });
 
 noteSchema.index({ title: 'text', content: 'text', tags: 'text', folder: 'text' });

@@ -15,7 +15,10 @@ import workspaceRoutes from './routes/workspaceRoutes.js';
 import productivityRoutes from './routes/productivityRoutes.js';
 import focusRoutes from './routes/focusRoutes.js';
 import graphRoutes from './routes/graphRoutes.js';
+import { getGraphData } from './controllers/graphController.js';
 import searchRoutes from './routes/searchRoutes.js';
+import { protect } from './middleware/auth.js';
+import { asyncHandler } from './middleware/asyncHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -210,6 +213,7 @@ app.use('/api/workspace', requireDatabase, workspaceRoutes);
 app.use('/api/productivity', requireDatabase, productivityRoutes);
 app.use('/api/focus', requireDatabase, focusRoutes);
 app.use('/api/graph', requireDatabase, graphRoutes);
+app.get('/api/graph-data', requireDatabase, asyncHandler(protect), asyncHandler(getGraphData));
 app.use('/api/search', requireDatabase, searchRoutes);
 
 app.use((req, res, next) => {

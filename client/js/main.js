@@ -1,5 +1,6 @@
 import '../styles/app.css';
 import '../styles/error-boundary.css';
+import '../styles/graph.css';
 import gsap from 'gsap';
 import i18n from './i18n.js';
 import { api, storage } from './api.js';
@@ -7,6 +8,7 @@ import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
 import { globalErrorBoundary, setupErrorMonitoring } from './error-utils.js';
+import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
 
@@ -34,6 +36,8 @@ let ambientDispose = () => {};
 let ambientMounted = false;
 let scenesPromise;
 let focusTimerId;
+let graphController = null;
+let graphUi = { closeInspector: () => {}, closeHelp: () => {} };
 
 
 document.body.classList.toggle('light', state.theme === 'light');
@@ -177,6 +181,8 @@ function render() {
     graphDispose();
     heroDispose = () => {};
     graphDispose = () => {};
+    graphController = null;
+    graphUi = { closeInspector: () => {}, closeHelp: () => {} };
 
     const currentRoute = routePath();
     if (currentRoute === '/' || currentRoute === '/landing') return renderLanding();
@@ -745,11 +751,17 @@ function bindShell() {
     if (event.key === 'Escape') {
       document.querySelector('#command')?.classList.remove('open');
       document.querySelector('.modal-backdrop')?.classList.remove('open');
+      graphUi.closeInspector();
+      graphUi.closeHelp();
       closeMenu();
     }
   };
   document.querySelector('#global-search').oninput = debounce(async (event) => {
     const q = event.target.value.trim();
+    if (currentView() === 'graph' && graphController?.applySearch) {
+      graphController.applySearch(q);
+      return;
+    }
     if (!q) return;
     const { results } = await api.search(q);
     setState({ searchResults: results });
@@ -1027,11 +1039,6 @@ async function deleteNote(id) {
 
 
 function renderGraph(root) {
-  const graphData = [
-    ...state.notes.map((note) => ({ ...note, type: 'note', id: note._id })),
-    ...state.ideas.map((idea) => ({ ...idea, type: 'idea', id: idea._id }))
-  ];
-
   root.innerHTML = `
     <div class="section-head">
       <div>
@@ -1040,29 +1047,134 @@ function renderGraph(root) {
       </div>
     </div>
     <div class="graph-layout">
-      <div class="graph-panel card" id="graph"><div class="skeleton"></div></div>
-      <aside class="card inspector" id="inspector">
+      <div class="graph-panel card" id="graph">
+        <div class="graph-canvas" id="graph-canvas"><div class="skeleton"></div></div>
+        <div class="graph-vignette" aria-hidden="true"></div>
+        <div class="graph-controls" role="group" aria-label="Graph controls">
+          <button class="graph-control-btn" data-graph-action="zoom-in" aria-label="Zoom in">+</button>
+          <button class="graph-control-btn" data-graph-action="zoom-out" aria-label="Zoom out">-</button>
+          <button class="graph-control-btn" data-graph-action="reset">Reset</button>
+          <button class="graph-control-btn" data-graph-action="fit">Fit</button>
+          <button class="graph-control-btn graph-control-export" data-graph-action="download">Download PNG</button>
+        </div>
+        <button class="graph-help-toggle" id="graph-help-toggle" aria-label="How this works">?</button>
+        <div class="graph-inspector-backdrop" id="graph-inspector-backdrop"></div>
+        <aside class="graph-inspector-panel" id="inspector" aria-hidden="true">
+          <button class="graph-inspector-close" id="graph-inspector-close" aria-label="${t('common.close')}">
+            ${icon('close')}
+          </button>
+          <div id="graph-inspector-content">
+            <h3>${t('graph.selectNode')}</h3>
+            <p class="muted">${t('graph.selectHint')}</p>
+          </div>
+        </aside>
+        <div class="graph-help-modal" id="graph-help-modal" aria-hidden="true">
+          <div class="graph-help-card" role="dialog" aria-modal="true" aria-labelledby="graph-help-title">
+            <button class="graph-help-close" id="graph-help-close" aria-label="${t('common.close')}">${icon('close')}</button>
+            <h3 id="graph-help-title">How this works</h3>
+            <p>Each node is a note or idea. Color indicates category, size reflects connection count, and links represent shared tags.</p>
+            <p>Drag nodes to rearrange, use the controls to zoom or fit, and search from the top bar to highlight matching notes.</p>
+          </div>
+        </div>
+      </div>
+      <aside class="card graph-side-placeholder">
         <h3>${t('graph.selectNode')}</h3>
         <p class="muted">${t('graph.selectHint')}</p>
       </aside>
     </div>
   `;
 
-  const graph = root.querySelector('#graph');
-  loadScenes().then(({ createKnowledgeGraph }) => {
-    if (!document.body.contains(graph)) return;
-    graphDispose = createKnowledgeGraph(graph, graphData, (node) => {
-      const typeLabel = node.type === 'idea' ? t('graph.typeIdea') : t('graph.typeNote');
-      const meta = escapeHTML(node.folder || node.status || t('graph.workspace'));
-      root.querySelector('#inspector').innerHTML = `
-        <h3>${escapeHTML(node.title)}</h3>
-        <p class="muted">${escapeHTML(typeLabel)} - ${meta}</p>
-        <div class="tags">${(node.tags || []).map((tag) => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>
-        <p>${markdown((node.content || node.description || '').slice(0, 500))}</p>
-      `;
+  const graphPanel = root.querySelector('#graph');
+  const graphCanvas = root.querySelector('#graph-canvas');
+  const inspector = root.querySelector('#inspector');
+  const inspectorContent = root.querySelector('#graph-inspector-content');
+  const inspectorBackdrop = root.querySelector('#graph-inspector-backdrop');
+  const helpModal = root.querySelector('#graph-help-modal');
+
+  const closeInspector = () => {
+    inspector.classList.remove('open');
+    inspectorBackdrop.classList.remove('open');
+    inspector.setAttribute('aria-hidden', 'true');
+  };
+  const openInspector = () => {
+    inspector.classList.add('open');
+    inspectorBackdrop.classList.add('open');
+    inspector.setAttribute('aria-hidden', 'false');
+  };
+  const closeHelp = () => {
+    helpModal.classList.remove('open');
+    helpModal.setAttribute('aria-hidden', 'true');
+  };
+  const openHelp = () => {
+    helpModal.classList.add('open');
+    helpModal.setAttribute('aria-hidden', 'false');
+  };
+  graphUi = { closeInspector, closeHelp };
+
+  root.querySelector('#graph-inspector-close').onclick = closeInspector;
+  inspectorBackdrop.onclick = closeInspector;
+  root.querySelector('#graph-help-toggle').onclick = openHelp;
+  root.querySelector('#graph-help-close').onclick = closeHelp;
+  helpModal.onclick = (event) => {
+    if (event.target === helpModal) closeHelp();
+  };
+
+  api.getGraphNodes().then((payload) => {
+    if (!document.body.contains(graphCanvas)) return;
+    graphController = createGraphExperience(graphCanvas, payload?.data || payload, {
+      onSelect: (node) => {
+        const typeLabel = node.type === 'idea' ? t('graph.typeIdea') : t('graph.typeNote');
+        const meta = node.folder || node.status || t('graph.workspace');
+        const content = String(node.content || node.description || '');
+        const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+        const badgeColor = node.color || '#2dd4bf';
+        inspectorContent.innerHTML = `
+          <div class="graph-node-preview">
+            <div class="graph-node-avatar" style="--node-color:${badgeColor}">
+              ${escapeHTML((node.title || '?').trim().charAt(0).toUpperCase() || '?')}
+            </div>
+            <div class="graph-node-main">
+              <h3>${escapeHTML(node.title || 'Untitled')}</h3>
+              <span class="graph-type-pill" style="--pill-color:${badgeColor}">${escapeHTML(typeLabel)}</span>
+            </div>
+          </div>
+          <div class="graph-tags-row">${(node.tags || []).map((tag) => `<span class="graph-tag-pill">${escapeHTML(tag)}</span>`).join('') || '<span class="muted">No tags</span>'}</div>
+          <p class="graph-meta">${escapeHTML(meta)}</p>
+          <div class="graph-node-metadata">${wordCount} / ${escapeHTML(node._id || node.id)}</div>
+          <button class="graph-open-note-btn" id="graph-open-note">Open Note</button>
+        `;
+        inspectorContent.querySelector('#graph-open-note').onclick = () => {
+          if (node.type === 'note') {
+            const note = state.notes.find((item) => String(item._id) === String(node._id));
+            if (note) openNoteEditor(note);
+          } else {
+            route('/app/ideas');
+          }
+        };
+        openInspector();
+      },
+      onCanvasClick: () => {
+        closeInspector();
+      }
+    });
+    graphDispose = () => graphController?.destroy?.();
+
+    const searchValue = document.querySelector('#global-search')?.value?.trim();
+    if (searchValue) graphController.applySearch(searchValue);
+
+    root.querySelectorAll('[data-graph-action]').forEach((button) => {
+      button.onclick = async () => {
+        if (!graphController) return;
+        const action = button.dataset.graphAction;
+        if (action === 'zoom-in') graphController.zoomIn();
+        if (action === 'zoom-out') graphController.zoomOut();
+        if (action === 'reset') graphController.resetView();
+        if (action === 'fit') graphController.fitToScreen();
+        if (action === 'download') await graphController.downloadPng();
+      };
     });
   }).catch(() => {
-    graph.innerHTML = `<p class="muted">${t('graph.loadError')}</p>`;
+    graphPanel.innerHTML = `<p class="muted">${t('graph.loadError')}</p>`;
   });
 }
 
