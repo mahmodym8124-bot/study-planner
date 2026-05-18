@@ -104,10 +104,32 @@ function unmountAmbientBackground() {
 function route(path = location.hash.replace('#', '') || '/') {
   let nextPath = path;
   if (!state.user && nextPath.startsWith('/app')) nextPath = '/login';
-  if (state.user && ['/', '/landing', '/login', '/signup'].includes(nextPath)) nextPath = '/app/dashboard';
+  if (state.user && ['/', '/landing', '/login', '/signup', '/forgot-password', '/reset-password'].includes(routePath(nextPath))) nextPath = '/app/dashboard';
   history.replaceState(null, '', `#${nextPath}`);
   setState({ route: nextPath });
   render();
+}
+
+function routePath(value = state.route || '/') {
+  return String(value).split('?')[0] || '/';
+}
+
+function routeQuery(value = state.route || '/') {
+  const raw = String(value);
+  const idx = raw.indexOf('?');
+  return idx >= 0 ? raw.slice(idx + 1) : '';
+}
+
+function passwordStrength(value = '') {
+  const password = String(value);
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  if (score <= 1) return 'weak';
+  if (score <= 3) return 'medium';
+  return 'strong';
 }
 
 window.addEventListener('hashchange', () => route(location.hash.replace('#', '') || '/'));
@@ -156,8 +178,11 @@ function render() {
     heroDispose = () => {};
     graphDispose = () => {};
 
-    if (state.route === '/' || state.route === '/landing') return renderLanding();
-    if (state.route === '/login' || state.route === '/signup') return renderAuth(state.route === '/signup');
+    const currentRoute = routePath();
+    if (currentRoute === '/' || currentRoute === '/landing') return renderLanding();
+    if (currentRoute === '/login' || currentRoute === '/signup') return renderAuth(currentRoute === '/signup');
+    if (currentRoute === '/forgot-password') return renderForgotPassword();
+    if (currentRoute === '/reset-password') return renderResetPassword();
     return renderApp();
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-error', { route: state.route });
@@ -282,6 +307,7 @@ function renderAuth(signup) {
         ${signup ? `<div class="field"><label for="auth-name">${t('auth.name')}</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="${t('auth.namePlaceholder')}" /></div>` : ''}
         <div class="field"><label for="auth-email">${t('auth.email')}</label><input id="auth-email" class="input" type="email" name="email" autocomplete="${signup ? 'email' : 'username'}" required placeholder="${t('auth.emailPlaceholder')}" /></div>
         <div class="field"><label for="auth-password">${t('auth.password')}</label><input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${t('auth.passwordPlaceholder')}" /></div>
+        ${signup ? '' : `<p class="auth-inline-action"><button type="button" id="forgot-password-link">${t('auth.forgotPassword')}</button></p>`}
         <button class="btn primary" style="width:100%" type="submit">${signup ? t('auth.createAccount') : t('auth.signIn')}</button>
         <p class="switch-auth">
           ${signup ? t('auth.alreadyHave') : t('auth.newHere')}
@@ -294,6 +320,9 @@ function renderAuth(signup) {
   setupLanguageMenu('lang-menu-auth', 'lang-toggle-auth', 'lang-dropdown-auth');
 
   document.querySelector('#switch-auth').onclick = () => route(signup ? '/login' : '/signup');
+  if (!signup) {
+    document.querySelector('#forgot-password-link').onclick = () => route('/forgot-password');
+  }
   document.querySelector('#auth-form').onsubmit = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -340,6 +369,126 @@ function renderAuth(signup) {
   }
 }
 
+function renderForgotPassword() {
+  mountAmbientBackground().catch(() => {});
+  app.className = 'app-shell';
+  app.innerHTML = `
+    <section class="auth-page">
+      <form class="auth-card surface" id="forgot-form">
+        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+        <h1>${t('auth.forgotTitle')}</h1>
+        <p class="muted">${t('auth.forgotHint')}</p>
+        <div class="field">
+          <label for="forgot-email">${t('auth.email')}</label>
+          <input id="forgot-email" class="input" type="email" name="email" required autocomplete="email" placeholder="${t('auth.emailPlaceholder')}" />
+        </div>
+        <button class="btn primary" style="width:100%" type="submit">${t('auth.sendResetLink')}</button>
+        <p class="switch-auth">
+          <button type="button" id="forgot-back">${t('auth.backToSignIn')}</button>
+        </p>
+      </form>
+    </section>
+  `;
+
+  document.querySelector('#forgot-back').onclick = () => route('/login');
+  document.querySelector('#forgot-form').onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = t('auth.sendingReset');
+    try {
+      const payload = Object.fromEntries(new FormData(form));
+      const response = await api.forgotPassword(payload);
+      toast(response.message || t('auth.resetSent'), 'info');
+      route('/login');
+    } catch (error) {
+      toast(error.message || t('auth.resetFailed'), 'error');
+      button.disabled = false;
+      button.textContent = original;
+    }
+  };
+}
+
+function renderResetPassword() {
+  mountAmbientBackground().catch(() => {});
+  const token = new URLSearchParams(routeQuery()).get('token') || '';
+  app.className = 'app-shell';
+  app.innerHTML = `
+    <section class="auth-page">
+      <form class="auth-card surface" id="reset-form">
+        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+        <h1>${t('auth.resetTitle')}</h1>
+        <p class="muted">${t('auth.resetHint')}</p>
+        <div class="field">
+          <label for="reset-password">${t('auth.newPassword')}</label>
+          <input id="reset-password" class="input" type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="${t('auth.passwordPlaceholder')}" />
+        </div>
+        <div class="field">
+          <label for="reset-confirm">${t('auth.confirmPassword')}</label>
+          <input id="reset-confirm" class="input" type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="${t('auth.passwordPlaceholder')}" />
+        </div>
+        <p class="auth-hint" id="password-strength">${t('auth.passwordStrength')}: ${t('auth.strengthWeak')}</p>
+        <button class="btn primary" style="width:100%" type="submit">${t('auth.updatePassword')}</button>
+        <p class="switch-auth">
+          <button type="button" id="reset-back">${t('auth.backToSignIn')}</button>
+        </p>
+      </form>
+    </section>
+  `;
+
+  const passwordInput = document.querySelector('#reset-password');
+  const confirmInput = document.querySelector('#reset-confirm');
+  const strength = document.querySelector('#password-strength');
+  const setStrength = () => {
+    const level = passwordStrength(passwordInput.value);
+    const labels = {
+      weak: t('auth.strengthWeak'),
+      medium: t('auth.strengthMedium'),
+      strong: t('auth.strengthStrong')
+    };
+    strength.textContent = `${t('auth.passwordStrength')}: ${labels[level]}`;
+    strength.dataset.level = level;
+  };
+
+  setStrength();
+  passwordInput.addEventListener('input', setStrength);
+
+  document.querySelector('#reset-back').onclick = () => route('/login');
+  document.querySelector('#reset-form').onsubmit = async (event) => {
+    event.preventDefault();
+    if (!token) {
+      toast(t('auth.resetTokenMissing'), 'error');
+      return;
+    }
+    const password = passwordInput.value;
+    const confirmPassword = confirmInput.value;
+    if (password.length < 8) {
+      toast(t('auth.passwordTooShort'), 'error');
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast(t('auth.passwordMismatch'), 'error');
+      return;
+    }
+
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = t('auth.resettingPassword');
+    try {
+      const response = await api.resetPassword({ token, password });
+      toast(response.message || t('auth.passwordResetSuccess'));
+      route('/login');
+    } catch (error) {
+      toast(error.message || t('auth.resetFailed'), 'error');
+      button.disabled = false;
+      button.textContent = original;
+    }
+  };
+}
+
 function navItems() {
   return [
     ['dashboard', t('nav.dashboard')],
@@ -351,7 +500,7 @@ function navItems() {
 }
 
 function currentView() {
-  return state.route.split('/').pop() || 'dashboard';
+  return routePath().split('/').pop() || 'dashboard';
 }
 
 function clamp(value, min, max) {

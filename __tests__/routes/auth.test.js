@@ -6,6 +6,10 @@ import {
 } from '../utils.js';
 import { testUser, testUser2, validationErrors } from '../fixtures/data.fixture.js';
 import request from 'supertest';
+import crypto from 'crypto';
+import User from '../../server/models/User.js';
+
+const itIfMongo = process.platform === 'win32' ? it.skip : it;
 
 describe('Auth Routes', () => {
   describe('POST /api/auth/register', () => {
@@ -120,6 +124,60 @@ describe('Auth Routes', () => {
         .set('Authorization', 'Bearer invalid.token.here');
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/auth/forgot-password', () => {
+    it('should return generic success for unknown email', async () => {
+      const res = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ email: 'missing@example.com' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toContain('password reset link');
+    });
+
+    itIfMongo('should store reset token data for an existing account', async () => {
+      await createTestUser();
+      const res = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ email: testUser.email });
+
+      expect(res.status).toBe(200);
+      const user = await User.findOne({ email: testUser.email.toLowerCase() }).select('+resetToken +resetExpires');
+      expect(user.resetToken).toBeTruthy();
+      expect(user.resetExpires).toBeTruthy();
+    });
+  });
+
+  describe('POST /api/auth/reset-password', () => {
+    it('should reject invalid reset token payload', async () => {
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'short', password: 'Strong123!' });
+
+      expect(res.status).toBe(422);
+    });
+
+    itIfMongo('should reset password with a valid token', async () => {
+      const user = await createTestUser();
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      await User.updateOne(
+        { email: testUser.email.toLowerCase() },
+        { $set: { resetToken: resetTokenHash, resetExpires: new Date(Date.now() + (60 * 60 * 1000)) } }
+      );
+
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: rawToken, password: 'NewStrong123!' });
+
+      expect(res.status).toBe(200);
+
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: testUser.email, password: 'NewStrong123!' });
+      expect(loginRes.status).toBe(200);
     });
   });
 

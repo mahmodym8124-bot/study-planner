@@ -157,6 +157,20 @@ app.use(['/api/auth/login', '/api/auth/register'], rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many authentication attempts. Please wait and try again.' }
 }));
+app.use('/api/auth/forgot-password', rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password reset requests. Please wait and try again.' }
+}));
+app.use('/api/auth/reset-password', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password reset attempts. Please wait and try again.' }
+}));
 
 async function requireDatabase(_req, res, next) {
   if (!(await ensureDatabaseConnected())) {

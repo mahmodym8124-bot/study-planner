@@ -5,7 +5,9 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   password: { type: String, required: true, minlength: 8, select: false },
-  theme: { type: String, default: 'dark', enum: ['dark', 'light'] }
+  theme: { type: String, default: 'dark', enum: ['dark', 'light'] },
+  resetToken: { type: String, minlength: 64, maxlength: 64, select: false, index: true },
+  resetExpires: { type: Date, select: false, index: true }
 }, { timestamps: true });
 
 userSchema.pre('save', async function hashPassword(next) {

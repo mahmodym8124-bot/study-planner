@@ -314,7 +314,10 @@ async function parseJSON(response) {
 
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const isOfflineToken = storage.token?.startsWith(OFFLINE_TOKEN_PREFIX);
-  const isAuthRoute = path.startsWith('/auth/login') || path.startsWith('/auth/register');
+  const isAuthRoute = path.startsWith('/auth/login')
+    || path.startsWith('/auth/register')
+    || path.startsWith('/auth/forgot-password')
+    || path.startsWith('/auth/reset-password');
   
   if (!OFFLINE_MODE_ENABLED && isOfflineToken) {
     storage.token = null;
@@ -409,6 +412,8 @@ function normalizeListPayload(response, key) {
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
+  forgotPassword: (payload) => request('/auth/forgot-password', { method: 'POST', body: payload }),
+  resetPassword: (payload) => request('/auth/reset-password', { method: 'POST', body: payload }),
   me: () => request('/auth/me'),
   stats: () => request('/workspace/stats'),
   activity: () => request('/workspace/activity'),
