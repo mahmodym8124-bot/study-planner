@@ -396,9 +396,13 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 
 
 
+function normalizeAuthPayload(response) {
+  return response?.data && typeof response.data === 'object' ? response.data : response;
+}
+
 export const api = {
-  register: (payload) => request('/auth/register', { method: 'POST', body: payload }),
-  login: (payload) => request('/auth/login', { method: 'POST', body: payload }),
+  register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
+  login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   me: () => request('/auth/me'),
   stats: () => request('/workspace/stats'),
   activity: () => request('/workspace/activity'),
