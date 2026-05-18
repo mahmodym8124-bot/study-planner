@@ -108,7 +108,7 @@ function unmountAmbientBackground() {
 function route(path = location.hash.replace('#', '') || '/') {
   let nextPath = path;
   if (!state.user && nextPath.startsWith('/app')) nextPath = '/login';
-  if (state.user && ['/', '/landing', '/login', '/signup', '/forgot-password', '/reset-password'].includes(routePath(nextPath))) nextPath = '/app/dashboard';
+  if (state.user && ['/', '/landing', '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email'].includes(routePath(nextPath))) nextPath = '/app/dashboard';
   history.replaceState(null, '', `#${nextPath}`);
   setState({ route: nextPath });
   render();
@@ -140,6 +140,11 @@ window.addEventListener('hashchange', () => route(location.hash.replace('#', '')
 
 async function bootstrap() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+
+  // Support direct-path links from email providers in hash-based routing.
+  if (!location.hash && (location.pathname === '/verify-email' || location.pathname === '/reset-password')) {
+    history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
+  }
 
   if (storage.token) {
     const isOffline = storage.token.startsWith('offline-token:');
@@ -189,6 +194,7 @@ function render() {
     if (currentRoute === '/login' || currentRoute === '/signup') return renderAuth(currentRoute === '/signup');
     if (currentRoute === '/forgot-password') return renderForgotPassword();
     if (currentRoute === '/reset-password') return renderResetPassword();
+    if (currentRoute === '/verify-email') return renderVerifyEmail();
     return renderApp();
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-error', { route: state.route });
@@ -341,6 +347,12 @@ function renderAuth(signup) {
       btn.textContent = signup ? t('auth.creating') : t('auth.opening');
       
       const data = signup ? await api.register(payload) : await api.login(payload);
+      if (signup) {
+        toast(data.message || 'Account created. Please check your email to verify your account.', 'info');
+        route('/login');
+        return;
+      }
+
       const isOffline = data.token.startsWith('offline-token:');
       storage.token = data.token;
       setState({ user: data.user, isOffline });
@@ -373,6 +385,48 @@ function renderAuth(signup) {
       </div>
     `;
   }
+}
+
+function renderVerifyEmail() {
+  mountAmbientBackground().catch(() => {});
+  const token = new URLSearchParams(routeQuery()).get('token') || '';
+  app.className = 'app-shell';
+  app.innerHTML = `
+    <section class="auth-page">
+      <div class="auth-card surface">
+        <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+        <h1>Verify email</h1>
+        <p class="muted" id="verify-status">Verifying your email...</p>
+        <button class="btn primary" style="width:100%" type="button" id="verify-login" disabled>Go to Sign In</button>
+      </div>
+    </section>
+  `;
+
+  const statusEl = document.querySelector('#verify-status');
+  const loginBtn = document.querySelector('#verify-login');
+  loginBtn.onclick = () => route('/login');
+
+  if (!token) {
+    statusEl.textContent = 'Invalid or expired verification link.';
+    loginBtn.disabled = false;
+    toast('Invalid or expired verification link.', 'error');
+    return;
+  }
+
+  (async () => {
+    try {
+      const response = await api.verifyEmail(token);
+      const message = response.message || 'Email verified successfully. You can now log in.';
+      statusEl.textContent = message;
+      toast(message);
+    } catch (error) {
+      const message = error.message || 'Invalid or expired verification link.';
+      statusEl.textContent = message;
+      toast(message, 'error');
+    } finally {
+      loginBtn.disabled = false;
+    }
+  })();
 }
 
 function renderForgotPassword() {

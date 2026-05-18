@@ -356,7 +356,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     const data = await parseJSON(response);
 
     if (!response.ok) {
-      const isBareError = !data.message && !data.errors;
+      const isBareError = !data.message && !data.error && !data.errors;
       const shouldFallback = OFFLINE_MODE_ENABLED && OFFLINE_HOST && (response.status === 401 || response.status === 404 || response.status >= 500) && isBareError;
       
       if (shouldFallback) return offlineRequest(path, { method, body, headers });
@@ -365,7 +365,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
         window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
       }
       
-      let message = data.message;
+      let message = data.message || data.error;
       if (!message) {
         if (response.status === 401) message = isAuthRoute ? 'Invalid email or password' : 'Session expired';
         else if (response.status === 409) message = 'Email is already registered';
@@ -412,6 +412,7 @@ function normalizeListPayload(response, key) {
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
+  verifyEmail: (token) => request(`/auth/verify-email?token=${encodeURIComponent(token)}`),
   forgotPassword: (payload) => request('/auth/forgot-password', { method: 'POST', body: payload }),
   resetPassword: (payload) => request('/auth/reset-password', { method: 'POST', body: payload }),
   me: () => request('/auth/me'),
