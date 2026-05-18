@@ -111,6 +111,7 @@ export function createAmbientBackground(canvas) {
 
   const light = new THREE.PointLight(0x65e4d4, 1.6, 50);
   scene.add(light);
+  const motion = prefersReducedMotion() ? 0.15 : 1;
 
   function resize() {
     const width = window.innerWidth;
@@ -121,7 +122,6 @@ export function createAmbientBackground(canvas) {
   }
 
   const stopLoop = createLoop((time) => {
-    const motion = prefersReducedMotion() ? 0.15 : 1;
     group.rotation.y = time * 0.000032 * motion + pointer.x * 0.045;
     group.rotation.x = pointer.y * 0.03;
     light.position.set(pointer.x * 8, pointer.y * 5, 8);
@@ -193,10 +193,10 @@ export function createHeroScene(container) {
   const p2 = new THREE.PointLight(0xf5c66b, 3.2, 18);
   p2.position.set(4, -3, 5);
   scene.add(p2);
+  const motion = prefersReducedMotion() ? 0.16 : 1;
 
   const stopResize = observeElementSize(container, renderer, camera);
   const stopLoop = createLoop((time) => {
-    const motion = prefersReducedMotion() ? 0.16 : 1;
     core.rotation.y = time * 0.0002 * motion + pointer.x * 0.18;
     core.rotation.x = pointer.y * 0.1;
     core.children.forEach((mesh, index) => {
@@ -291,6 +291,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
   // Frustum for culling
   const frustum = new THREE.Frustum();
   const projScreenMatrix = new THREE.Matrix4();
+  const frustumSphere = new THREE.Sphere(new THREE.Vector3(), 0.44);
 
   function updateFrustumCulling() {
     projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -298,7 +299,9 @@ export function createKnowledgeGraph(container, data, onSelect) {
   }
 
   function isSphereInFrustum(position, radius = 0.35) {
-    return frustum.intersectsSphere(new THREE.Sphere(position, radius));
+    frustumSphere.center.copy(position);
+    frustumSphere.radius = radius;
+    return frustum.intersectsSphere(frustumSphere);
   }
 
   // Create edges with weight tracking
@@ -323,6 +326,14 @@ export function createKnowledgeGraph(container, data, onSelect) {
 
   let dragging = null;
   const stopResize = observeElementSize(container, renderer, camera);
+  let canvasRect = canvas.getBoundingClientRect();
+  const updateCanvasRect = () => {
+    canvasRect = canvas.getBoundingClientRect();
+  };
+  const rectObserver = 'ResizeObserver' in window ? new ResizeObserver(updateCanvasRect) : null;
+  if (rectObserver) rectObserver.observe(canvas);
+  else window.addEventListener('resize', updateCanvasRect);
+  const motion = prefersReducedMotion() ? 0.2 : 1;
 
   // Orbit controls state
   const orbit = {
@@ -336,9 +347,8 @@ export function createKnowledgeGraph(container, data, onSelect) {
   let lastTouchDistance = 0;
 
   function setMouse(event) {
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    mouse.x = ((event.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
+    mouse.y = -((event.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
   }
 
   function intersect(event) {
@@ -356,6 +366,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
   // Orbit controls with mouse and touch
   let lastX = 0, lastY = 0;
   canvas.addEventListener('pointerdown', (event) => {
+    updateCanvasRect();
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const hit = intersect(event);
     if (hit && event.button === 0 && touches.size === 1) {
@@ -428,14 +439,16 @@ export function createKnowledgeGraph(container, data, onSelect) {
     orbit.radius = Math.max(5, Math.min(50, orbit.radius));
   }, { passive: false });
 
-  function updateLOD() {
+  let lastLodUpdate = 0;
+  function updateLOD(time) {
+    if (time - lastLodUpdate < 220) return;
+    lastLodUpdate = time;
     nodes.forEach((node) => {
       const distToCamera = node.position.distanceTo(camera.position);
       const newLOD = distToCamera < 8 ? 2 : (distToCamera < 15 ? 1 : 0);
 
       if (node.userData.lodLevel !== newLOD) {
         const type = node.userData.type || 'note';
-        node.geometry.dispose();
         node.geometry = lodGeometries[type][newLOD];
         node.userData.lodLevel = newLOD;
       }
@@ -443,8 +456,6 @@ export function createKnowledgeGraph(container, data, onSelect) {
   }
 
   const stopLoop = createLoop((time) => {
-    const motion = prefersReducedMotion() ? 0.2 : 1;
-
     // Update orbit camera position
     camera.position.x = orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
     camera.position.y = orbit.radius * Math.cos(orbit.phi);
@@ -455,7 +466,7 @@ export function createKnowledgeGraph(container, data, onSelect) {
     updateFrustumCulling();
 
     // Update LOD based on distance
-    updateLOD();
+    updateLOD(time);
 
     let visibleNodes = 0;
     let visibleEdges = 0;
@@ -498,5 +509,9 @@ export function createKnowledgeGraph(container, data, onSelect) {
     };
   });
 
-  return () => cleanup(renderer, scene, stopLoop, stopResize);
+  return () => {
+    if (rectObserver) rectObserver.disconnect();
+    else window.removeEventListener('resize', updateCanvasRect);
+    cleanup(renderer, scene, stopLoop, stopResize);
+  };
 }
