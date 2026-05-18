@@ -53,19 +53,31 @@ function createLoop(render) {
 }
 
 function observeElementSize(element, renderer, camera) {
-  const resize = () => {
-    const rect = element.getBoundingClientRect();
-    const width = Math.max(1, rect.width);
-    const height = Math.max(1, rect.height);
+  const applySize = (width, height) => {
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
   };
+  const resize = () => {
+    const width = Math.max(1, element.clientWidth || 1);
+    const height = Math.max(1, element.clientHeight || 1);
+    applySize(width, height);
+  };
 
-  const observer = 'ResizeObserver' in window ? new ResizeObserver(resize) : null;
-  if (observer) observer.observe(element);
-  else window.addEventListener('resize', resize);
-  resize();
+  const observer = 'ResizeObserver' in window ? new ResizeObserver((entries) => {
+    const entry = entries[0];
+    if (!entry) return;
+    const width = Math.max(1, entry.contentRect.width);
+    const height = Math.max(1, entry.contentRect.height);
+    applySize(width, height);
+  }) : null;
+  if (observer) {
+    observer.observe(element);
+    resize();
+  } else {
+    window.addEventListener('resize', resize);
+    resize();
+  }
 
   return () => {
     if (observer) observer.disconnect();
@@ -326,13 +338,6 @@ export function createKnowledgeGraph(container, data, onSelect) {
 
   let dragging = null;
   const stopResize = observeElementSize(container, renderer, camera);
-  let canvasRect = canvas.getBoundingClientRect();
-  const updateCanvasRect = () => {
-    canvasRect = canvas.getBoundingClientRect();
-  };
-  const rectObserver = 'ResizeObserver' in window ? new ResizeObserver(updateCanvasRect) : null;
-  if (rectObserver) rectObserver.observe(canvas);
-  else window.addEventListener('resize', updateCanvasRect);
   const motion = prefersReducedMotion() ? 0.2 : 1;
 
   // Orbit controls state
@@ -347,8 +352,10 @@ export function createKnowledgeGraph(container, data, onSelect) {
   let lastTouchDistance = 0;
 
   function setMouse(event) {
-    mouse.x = ((event.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
-    mouse.y = -((event.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
+    const width = canvas.clientWidth || 1;
+    const height = canvas.clientHeight || 1;
+    mouse.x = (event.offsetX / width) * 2 - 1;
+    mouse.y = -(event.offsetY / height) * 2 + 1;
   }
 
   function intersect(event) {
@@ -366,7 +373,6 @@ export function createKnowledgeGraph(container, data, onSelect) {
   // Orbit controls with mouse and touch
   let lastX = 0, lastY = 0;
   canvas.addEventListener('pointerdown', (event) => {
-    updateCanvasRect();
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const hit = intersect(event);
     if (hit && event.button === 0 && touches.size === 1) {
@@ -510,8 +516,6 @@ export function createKnowledgeGraph(container, data, onSelect) {
   });
 
   return () => {
-    if (rectObserver) rectObserver.disconnect();
-    else window.removeEventListener('resize', updateCanvasRect);
     cleanup(renderer, scene, stopLoop, stopResize);
   };
 }
