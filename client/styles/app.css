@@ -1957,12 +1957,32 @@ html[dir='rtl'] .lang-option .checkmark {
     top: 0;
     left: 0;
     bottom: 0;
-    z-index: 30;
+    z-index: 50;
     width: min(var(--sidebar), calc(100vw - 48px));
     height: 100%;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    padding-bottom: 80px;
     transform: translateX(-105%);
     transition: transform 0.22s ease;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+  }
+
+  .sidebar::-webkit-scrollbar-thumb:active {
+    background: rgba(255, 255, 255, 0.32);
   }
 
   html[dir='rtl'] .sidebar {
@@ -1978,7 +1998,7 @@ html[dir='rtl'] .lang-option .checkmark {
   .sidebar-scrim {
     position: fixed;
     inset: 0;
-    z-index: 25;
+    z-index: 45;
     display: none;
     width: 100%;
     height: 100%;
