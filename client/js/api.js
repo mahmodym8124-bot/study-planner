@@ -400,6 +400,12 @@ function normalizeAuthPayload(response) {
   return response?.data && typeof response.data === 'object' ? response.data : response;
 }
 
+function normalizeListPayload(response, key) {
+  if (Array.isArray(response?.[key])) return response;
+  if (Array.isArray(response?.data)) return { [key]: response.data };
+  return response;
+}
+
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
@@ -407,10 +413,10 @@ export const api = {
   stats: () => request('/workspace/stats'),
   activity: () => request('/workspace/activity'),
   search: (q) => request(`/search?q=${encodeURIComponent(q)}`),
-  notes: () => request('/notes'),
+  notes: () => request('/notes').then((response) => normalizeListPayload(response, 'notes')),
   saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
-  ideas: () => request('/ideas'),
+  ideas: () => request('/ideas').then((response) => normalizeListPayload(response, 'ideas')),
   saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }),
   deleteIdea: (id) => request(`/ideas/${id}`, { method: 'DELETE' }),
   productivity: () => request('/productivity'),

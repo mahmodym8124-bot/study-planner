@@ -46,10 +46,10 @@ const PRIORITY_WEIGHT = {
 };
 
 const IDEA_STATUS_I18N = {
-  Backlog: 'ideas.statusBacklog',
-  Active: 'ideas.statusActive',
-  Review: 'ideas.statusReview',
-  Done: 'ideas.statusDone'
+  backlog: 'ideas.statusBacklog',
+  active: 'ideas.statusActive',
+  review: 'ideas.statusReview',
+  completed: 'ideas.statusDone'
 };
 
 const TODO_PRIORITY_I18N = {
@@ -60,7 +60,9 @@ const TODO_PRIORITY_I18N = {
 };
 
 function tIdeaStatus(status) {
-  const key = IDEA_STATUS_I18N[status];
+  const normalized = String(status || '').trim().toLowerCase();
+  const canonical = normalized === 'done' ? 'completed' : normalized;
+  const key = IDEA_STATUS_I18N[canonical];
   return key ? t(key) : String(status);
 }
 
@@ -416,7 +418,7 @@ function computeStreak(activity = []) {
 function dashboardInsights() {
   const todos = state.productivity.todos || [];
   const doneTodos = todos.filter((todo) => todo.done).length;
-  const activeIdeas = state.stats.ideasInMotion || state.ideas.filter((idea) => idea.status === 'Active' || idea.status === 'Review').length;
+  const activeIdeas = state.stats.ideasInMotion || state.ideas.filter((idea) => ['active', 'review'].includes(String(idea.status || '').toLowerCase())).length;
   const pinnedNotes = state.notes.filter((note) => note.pinned || note.favorite).length;
   const recentNotes = state.stats.recentNotes || state.notes.filter((note) => daysAgo(note.updatedAt || note.createdAt) <= 7).length;
   const streak = computeStreak(state.activity);
@@ -628,7 +630,7 @@ function renderDashboard(root) {
   const insights = dashboardInsights();
   const bars = weekActivityBars();
   const topTasks = openTodosByPriority(insights.todos).slice(0, 4);
-  const activeIdeas = state.ideas.filter((idea) => ['Active', 'Review'].includes(idea.status)).slice(0, 3);
+  const activeIdeas = state.ideas.filter((idea) => ['active', 'review'].includes(String(idea.status || '').toLowerCase())).slice(0, 3);
   const nextTask = topTasks[0];
   const quote = getStudyQuote();
   
@@ -916,7 +918,7 @@ function renderGraph(root) {
 }
 
 function renderIdeas(root) {
-  const statuses = ['Backlog', 'Active', 'Review', 'Done'];
+  const statuses = ['backlog', 'active', 'review', 'completed'];
   root.innerHTML = `
     <div class="section-head">
       <div>
@@ -928,8 +930,8 @@ function renderIdeas(root) {
     <div class="ideas-board">
       ${statuses.map((status) => `
         <section class="lane" data-status="${status}">
-          <h3>${escapeHTML(tIdeaStatus(status))}<span class="muted">${state.ideas.filter((idea) => idea.status === status).length}</span></h3>
-          ${state.ideas.filter((idea) => idea.status === status).map(ideaCard).join('')}
+          <h3>${escapeHTML(tIdeaStatus(status))}<span class="muted">${state.ideas.filter((idea) => (String(idea.status || '').toLowerCase() === status || (status === 'completed' && String(idea.status || '').toLowerCase() === 'done'))).length}</span></h3>
+          ${state.ideas.filter((idea) => (String(idea.status || '').toLowerCase() === status || (status === 'completed' && String(idea.status || '').toLowerCase() === 'done'))).map(ideaCard).join('')}
         </section>
       `).join('')}
     </div>
@@ -964,14 +966,14 @@ function ideaCard(idea) {
 }
 
 function openIdeaEditor(idea = {}) {
-  const statusOpts = ['Backlog', 'Active', 'Review', 'Done'];
-  const priorityOpts = ['Low', 'Medium', 'High', 'Critical'];
+  const statusOpts = ['backlog', 'active', 'review', 'completed'];
+  const priorityOpts = ['low', 'medium', 'high', 'critical'];
   modal(idea._id ? t('ideas.editTitle') : t('ideas.newTitle'), `
     <div class="field"><label for="modal-idea-title">${t('ideas.fieldTitle')}</label><input class="input" id="modal-idea-title" name="title" value="${escapeHTML(idea.title || '')}" /></div>
     <div class="field"><label for="modal-idea-description">${t('ideas.fieldDescription')}</label><textarea class="textarea" id="modal-idea-description" name="description">${escapeHTML(idea.description || '')}</textarea></div>
     <div class="form-row">
-      <div class="field"><label for="modal-idea-status">${t('ideas.status')}</label><select class="select" id="modal-idea-status" name="status">${statusOpts.map((status) => `<option value="${status}" ${idea.status === status ? 'selected' : ''}>${escapeHTML(tIdeaStatus(status))}</option>`).join('')}</select></div>
-      <div class="field"><label for="modal-idea-priority">${t('ideas.priority')}</label><select class="select" id="modal-idea-priority" name="priority">${priorityOpts.map((priority) => `<option value="${priority}" ${idea.priority === priority ? 'selected' : ''}>${escapeHTML(tTodoPriority(priority.toLowerCase()))}</option>`).join('')}</select></div>
+      <div class="field"><label for="modal-idea-status">${t('ideas.status')}</label><select class="select" id="modal-idea-status" name="status">${statusOpts.map((status) => `<option value="${status}" ${(String(idea.status || '').toLowerCase() === status || (status === 'completed' && String(idea.status || '').toLowerCase() === 'done')) ? 'selected' : ''}>${escapeHTML(tIdeaStatus(status))}</option>`).join('')}</select></div>
+      <div class="field"><label for="modal-idea-priority">${t('ideas.priority')}</label><select class="select" id="modal-idea-priority" name="priority">${priorityOpts.map((priority) => `<option value="${priority}" ${String(idea.priority || '').toLowerCase() === priority ? 'selected' : ''}>${escapeHTML(tTodoPriority(priority))}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
       <div class="field"><label for="modal-idea-category">${t('ideas.category')}</label><input class="input" id="modal-idea-category" name="category" value="${escapeHTML(idea.category || 'General')}" /></div>
