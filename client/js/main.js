@@ -725,17 +725,29 @@ function bindShell() {
   };
   const sidebar = document.querySelector('#sidebar');
   const scrim = document.querySelector('#sidebar-scrim');
+  const mobileMenu = document.querySelector('#mobile-menu');
   const closeMenu = () => {
     sidebar.classList.remove('open');
     scrim.classList.remove('open');
   };
-  document.querySelector('#mobile-menu').onclick = () => {
+  const openMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     sidebar.classList.add('open');
     scrim.classList.add('open');
   };
-  scrim.onclick = closeMenu;
+  mobileMenu.addEventListener('click', openMenu);
+  mobileMenu.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    openMenu(e);
+  });
+  scrim.addEventListener('click', closeMenu);
+  scrim.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    closeMenu();
+  });
   document.querySelectorAll('.side-link').forEach((link) => {
-    link.onclick = closeMenu;
+    link.addEventListener('click', closeMenu);
   });
   document.querySelector('#quick-note').onclick = () => openNoteEditor();
   document.querySelector('#cmd-open').onclick = () => openCommand();
