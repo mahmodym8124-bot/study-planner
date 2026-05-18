@@ -6,7 +6,7 @@ import Idea from '../server/models/Idea.js';
 import { testUser } from './fixtures/data.fixture.js';
 
 export const createTestUser = async (userData = {}) => {
-  const user = new User({ ...testUser, ...userData });
+  const user = new User({ ...testUser, verified: true, ...userData });
   await user.save();
   return user;
 };

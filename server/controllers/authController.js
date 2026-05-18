@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
 import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
 import { recordActivity } from '../utils/activity.js';
-import { sendPasswordResetEmail } from '../services/emailService.js';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
 function hashResetToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
@@ -14,27 +14,63 @@ export async function register(req, res) {
   const { name, email, password } = req.body;
   const exists = await User.findOne({ email }).select('_id').lean();
   if (exists) return res.status(409).json({ error: 'Email is already registered' });
-  const user = await User.create({ name, email, password });
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+  const verificationTokenExpires = new Date(Date.now() + (24 * 60 * 60 * 1000));
+
+  const user = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+    verified: false,
+    verificationToken,
+    verificationTokenExpires
+  });
   await Productivity.create({ user: user._id, todos: [], reminders: [] });
   await recordActivity(user._id, 'Created vault', 'MindVault account', 'auth', user._id);
-  res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
+  await sendVerificationEmail(user.email, verificationToken);
+  res.status(201).json({ message: 'Account created. Please check your email to verify your account.' });
+}
+
+export async function verifyEmail(req, res) {
+  const { token } = req.query;
+  const user = await User.findOne({
+    verificationToken: token,
+    verificationTokenExpires: { $gt: new Date() }
+  });
+
+  if (!user) {
+    return res.status(400).json({ message: 'Invalid or expired verification link.' });
+  }
+
+  user.verified = true;
+  user.verificationToken = undefined;
+  user.verificationTokenExpires = undefined;
+  await user.save();
+
+  return res.json({ message: 'Email verified successfully. You can now log in.' });
 }
 
 export async function login(req, res) {
   const { email, password } = req.body;
   const user = await User.findOne({ email }).select('+password');
-  if (!user || !(await user.comparePassword(password))) return res.status(401).json({ error: 'Invalid email or password' });
+  if (!user || !(await user.comparePassword(password))) return res.status(400).json({ error: 'Invalid credentials' });
+  if (!user.verified) {
+    return res.status(403).json({ error: 'Please verify your email before logging in. Check your inbox.' });
+  }
   await recordActivity(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
   res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
 export async function requestPasswordReset(req, res, next) {
   const { email } = req.body;
-  const genericMessage = { message: 'If that email is registered, a password reset link has been sent.' };
+  const genericMessage = { message: 'If an account exists, a reset email has been sent.' };
 
   try {
-    const user = await User.findOne({ email }).select('_id name email');
+    const user = await User.findOne({ email }).select('_id name email verified');
     if (!user) return res.json(genericMessage);
+    if (!user.verified) return res.json(genericMessage);
 
     // Security-critical: generate an unpredictable cryptographic token.
     const resetToken = crypto.randomBytes(32).toString('hex');

@@ -5,13 +5,21 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   password: { type: String, required: true, minlength: 8, select: false },
+  verified: { type: Boolean, default: false },
+  verificationToken: { type: String, minlength: 64, maxlength: 64, index: true },
+  verificationTokenExpires: { type: Date, index: true },
   theme: { type: String, default: 'dark', enum: ['dark', 'light'] },
   resetToken: { type: String, minlength: 64, maxlength: 64, select: false, index: true },
   resetExpires: { type: Date, select: false, index: true }
 }, { timestamps: true });
 
+function isBcryptHash(value) {
+  return /^\$2[aby]\$\d{2}\$/.test(value);
+}
+
 userSchema.pre('save', async function hashPassword(next) {
   if (!this.isModified('password')) return next();
+  if (isBcryptHash(this.password)) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
