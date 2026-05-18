@@ -12,12 +12,36 @@ function hashResetToken(token) { return crypto.createHash('sha256').update(token
 
 export async function register(req, res) {
   const { name, email, password } = req.body;
-  const exists = await User.findOne({ email }).select('_id').lean();
-  if (exists) return res.status(409).json({ error: 'Email is already registered' });
+  const existingUser = await User.findOne({ email });
+  if (existingUser?.verified) return res.status(409).json({ error: 'Email is already registered' });
 
   const hashedPassword = await bcrypt.hash(password, 12);
   const verificationToken = crypto.randomBytes(32).toString('hex');
   const verificationTokenExpires = new Date(Date.now() + (24 * 60 * 60 * 1000));
+
+  if (existingUser && !existingUser.verified) {
+    await User.updateOne(
+      { email: existingUser.email },
+      {
+        $set: {
+          name,
+          password: hashedPassword,
+          verified: false,
+          verificationToken,
+          verificationTokenExpires,
+          resetToken: null,
+          resetExpires: null
+        }
+      }
+    );
+    await Productivity.updateOne(
+      { user: existingUser._id },
+      { $setOnInsert: { user: existingUser._id, todos: [], reminders: [] } },
+      { upsert: true }
+    );
+    await sendVerificationEmail(existingUser.email, verificationToken);
+    return res.status(201).json({ message: 'Account created. Please check your email to verify your account.' });
+  }
 
   const user = await User.create({
     name,
