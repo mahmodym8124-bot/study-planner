@@ -711,6 +711,26 @@ body.light .floating-card {
   background: rgba(10, 13, 20, 0.82);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 html[dir='rtl'] .sidebar {
