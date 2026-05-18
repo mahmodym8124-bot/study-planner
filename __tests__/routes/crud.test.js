@@ -168,6 +168,21 @@ describe('Ideas CRUD', () => {
 
       expect(res.body.data.status).toBe('active');
     });
+
+    it('should accept legacy status and priority casing', async () => {
+      const res = await req
+        .post('/api/ideas')
+        .send({
+          title: 'Legacy payload',
+          description: 'Created from older frontend bundle',
+          status: 'Done',
+          priority: 'High'
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.status).toBe('completed');
+      expect(res.body.data.priority).toBe('high');
+    });
   });
 
   describe('GET /api/ideas', () => {
