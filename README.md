@@ -53,8 +53,12 @@ PORT=8091
 CLIENT_URL=http://localhost:5173
 VITE_API_URL=/api
 PASSWORD_RESET_BASE_URL=http://localhost:5173
-RESEND_API_KEY=
-EMAIL_FROM=MindVault <onboarding@resend.dev>
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=your-gmail-address@gmail.com
+SMTP_PASS=your-16-character-gmail-app-password
+SMTP_FROM_EMAIL=your-gmail-address@gmail.com
+SMTP_FROM_NAME=MindVault
 ```
 
 

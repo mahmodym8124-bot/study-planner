@@ -1,8 +1,8 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-function requireEnv(name) {
+function requireMailEnv(name) {
   const value = String(process.env[name] || '').trim();
-  if (!value) throw new Error(`Missing required email environment variable: ${name}`);
+  if (!value) throw new Error(`Missing required mail environment variable: ${name}`);
   return value;
 }
 
@@ -15,24 +15,43 @@ function escapeHtml(value = '') {
     .replaceAll("'", '&#039;');
 }
 
-function getResetBaseUrl() {
-  const raw = requireEnv('PASSWORD_RESET_BASE_URL');
-  const parsed = new URL(raw);
+function getSmtpPort() {
+  const rawPort = requireMailEnv('SMTP_PORT');
+  const port = Number(rawPort);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`SMTP_PORT must be an integer between 1 and 65535. Received: ${rawPort}`);
+  }
+  return port;
+}
 
-  if (parsed.protocol !== 'https:' && process.env.NODE_ENV === 'production') {
+function getTransporter() {
+  const port = getSmtpPort();
+
+  return nodemailer.createTransport({
+    host: requireMailEnv('SMTP_HOST'),
+    port,
+    secure: port === 465,
+    auth: {
+      user: requireMailEnv('SMTP_USER'),
+      pass: requireMailEnv('SMTP_PASS')
+    }
+  });
+}
+
+function getPasswordResetBaseUrl() {
+  const rawUrl = requireMailEnv('PASSWORD_RESET_BASE_URL');
+  const parsed = new URL(rawUrl);
+
+  if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
     throw new Error('PASSWORD_RESET_BASE_URL must use HTTPS in production');
   }
 
   return parsed.toString().replace(/\/$/, '');
 }
 
-function getResendClient() {
-  return new Resend(requireEnv('RESEND_API_KEY'));
-}
-
-function buildResetUrl(resetToken) {
-  const resetBase = getResetBaseUrl();
-  return `${resetBase}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
+function buildPasswordResetUrl(resetToken) {
+  const baseUrl = getPasswordResetBaseUrl();
+  return `${baseUrl}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
 }
 
 function buildPasswordResetEmail(resetUrl) {
@@ -42,10 +61,11 @@ function buildPasswordResetEmail(resetUrl) {
     'Reset your MindVault password',
     '',
     'We received a request to reset your password.',
-    'Use this link to set a new password. The link expires in 1 hour:',
+    'Use the link below to create a new password. This link expires in 1 hour.',
+    '',
     resetUrl,
     '',
-    "If you didn't request this, you can safely ignore this email."
+    'If you did not request this password reset, you can ignore this email.'
   ].join('\n');
 
   const html = `<!doctype html>
@@ -55,14 +75,14 @@ function buildPasswordResetEmail(resetUrl) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reset your MindVault password</title>
   </head>
-  <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:32px 12px;">
+  <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:32px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:24px 28px;background:#0f172a;color:#ffffff;">
-                <div style="font-size:22px;font-weight:800;letter-spacing:0;">MindVault</div>
+                <div style="font-size:22px;font-weight:800;">MindVault</div>
                 <div style="margin-top:6px;font-size:14px;color:#cbd5e1;">Password reset request</div>
               </td>
             </tr>
@@ -74,7 +94,7 @@ function buildPasswordResetEmail(resetUrl) {
                 </p>
                 <p style="margin:0 0 24px;">
                   <a href="${safeResetUrl}" style="display:inline-block;background:#14b8a6;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;border-radius:10px;">
-                    Reset password
+                    Reset Password
                   </a>
                 </p>
                 <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:#64748b;">
@@ -104,26 +124,23 @@ function buildPasswordResetEmail(resetUrl) {
 export async function sendPasswordResetEmail(toEmail, resetToken) {
   if (process.env.NODE_ENV === 'test') return null;
 
-  const from = requireEnv('EMAIL_FROM');
-  const resetUrl = buildResetUrl(resetToken);
+  const resetUrl = buildPasswordResetUrl(resetToken);
   const { html, text } = buildPasswordResetEmail(resetUrl);
+  const fromEmail = requireMailEnv('SMTP_FROM_EMAIL');
+  const fromName = process.env.SMTP_FROM_NAME?.trim() || 'MindVault';
 
   try {
-    const { data, error } = await getResendClient().emails.send({
-      from,
+    const info = await getTransporter().sendMail({
+      from: `"${fromName.replaceAll('"', '\\"')}" <${fromEmail}>`,
       to: toEmail,
       subject: 'Reset your MindVault password',
       html,
       text
     });
 
-    if (error) {
-      throw new Error(error.message || 'Resend email request failed');
-    }
-
-    return data;
+    return info;
   } catch (error) {
-    console.error('Failed to send password reset email with Resend:', error.message);
+    console.error('Failed to send password reset email:', error);
     throw error;
   }
 }

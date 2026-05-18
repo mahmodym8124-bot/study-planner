@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
 import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
 import { recordActivity } from '../utils/activity.js';
-import { sendPasswordResetEmail } from '../utils/passwordResetEmail.js';
+import { sendPasswordResetEmail } from '../services/emailService.js';
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
 function hashResetToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
@@ -28,28 +28,35 @@ export async function login(req, res) {
   res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
-export async function requestPasswordReset(req, res) {
+export async function requestPasswordReset(req, res, next) {
   const { email } = req.body;
   const genericMessage = { message: 'If that email is registered, a password reset link has been sent.' };
-  const user = await User.findOne({ email }).select('_id name email');
-  if (!user) return res.json(genericMessage);
-
-  // Security-critical: generate an unpredictable cryptographic token.
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const resetTokenHash = hashResetToken(resetToken);
-  const resetExpires = new Date(Date.now() + (60 * 60 * 1000));
-  await User.updateOne(
-    { email: user.email },
-    { $set: { resetToken: resetTokenHash, resetExpires } }
-  );
 
   try {
-    await sendPasswordResetEmail(user.email, resetToken);
-  } catch (error) {
-    console.error('Failed to send password reset email:', error.message);
-  }
+    const user = await User.findOne({ email }).select('_id name email');
+    if (!user) return res.json(genericMessage);
 
-  return res.json(genericMessage);
+    // Security-critical: generate an unpredictable cryptographic token.
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = hashResetToken(resetToken);
+    const resetExpires = new Date(Date.now() + (60 * 60 * 1000));
+
+    await User.updateOne(
+      { email: user.email },
+      { $set: { resetToken: resetTokenHash, resetExpires } }
+    );
+
+    try {
+      await sendPasswordResetEmail(user.email, resetToken);
+    } catch (error) {
+      console.error('Password reset email failed after token creation:', error.message);
+    }
+
+    return res.json(genericMessage);
+  } catch (error) {
+    console.error('Password reset request failed:', error);
+    return next(error);
+  }
 }
 
 export async function resetPassword(req, res) {
