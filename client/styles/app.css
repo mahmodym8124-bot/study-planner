@@ -670,14 +670,14 @@ body.light .floating-card {
   margin: var(--space-4) 0;
   padding: var(--space-3);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--brand) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent);
+  background: rgba(45, 212, 191, 0.04);
+  border: 1px solid rgba(45, 212, 191, 0.15);
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .google-auth-block:hover {
-  background: color-mix(in srgb, var(--brand) 8%, transparent);
-  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
+  background: rgba(45, 212, 191, 0.08);
+  border-color: rgba(45, 212, 191, 0.35);
 }
 
 .google-auth-block[hidden] {

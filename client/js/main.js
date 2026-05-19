@@ -150,7 +150,7 @@ async function setupGoogleAuthButton() {
       theme: state.theme === 'light' ? 'outline' : 'filled_black',
       size: 'large',
       text: 'continue_with',
-      shape: 'pill',
+      shape: 'rectangular',
       width: Math.min(360, button.clientWidth || 320),
       locale: i18n.resolvedLanguage || i18n.language || 'en'
     });
