@@ -1,5 +1,16 @@
-const PRODUCTION_API_URL = import.meta.env.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api';
-const API_BASE = import.meta.env.VITE_API_URL || (window.location.hostname.endsWith('.github.io') ? PRODUCTION_API_URL : '/api');
+function ensureApiPath(raw = '') {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    const u = new URL(value);
+    return u.pathname.endsWith('/api') ? value.replace(/\/$/, '') : value.replace(/\/$/, '') + '/api';
+  } catch {
+    return value.endsWith('/api') ? value : value.replace(/\/$/, '') + '/api';
+  }
+}
+
+const PRODUCTION_API_URL = ensureApiPath(import.meta.env.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api');
+const API_BASE = (import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : (window.location.hostname.endsWith('.github.io') ? PRODUCTION_API_URL : '/api'));
 const TOKEN_KEY = 'mindvault_token';
 const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
