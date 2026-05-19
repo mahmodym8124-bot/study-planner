@@ -151,10 +151,11 @@ async function setupGoogleAuthButton() {
       size: 'large',
       text: 'continue_with',
       shape: 'rectangular',
-      width: Math.min(360, button.clientWidth || 320),
+      width: Math.max(240, Math.min(360, button.clientWidth || 320)),
       locale: i18n.resolvedLanguage || i18n.language || 'en'
     });
-  } catch {
+  } catch (err) {
+    console.warn('Google Sign-In failed to load or render:', err);
     block.hidden = true;
   }
 }

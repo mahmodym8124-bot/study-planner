@@ -668,7 +668,7 @@ body.light .floating-card {
   display: grid;
   gap: 0.85rem;
   margin: var(--space-4) 0;
-  padding: var(--space-3);
+  padding: 8px;
   border-radius: var(--radius);
   background: rgba(45, 212, 191, 0.04);
   border: 1px solid rgba(45, 212, 191, 0.15);
