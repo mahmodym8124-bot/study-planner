@@ -668,29 +668,79 @@ body.light .floating-card {
   display: grid;
   gap: 0.85rem;
   margin: var(--space-4) 0;
-  padding: 8px;
-  border-radius: var(--radius);
-  background: rgba(45, 212, 191, 0.04);
-  border: 1px solid rgba(45, 212, 191, 0.15);
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.google-auth-block:hover {
-  background: rgba(45, 212, 191, 0.08);
-  border-color: rgba(45, 212, 191, 0.35);
 }
 
 .google-auth-block[hidden] {
   display: none;
 }
 
-.google-signin-button {
-  min-height: 44px;
+/* Custom Google Sign-In Button */
+.google-custom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.82rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease;
 }
 
-.google-signin-button > div {
-  width: 100% !important;
+.google-custom-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(101, 228, 212, 0.4);
+  box-shadow: 0 4px 18px rgba(101, 228, 212, 0.1);
+  transform: translateY(-1px);
 }
+
+.google-custom-btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 0.06s;
+}
+
+.google-custom-btn:focus-visible {
+  outline: 0;
+  border-color: rgba(101, 228, 212, 0.72);
+  box-shadow: 0 0 0 4px rgba(101, 228, 212, 0.12);
+}
+
+.google-logo {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+body.light .google-custom-btn {
+  background: rgba(255, 255, 255, 0.84);
+}
+
+body.light .google-custom-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(66, 133, 244, 0.5);
+  box-shadow: 0 4px 18px rgba(66, 133, 244, 0.1);
+}
+
+/* Hide the actual GSI iframe off-screen */
+.google-signin-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: -1px !important;
+}
+
 
 .auth-divider {
   display: flex;
@@ -2205,6 +2255,148 @@ html[dir='rtl'] .lang-option .checkmark {
     padding-bottom: 84px;
   }
 
+  /* ── Mobile text scaling (≤760px) ── */
+  .hero p {
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .eyebrow {
+    font-size: 0.78rem;
+  }
+
+  .stat-card strong {
+    font-size: 1.65rem;
+  }
+
+  .stat-card small {
+    font-size: 0.78rem;
+  }
+
+  .gradient-text-alt {
+    font-size: 1.65rem;
+  }
+
+  .mini-stat strong {
+    font-size: 1.12rem;
+  }
+
+  .mini-stat {
+    font-size: 0.82rem;
+  }
+
+  .study-quote {
+    font-size: 0.86rem;
+  }
+
+  .greeting-badge {
+    font-size: 0.76rem;
+  }
+
+  .card-head h3,
+  .card h3 {
+    font-size: 0.95rem;
+  }
+
+  .summary-list b {
+    font-size: 0.95rem;
+  }
+
+  .btn {
+    font-size: 0.86rem;
+    padding: 0.62rem 1.1rem;
+  }
+
+  .field label {
+    font-size: 0.8rem;
+  }
+
+  .switch-auth {
+    font-size: 0.86rem;
+  }
+
+  .timer-display .timer {
+    font-size: 2.6rem;
+  }
+
+  .timer-ring-wrap {
+    width: 170px;
+    height: 170px;
+  }
+
+  .timer-mode-label {
+    font-size: 0.72rem;
+  }
+
+  .floating-card {
+    font-size: 0.86rem;
+  }
+
+  .bar-wrap {
+    font-size: 0.72rem;
+  }
+
+  .bar-wrap em {
+    font-size: 0.68rem;
+  }
+
+  .metric-chip {
+    font-size: 0.72rem;
+  }
+
+  .card-meta {
+    font-size: 0.72rem;
+  }
+
+  .tag {
+    font-size: 0.68rem;
+  }
+
+  .status-badge {
+    font-size: 0.66rem;
+  }
+
+  .dashboard-hero p {
+    font-size: 0.9rem;
+  }
+
+  .next-up-card {
+    font-size: 0.88rem;
+  }
+
+  .workspace-pill b {
+    font-size: 0.86rem;
+  }
+
+  .workspace-pill span {
+    font-size: 0.78rem;
+  }
+
+  .eyebrow-small {
+    font-size: 0.66rem;
+  }
+
+  .feature {
+    font-size: 0.86rem;
+  }
+
+  .task-summary {
+    font-size: 0.76rem;
+  }
+
+  .task-progress-label {
+    font-size: 0.72rem;
+  }
+
+  .auth-divider {
+    font-size: 0.75rem;
+  }
+
+  .idea-row span,
+  .priority {
+    font-size: 0.68rem;
+  }
+
   .bottom-nav {
     display: flex;
     position: fixed;
@@ -2281,7 +2473,7 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .auth-card h1 {
-    font-size: 2.35rem;
+    font-size: 1.95rem;
     line-height: 1.08;
   }
 
@@ -2300,7 +2492,12 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .hero h1 {
-    font-size: 2.6rem;
+    font-size: 2.2rem;
+  }
+
+  .hero p {
+    font-size: 0.88rem;
+    line-height: 1.6;
   }
 
   .notes-grid,
@@ -2322,6 +2519,248 @@ html[dir='rtl'] .lang-option .checkmark {
   .toast-stack {
     left: 12px;
     right: 12px;
+  }
+
+  /* ── Small mobile text scaling (≤520px) ── */
+  .dashboard-hero h2,
+  .section-head h2 {
+    font-size: 1.75rem;
+  }
+
+  .stat-card strong {
+    font-size: 1.4rem;
+  }
+
+  .gradient-text-alt {
+    font-size: 1.4rem;
+  }
+
+  .focus-orb {
+    width: 120px;
+    height: 120px;
+  }
+
+  .focus-orb span {
+    font-size: 1.9rem;
+  }
+
+  .focus-orb small {
+    font-size: 0.68rem;
+  }
+
+  .btn {
+    font-size: 0.82rem;
+    padding: 0.58rem 1rem;
+  }
+
+  .timer-display .timer {
+    font-size: 2.2rem;
+  }
+
+  .timer-ring-wrap {
+    width: 150px;
+    height: 150px;
+  }
+
+  .floating-card {
+    font-size: 0.8rem;
+    padding: var(--space-3);
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+  }
+
+  .nav .brand {
+    font-size: 0.88rem;
+  }
+
+  .study-quote {
+    font-size: 0.82rem;
+  }
+
+  .dashboard-hero p {
+    font-size: 0.84rem;
+  }
+
+  .bar-chart {
+    height: 150px;
+  }
+
+  .field label {
+    font-size: 0.76rem;
+  }
+
+  .switch-auth {
+    font-size: 0.82rem;
+  }
+
+  .mini-stat strong {
+    font-size: 1rem;
+  }
+
+  .mini-stat {
+    font-size: 0.76rem;
+  }
+
+  .feature {
+    font-size: 0.82rem;
+  }
+
+  .modal h2 {
+    font-size: 1.35rem;
+  }
+
+  .modal {
+    padding: var(--space-4);
+  }
+
+  .lang-toggle {
+    font-size: 0.82rem !important;
+  }
+
+  .lang-option {
+    font-size: 0.84rem;
+  }
+}
+
+@media (max-width: 380px) {
+  /* ── Extra-small mobile text scaling (≤380px) ── */
+  .hero h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero p {
+    font-size: 0.82rem;
+  }
+
+  .dashboard-hero h2,
+  .section-head h2 {
+    font-size: 1.5rem;
+  }
+
+  .auth-card h1 {
+    font-size: 1.65rem;
+  }
+
+  .stat-card strong {
+    font-size: 1.2rem;
+  }
+
+  .gradient-text-alt {
+    font-size: 1.2rem;
+  }
+
+  .focus-orb {
+    width: 100px;
+    height: 100px;
+  }
+
+  .focus-orb span {
+    font-size: 1.5rem;
+  }
+
+  .btn {
+    font-size: 0.78rem;
+    padding: 0.52rem 0.85rem;
+  }
+
+  .timer-display .timer {
+    font-size: 1.9rem;
+  }
+
+  .timer-ring-wrap {
+    width: 130px;
+    height: 130px;
+  }
+
+  .nav .brand {
+    font-size: 0.8rem;
+  }
+
+  .floating-card {
+    font-size: 0.76rem;
+  }
+
+  .card-head h3,
+  .card h3 {
+    font-size: 0.88rem;
+  }
+
+  .mini-stat strong {
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 1041px) {
+  /* ── Desktop & Laptop Layout Optimizations (≥1041px) ── */
+  .nav {
+    background: rgba(3, 5, 8, 0.72) !important;
+    backdrop-filter: blur(28px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 0.85rem 1.2rem;
+  }
+
+  body.light .nav {
+    background: rgba(246, 248, 253, 0.78) !important;
+    border-color: rgba(17, 24, 39, 0.08) !important;
+  }
+
+  .hero {
+    padding: 110px 0 64px;
+    gap: 56px;
+  }
+
+  .hero h1 {
+    font-size: 5.6rem;
+    letter-spacing: -0.035em;
+  }
+
+  .hero p {
+    font-size: 1.15rem;
+    line-height: 1.85;
+    margin-bottom: var(--space-6);
+  }
+
+  .features {
+    gap: 2.5rem;
+    margin-top: 56px;
+  }
+
+  .feature {
+    padding: var(--space-6);
+    min-height: 160px;
+  }
+
+  .auth-page {
+    padding: 48px;
+    background: 
+      radial-gradient(circle at 12% 16%, rgba(101, 228, 212, 0.08), transparent 36rem),
+      radial-gradient(circle at 88% 84%, rgba(167, 139, 250, 0.08), transparent 36rem),
+      linear-gradient(145deg, var(--bg), var(--bg-soft));
+  }
+
+  .auth-card {
+    padding: var(--space-8);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow);
+  }
+
+  .auth-card h1 {
+    font-size: 2.55rem;
+  }
+
+  .main {
+    padding: 32px 48px 64px;
+  }
+
+  .dashboard-hero {
+    padding: var(--space-8) 4rem;
+  }
+
+  .dashboard-hero h2 {
+    font-size: 3.5rem;
   }
 }
 

@@ -354,3 +354,43 @@
     display: none;
   }
 }
+
+@media (max-width: 760px) {
+  .graph-node-main h3 {
+    font-size: 16px;
+  }
+  .graph-control-btn {
+    font-size: 0.78rem;
+    padding: 0.35rem 0.6rem;
+  }
+  .graph-type-pill {
+    font-size: 0.7rem;
+  }
+  .graph-tag-pill {
+    font-size: 0.68rem;
+  }
+  .graph-node-metadata {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .graph-node-main h3 {
+    font-size: 14px;
+  }
+  .graph-controls {
+    left: 10px;
+    bottom: 10px;
+    padding: 0.3rem;
+  }
+  .graph-control-btn {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.5rem;
+  }
+  .graph-help-toggle {
+    right: 10px;
+    top: 10px;
+    width: 30px;
+    height: 30px;
+  }
+}
