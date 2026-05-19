@@ -38,7 +38,7 @@ jobs:
           # Use the same public production API URL as Vercel unless overridden by a repo variable.
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api' }}
           # Google sign-in also needs the public web client ID at build time.
-          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || '' }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || '271491864203-jdrhu2gvdvudd3omut7eu9lg26503cbf.apps.googleusercontent.com' }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

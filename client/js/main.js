@@ -11,7 +11,7 @@ import { globalErrorBoundary, setupErrorMonitoring } from './error-utils.js';
 import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '271491864203-jdrhu2gvdvudd3omut7eu9lg26503cbf.apps.googleusercontent.com';
 let googleIdentityPromise;
 
 // Expose error boundary globally for API error handling
