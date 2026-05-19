@@ -674,71 +674,11 @@ body.light .floating-card {
   display: none;
 }
 
-/* Custom Google Sign-In Button */
-.google-custom-btn {
+.google-signin-button {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 48px;
-  padding: 0.82rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.055);
-  color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease;
-}
-
-.google-custom-btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(101, 228, 212, 0.4);
-  box-shadow: 0 4px 18px rgba(101, 228, 212, 0.1);
-  transform: translateY(-1px);
-}
-
-.google-custom-btn:active {
-  transform: translateY(0) scale(0.98);
-  transition-duration: 0.06s;
-}
-
-.google-custom-btn:focus-visible {
-  outline: 0;
-  border-color: rgba(101, 228, 212, 0.72);
-  box-shadow: 0 0 0 4px rgba(101, 228, 212, 0.12);
-}
-
-.google-logo {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-body.light .google-custom-btn {
-  background: rgba(255, 255, 255, 0.84);
-}
-
-body.light .google-custom-btn:hover {
-  background: rgba(255, 255, 255, 1);
-  border-color: rgba(66, 133, 244, 0.5);
-  box-shadow: 0 4px 18px rgba(66, 133, 244, 0.1);
-}
-
-/* Hide the actual GSI iframe off-screen */
-.google-signin-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-  padding: 0 !important;
-  margin: -1px !important;
+  min-height: 44px;
+  overflow: hidden;
 }
 
 
