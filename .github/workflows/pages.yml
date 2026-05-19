@@ -20,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@60edb5dd545a775cbe2231b3d6f6aa4991df5ba7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -41,7 +41,7 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || '271491864203-jdrhu2gvdvudd3omut7eu9lg26503cbf.apps.googleusercontent.com' }}
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@834a451ee936565eba54c18ad4c41b94edd60b8d
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
@@ -54,4 +54,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@65b5cbe0436925eee41d2b4e9ae32e202658b210
+        uses: actions/deploy-pages@v4
