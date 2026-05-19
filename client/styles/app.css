@@ -668,6 +668,16 @@ body.light .floating-card {
   display: grid;
   gap: 0.85rem;
   margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.google-auth-block:hover {
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
 .google-auth-block[hidden] {

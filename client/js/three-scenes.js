@@ -153,6 +153,7 @@ export function createHeroScene(container) {
   if (!container) return () => {};
   container.innerHTML = '';
   const canvas = document.createElement('canvas');
+  canvas.style.touchAction = 'none'; // prevent scroll when dragging
   container.appendChild(canvas);
   const renderer = createRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' }, 1.65);
   if (!renderer) return () => {};
@@ -164,13 +165,30 @@ export function createHeroScene(container) {
   const core = new THREE.Group();
   scene.add(core);
 
-  const solid = new THREE.MeshStandardMaterial({ color: 0x65e4d4, roughness: 0.24, metalness: 0.62, transparent: true, opacity: 0.82 });
-  const wire = new THREE.MeshStandardMaterial({ color: 0x5ba7ff, roughness: 0.18, metalness: 0.72, wireframe: true });
+  // Premium, glass-like and glowing materials
+  const solid = new THREE.MeshPhysicalMaterial({ 
+    color: 0x65e4d4, 
+    roughness: 0.1, 
+    metalness: 0.6, 
+    transmission: 0.8, // glass effect
+    thickness: 0.5,
+    transparent: true, 
+    opacity: 1 
+  });
+  const wire = new THREE.MeshStandardMaterial({ 
+    color: 0x5ba7ff, 
+    roughness: 0.2, 
+    metalness: 0.8, 
+    wireframe: true,
+    emissive: 0x1a4a8c,
+    emissiveIntensity: 0.6
+  });
+  
   const geometries = [
-    new THREE.IcosahedronGeometry(1.15, 1),
-    new THREE.TorusKnotGeometry(0.7, 0.16, 80, 12),
-    new THREE.OctahedronGeometry(0.92, 0),
-    new THREE.BoxGeometry(1.12, 1.12, 1.12)
+    new THREE.IcosahedronGeometry(1.2, 2),
+    new THREE.TorusKnotGeometry(0.75, 0.2, 120, 16),
+    new THREE.OctahedronGeometry(1.0, 1),
+    new THREE.BoxGeometry(1.15, 1.15, 1.15)
   ];
 
   for (let i = 0; i < 8; i += 1) {
@@ -178,44 +196,92 @@ export function createHeroScene(container) {
     mesh.position.set(Math.sin(i) * 2.7, Math.cos(i * 1.7) * 1.75, (i % 3) - 1.25);
     mesh.rotation.set(Math.random() * 2, Math.random() * 2, 0);
     mesh.userData.speed = 0.22 + Math.random() * 0.36;
+    mesh.userData.baseY = mesh.position.y;
     core.add(mesh);
   }
 
   const particlesGeo = new THREE.BufferGeometry();
-  const particleCount = window.innerWidth < 760 ? 320 : 560;
+  const particleCount = window.innerWidth < 760 ? 250 : 450; // Optimized count
   const particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i += 1) {
-    particlePositions[i * 3] = (Math.random() - 0.5) * 12;
-    particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 8;
-    particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 8;
+    particlePositions[i * 3] = (Math.random() - 0.5) * 14;
+    particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+    particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 10;
   }
   particlesGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-  scene.add(new THREE.Points(particlesGeo, new THREE.PointsMaterial({
-    size: 0.026,
+  const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({
+    size: 0.035,
     color: 0xffffff,
     transparent: true,
-    opacity: 0.56,
-    depthWrite: false
-  })));
+    opacity: 0.6,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending // Glow effect for particles
+  }));
+  scene.add(particles);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
-  const p1 = new THREE.PointLight(0x65e4d4, 4.2, 20);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const p1 = new THREE.PointLight(0x65e4d4, 4.5, 20);
   p1.position.set(-4, 3, 5);
   scene.add(p1);
-  const p2 = new THREE.PointLight(0xf5c66b, 3.2, 18);
+  const p2 = new THREE.PointLight(0xf5c66b, 3.5, 18);
   p2.position.set(4, -3, 5);
   scene.add(p2);
+  const p3 = new THREE.PointLight(0x5ba7ff, 2.5, 20);
+  p3.position.set(0, 0, -6); // Backlight
+  scene.add(p3);
+  
   const motion = prefersReducedMotion() ? 0.16 : 1;
+
+  // Drag Interaction State
+  let isDragging = false;
+  let lastX = 0, lastY = 0;
+  let targetRotX = 0;
+  let targetRotY = 0;
+  let currentRotX = 0;
+  let currentRotY = 0;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (isDragging) {
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      targetRotY += dx * 0.005;
+      targetRotX += dy * 0.005;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    }
+  });
+
+  canvas.addEventListener('pointerup', (e) => {
+    isDragging = false;
+    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+  });
 
   const stopResize = observeElementSize(container, renderer, camera);
   const stopLoop = createLoop((time) => {
-    core.rotation.y = time * 0.0002 * motion + pointer.x * 0.18;
-    core.rotation.x = pointer.y * 0.1;
+    // Smooth dampening for drag rotation
+    currentRotX += (targetRotX - currentRotX) * 0.08;
+    currentRotY += (targetRotY - currentRotY) * 0.08;
+
+    core.rotation.y = time * 0.00015 * motion + currentRotY + pointer.x * 0.15;
+    core.rotation.x = currentRotX + pointer.y * 0.1;
+    
     core.children.forEach((mesh, index) => {
       mesh.rotation.x += 0.0035 * mesh.userData.speed * motion;
       mesh.rotation.y += 0.005 * mesh.userData.speed * motion;
-      mesh.position.y += Math.sin(time * 0.001 + index) * 0.0016 * motion;
+      // Smooth vertical floating motion
+      mesh.position.y = mesh.userData.baseY + Math.sin(time * 0.001 + index) * 0.12 * motion;
     });
+
+    particles.rotation.y = time * 0.00005 * motion + currentRotY * 0.15;
+    particles.rotation.x = currentRotX * 0.15;
+
     camera.position.x += (pointer.x * 0.7 - camera.position.x) * 0.035;
     camera.position.y += (pointer.y * 0.42 - camera.position.y) * 0.035;
     camera.lookAt(0, 0, 0);
