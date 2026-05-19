@@ -679,6 +679,7 @@ body.light .floating-card {
   justify-content: center;
   min-height: 44px;
   overflow: hidden;
+  color-scheme: light;
 }
 
 
