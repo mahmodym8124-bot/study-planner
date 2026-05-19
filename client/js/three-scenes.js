@@ -260,7 +260,7 @@ export function createHeroScene(container) {
 
   canvas.addEventListener('pointerup', (e) => {
     isDragging = false;
-    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+    try { canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   });
 
   const stopResize = observeElementSize(container, renderer, camera);
