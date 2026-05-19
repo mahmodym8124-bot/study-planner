@@ -86,7 +86,12 @@ npm run build
 
 The repository is linked to Vercel. Pushes to `main` trigger production deployments through the GitHub integration.
 
-For GitHub Pages builds, set repository variable `VITE_API_URL` to a **public** API base URL (for example `https://your-project.vercel.app/api`). Do not use protected Vercel preview URLs (`...git-main...vercel.app`) because they return auth pages and cause browser CORS failures.
+For GitHub Pages builds, set repository variables `VITE_API_URL` and `VITE_GOOGLE_CLIENT_ID`.
+
+- `VITE_API_URL` should point to a **public** API base URL (for example `https://your-project.vercel.app/api`). Do not use protected Vercel preview URLs (`...git-main...vercel.app`) because they return auth pages and cause browser CORS failures.
+- `VITE_GOOGLE_CLIENT_ID` must be the same Google OAuth web client ID used by Vercel so Google sign-in renders on Pages too.
+
+Also make sure your Google OAuth client allows both deployment origins, including `https://mahmodym8124-bot.github.io` and your Vercel domain.
 
 Production build command:
 
