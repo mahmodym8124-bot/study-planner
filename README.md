@@ -59,9 +59,11 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=your-gmail-address@gmail.com
 SMTP_PASS=your-16-character-gmail-app-password
-SMTP_FROM_EMAIL=your-gmail-address@gmail.com
+SMTP_FROM_EMAIL=
 SMTP_FROM_NAME=MindVault
 ```
+
+For Gmail, enable 2-Step Verification on the sending Google account, create an App Password, and use that 16-character App Password for `SMTP_PASS`. Do not use your normal Gmail password. `SMTP_FROM_EMAIL` is optional and defaults to `SMTP_USER`.
 
 
 3. Start the app:

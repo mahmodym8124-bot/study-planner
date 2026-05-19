@@ -1,8 +1,26 @@
 import nodemailer from 'nodemailer';
 
+const REQUIRED_MAIL_ENV = ['PASSWORD_RESET_BASE_URL', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
+
+function readEnv(name) {
+  return String(process.env[name] || '').trim();
+}
+
+function looksLikePlaceholder(value = '') {
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized.startsWith('your-')
+    || normalized.startsWith('replace-')
+    || normalized === 'change-me'
+    || normalized === 'changeme'
+    || normalized.includes('example.com');
+}
+
 function requireMailEnv(name) {
-  const value = String(process.env[name] || '').trim();
-  if (!value) throw new Error(`Missing required mail environment variable: ${name}`);
+  const value = readEnv(name);
+  if (!value || looksLikePlaceholder(value)) {
+    throw new Error(`Missing required mail environment variable: ${name}`);
+  }
   return value;
 }
 
@@ -24,29 +42,104 @@ function getSmtpPort() {
   return port;
 }
 
+function normalizeSmtpPassword(host, password) {
+  if (host.toLowerCase() === 'smtp.gmail.com') {
+    return password.replace(/\s+/g, '');
+  }
+  return password;
+}
+
+function getSender() {
+  const smtpUser = requireMailEnv('SMTP_USER');
+  const configuredFromEmail = readEnv('SMTP_FROM_EMAIL');
+  if (configuredFromEmail && looksLikePlaceholder(configuredFromEmail)) {
+    throw new Error('Missing required mail environment variable: SMTP_FROM_EMAIL');
+  }
+
+  const fromEmail = configuredFromEmail || smtpUser;
+  const fromName = readEnv('SMTP_FROM_NAME') || 'MindVault';
+  return `"${fromName.replaceAll('"', '\\"')}" <${fromEmail}>`;
+}
+
 function getTransporter() {
+  const host = requireMailEnv('SMTP_HOST');
   const port = getSmtpPort();
+  const password = normalizeSmtpPassword(host, requireMailEnv('SMTP_PASS'));
 
   return nodemailer.createTransport({
-    host: requireMailEnv('SMTP_HOST'),
+    host,
     port,
     secure: port === 465,
     auth: {
       user: requireMailEnv('SMTP_USER'),
-      pass: requireMailEnv('SMTP_PASS')
-    }
+      pass: password
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
   });
 }
 
 function getPasswordResetBaseUrl() {
   const rawUrl = requireMailEnv('PASSWORD_RESET_BASE_URL');
-  const parsed = new URL(rawUrl);
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('PASSWORD_RESET_BASE_URL must be a valid absolute URL');
+  }
 
   if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
     throw new Error('PASSWORD_RESET_BASE_URL must use HTTPS in production');
   }
 
   return parsed.toString().replace(/\/$/, '');
+}
+
+export function getMailConfigStatus() {
+  const missing = REQUIRED_MAIL_ENV.filter((key) => {
+    const value = readEnv(key);
+    return !value || looksLikePlaceholder(value);
+  });
+  const invalid = [];
+
+  const rawPort = readEnv('SMTP_PORT');
+  if (rawPort && !looksLikePlaceholder(rawPort)) {
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) invalid.push('SMTP_PORT');
+  }
+
+  const rawUrl = readEnv('PASSWORD_RESET_BASE_URL');
+  if (rawUrl && !looksLikePlaceholder(rawUrl)) {
+    try {
+      const parsed = new URL(rawUrl);
+      if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+        invalid.push('PASSWORD_RESET_BASE_URL must use HTTPS in production');
+      }
+    } catch {
+      invalid.push('PASSWORD_RESET_BASE_URL');
+    }
+  }
+
+  const fromEmail = readEnv('SMTP_FROM_EMAIL');
+  if (fromEmail && looksLikePlaceholder(fromEmail)) invalid.push('SMTP_FROM_EMAIL');
+
+  return {
+    configured: missing.length === 0 && invalid.length === 0,
+    missing,
+    invalid
+  };
+}
+
+export function assertMailConfigured() {
+  const status = getMailConfigStatus();
+  if (!status.configured) {
+    const problems = [
+      ...status.missing.map((key) => `missing ${key}`),
+      ...status.invalid.map((key) => `invalid ${key}`)
+    ];
+    throw new Error(`Email service is not configured: ${problems.join(', ')}`);
+  }
 }
 
 function buildPasswordResetUrl(resetToken) {
@@ -205,12 +298,11 @@ export async function sendPasswordResetEmail(toEmail, resetToken) {
 
   const resetUrl = buildPasswordResetUrl(resetToken);
   const { html, text } = buildPasswordResetEmail(resetUrl);
-  const fromEmail = requireMailEnv('SMTP_FROM_EMAIL');
-  const fromName = process.env.SMTP_FROM_NAME?.trim() || 'MindVault';
+  const from = getSender();
 
   try {
     const info = await getTransporter().sendMail({
-      from: `"${fromName.replaceAll('"', '\\"')}" <${fromEmail}>`,
+      from,
       to: toEmail,
       subject: 'Reset your MindVault password',
       html,
@@ -229,12 +321,11 @@ export async function sendVerificationEmail(toEmail, token) {
 
   const verificationUrl = buildVerificationUrl(token);
   const { html, text } = buildVerificationEmail(verificationUrl);
-  const fromEmail = requireMailEnv('SMTP_FROM_EMAIL');
-  const fromName = process.env.SMTP_FROM_NAME?.trim() || 'MindVault';
+  const from = getSender();
 
   try {
     const info = await getTransporter().sendMail({
-      from: `"${fromName.replaceAll('"', '\\"')}" <${fromEmail}>`,
+      from,
       to: toEmail,
       subject: 'Verify your MindVault email',
       html,

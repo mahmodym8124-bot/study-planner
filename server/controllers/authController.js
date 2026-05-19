@@ -6,7 +6,7 @@ import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
 import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
 import { recordActivity } from '../utils/activity.js';
-import { sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
+import { assertMailConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
 function hashResetToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
@@ -29,10 +29,28 @@ async function ensureProductivity(userId) {
   );
 }
 
+function shouldCheckMailConfig() {
+  return process.env.NODE_ENV !== 'test';
+}
+
+function respondMailNotConfigured(res, context) {
+  try {
+    if (shouldCheckMailConfig()) assertMailConfigured();
+    return false;
+  } catch (error) {
+    console.error(`${context}:`, error.message);
+    res.status(503).json({
+      message: 'Email delivery is not configured. Set Gmail SMTP environment variables before using email auth.'
+    });
+    return true;
+  }
+}
+
 export async function register(req, res) {
   const { name, email, password } = req.body;
   const existingUser = await User.findOne({ email });
   if (existingUser?.verified) return res.status(409).json({ error: 'Email is already registered' });
+  if (respondMailNotConfigured(res, 'Registration email configuration failed')) return;
 
   const hashedPassword = await bcrypt.hash(password, 12);
   const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -165,6 +183,14 @@ export async function requestPasswordReset(req, res, next) {
     const user = await User.findOne({ email }).select('_id name email verified');
     if (!user) return res.json(genericMessage);
     if (!user.verified) return res.json(genericMessage);
+    if (shouldCheckMailConfig()) {
+      try {
+        assertMailConfigured();
+      } catch (error) {
+        console.error('Password reset email configuration failed:', error.message);
+        return res.json(genericMessage);
+      }
+    }
 
     // Security-critical: generate an unpredictable cryptographic token.
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -180,6 +206,10 @@ export async function requestPasswordReset(req, res, next) {
       await sendPasswordResetEmail(user.email, resetToken);
     } catch (error) {
       console.error('Password reset email failed after token creation:', error.message);
+      await User.updateOne(
+        { email: user.email },
+        { $set: { resetToken: null, resetExpires: null } }
+      );
     }
 
     return res.json(genericMessage);
