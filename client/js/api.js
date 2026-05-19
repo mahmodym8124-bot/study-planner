@@ -1,4 +1,4 @@
-const PRODUCTION_API_URL = 'https://study-planner-two-murex.vercel.app/api';
+const PRODUCTION_API_URL = import.meta.env.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api';
 const API_BASE = window.location.hostname.endsWith('.github.io') 
   ? PRODUCTION_API_URL 
   : (import.meta.env.VITE_API_URL || '/api');
