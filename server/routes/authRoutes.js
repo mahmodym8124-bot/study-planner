@@ -11,7 +11,7 @@ router.post('/login', [body('email').isEmail().normalizeEmail(), body('password'
 router.post('/google', [body('credential').isString().isLength({ min: 20 })], validate, asyncHandler(googleLogin));
 router.post('/verify-email', [body('token').isString().isLength({ min: 64, max: 64 })], validate, asyncHandler(verifyEmail));
 router.post('/forgot-password', [body('email').isEmail().normalizeEmail()], validate, asyncHandler(requestPasswordReset));
-router.post('/reset-password', [body('token').isString().isLength({ min: 64, max: 64 }), body('password').isString().isLength({ min: 8 })], validate, asyncHandler(resetPassword));
+router.post('/reset-password', [body('token').isString().trim().isLength({ min: 64, max: 64 }), body('password').isString().isLength({ min: 8 })], validate, asyncHandler(resetPassword));
 router.post('/refresh-token', asyncHandler(protect), asyncHandler(refreshToken));
 router.get('/me', asyncHandler(protect), me);
 export default router;

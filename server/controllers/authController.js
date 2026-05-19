@@ -9,7 +9,10 @@ import { recordActivity } from '../utils/activity.js';
 import { assertMailConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
-function hashResetToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
+function hashResetToken(token) {
+  const normalized = String(token || '').trim().toLowerCase();
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
 const googleClient = new OAuth2Client();
 
 function getGoogleClientId() {
