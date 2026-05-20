@@ -178,7 +178,7 @@ function unmountAmbientBackground() {
 function route(path = location.hash.replace('#', '') || '/') {
   let nextPath = path;
   if (!state.user && nextPath.startsWith('/app')) nextPath = '/login';
-  if (state.user && ['/', '/landing', '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email'].includes(routePath(nextPath))) nextPath = '/app/dashboard';
+  if (state.user && ['/', '/landing', '/login', '/signup', '/forgot-password'].includes(routePath(nextPath))) nextPath = '/app/dashboard';
   history.replaceState(null, '', `#${nextPath}`);
   setState({ route: nextPath });
   render();
@@ -652,6 +652,8 @@ function renderResetPassword() {
     try {
       const response = await api.resetPassword({ token, password });
       toast(response.message || t('auth.passwordResetSuccess'));
+      storage.token = null;
+      setState({ user: null });
       route('/login');
     } catch (error) {
       toast(error.message || t('auth.resetFailed'), 'error');
