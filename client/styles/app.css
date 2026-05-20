@@ -437,6 +437,21 @@ body.light .select {
   overflow: hidden;
 }
 
+/* horizontal autosizing single-line input for todo entry */
+.autosize-input--h {
+  display: inline-block;
+  min-width: 120px;
+  max-width: 100%;
+  line-height: 1.4;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: content-box;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -770,6 +785,115 @@ body.light .floating-card {
 .auth-inline-action button:hover {
   color: var(--brand);
   text-decoration: underline;
+}
+
+/* Focus timer: constrain minute input sizing on desktop, stack on small screens */
+.focus-timer-card .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  align-items: center;
+}
+.focus-timer-card .form-row .field {
+  margin: 0;
+}
+.focus-timer-card .form-row .field input[type="number"] {
+  max-width: 140px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .focus-timer-card .form-row {
+    grid-template-columns: 1fr;
+  }
+  /* Stack fields but keep label and number input on one line and make input compact */
+  .focus-timer-card .form-row .field {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .focus-timer-card .form-row .field label {
+    margin: 0;
+    flex: 1 1 auto;
+    font-size: 0.95rem;
+  }
+  .focus-timer-card .form-row .field input[type="number"] {
+    flex: 0 0 110px;
+    max-width: 110px;
+    width: 110px;
+    padding: 0.45rem 0.6rem;
+  }
+}
+
+/* Mobile: make productivity layout stack and scale timer */
+@media (max-width: 720px) {
+  .productivity {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .focus-timer-card,
+  .task-panel,
+  .focus-note-card,
+  .focus-summary-card {
+    padding: 12px;
+  }
+
+  /* reduce timer size for mobile */
+  .timer-ring-wrap {
+    width: 140px;
+    height: 140px;
+    margin: 16px auto;
+  }
+  .timer-display .timer {
+    font-size: 2rem;
+  }
+  .timer {
+    margin: 12px 0;
+  }
+
+  /* compact action buttons */
+  .focus-timer-card .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .focus-timer-card .actions .btn {
+    padding: 0.5rem 0.9rem;
+    min-height: 38px;
+    font-size: 0.95rem;
+  }
+
+  /* Make current task card full width and tighter */
+  .current-task-card {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* Task panel: stack the todo form controls vertically and make inputs full width */
+  .task-panel #todo-form {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .task-panel #todo-form > div {
+    width: 100%;
+  }
+  .task-panel #todo-form .select {
+    width: 84px;
+  }
+  .task-panel #todo-form .btn {
+    padding: 0.5rem 0.8rem;
+  }
+
+  /* reduce padding on cards to fit mobile viewport */
+  .card { padding: 12px; }
 }
 
 html[dir='rtl'] .auth-inline-action {
@@ -2194,6 +2318,29 @@ html[dir='rtl'] .lang-option .checkmark {
   .main {
     padding: 14px;
     min-width: 0;
+  }
+
+  /* Focus-page tablet/mobile adjustments (sidebar is fixed mode at <=1040px) */
+  .productivity {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .focus-timer-card,
+  .task-panel,
+  .focus-note-card,
+  .focus-summary-card {
+    padding: 12px;
+  }
+
+  .timer-ring-wrap {
+    width: 170px;
+    height: 170px;
+    margin: 16px auto;
+  }
+
+  .timer-display .timer {
+    font-size: 2.6rem;
   }
 }
 
