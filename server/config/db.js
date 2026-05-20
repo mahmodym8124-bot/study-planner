@@ -46,17 +46,39 @@ export async function connectDB(uri, options = {}) {
     ...compactOptions(options)
   };
 
-  connectionPromise ||= mongoose
-    .connect(uri, connectOptions)
-    .finally(() => {
-      connectionPromise = null;
-    });
-
-  await connectionPromise;
-  if (process.env.NODE_ENV !== 'test') {
-    console.log('MongoDB connected');
+  function maskUri(u = '') {
+    try {
+      if (!u) return '<not-set>';
+      if (u.includes('mongodb+srv://') || u.includes('.mongodb.net')) {
+        return u.replace(/:(?:[^@]+)@/, ':***@');
+      }
+      const parsed = new URL(u);
+      if (parsed.password) parsed.password = '***';
+      if (parsed.username) parsed.username = '***';
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    } catch {
+      return '<invalid>';
+    }
   }
-  return mongoose.connection;
+
+  if (process.env.NODE_ENV !== 'test') {
+    console.log('MongoDB: attempting connection to', maskUri(uri));
+  }
+
+  connectionPromise ||= mongoose.connect(uri, connectOptions).finally(() => {
+    connectionPromise = null;
+  });
+
+  try {
+    await connectionPromise;
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('MongoDB connected');
+    }
+    return mongoose.connection;
+  } catch (error) {
+    console.error('MongoDB connection failed (connectDB):', error && error.stack ? error.stack : String(error));
+    throw error;
+  }
 }
 
 export function databaseStatus() {
