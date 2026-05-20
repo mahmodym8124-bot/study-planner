@@ -2,6 +2,13 @@ import '../styles/app.css';
 import '../styles/error-boundary.css';
 import '../styles/graph.css';
 import gsap from 'gsap';
+import {
+  initGlobalInteractions,
+  animatePageTransition,
+  staggerEntrance,
+  openSidebarAnimation,
+  closeSidebarAnimation
+} from './animation.js';
 import i18n from './i18n.js';
 import { api, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
@@ -216,6 +223,7 @@ document.body.addEventListener('click', (e) => {
 });
 
 async function bootstrap() {
+  initGlobalInteractions();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations()
       .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
@@ -791,81 +799,106 @@ function renderApp() {
     kmr: t('lang.toKurdish')
   };
   const langLabel = langs[currentLang] || langs.en;
-  app.className = 'dashboard-shell';
-  app.innerHTML = `
-    <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#/app/dashboard" aria-label="${t('a11y.dashboard')}"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
-      <div class="workspace-pill">
-        <span class="status-dot ${state.isOffline ? 'offline' : ''}"></span>
-        <div>
-          <b>${escapeHTML(state.user?.name || t('shell.workspace'))}</b>
-          <span class="muted">${state.isOffline ? t('shell.localMode') : t('shell.dayStreak', { count: insights.streak || 0 })}</span>
+
+  const viewRootExists = app.querySelector('#view-root') && app.classList.contains('dashboard-shell');
+
+  if (!viewRootExists) {
+    app.className = 'dashboard-shell';
+    app.innerHTML = `
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#/app/dashboard" aria-label="${t('a11y.dashboard')}"><span class="logo">${icon('vault')}</span><span>MindVault</span></a>
+        <div class="workspace-pill">
+          <span class="status-dot ${state.isOffline ? 'offline' : ''}"></span>
+          <div>
+            <b>${escapeHTML(state.user?.name || t('shell.workspace'))}</b>
+            <span class="muted">${state.isOffline ? t('shell.localMode') : t('shell.dayStreak', { count: insights.streak || 0 })}</span>
+          </div>
         </div>
-      </div>
-      <nav class="side-nav">
-        ${navItems().map(([id, label]) => `
-          <a class="side-link ${view === id ? 'active' : ''}" href="#/app/${id}">
-            ${icon(id)} ${label}
+        <nav class="side-nav">
+          ${navItems().map(([id, label]) => `
+            <a class="side-link ${view === id ? 'active' : ''}" href="#/app/${id}">
+              ${icon(id)} ${label}
+            </a>
+          `).join('')}
+        </nav>
+        <div class="sidebar-footer">
+          <div class="lang-menu" id="lang-menu-sidebar">
+            <button class="btn lang-toggle" id="lang-toggle-sidebar" type="button">${langLabel}</button>
+            <div class="lang-dropdown" id="lang-dropdown-sidebar">
+              ${['en', 'ar', 'kmr'].map((lang) => `
+                <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+                  ${langs[lang]}
+                  ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          <button class="btn" id="cmd-open">${icon('command')} ${t('nav.command')}</button>
+          <button class="btn" id="theme-toggle">${icon('theme')} ${t('nav.theme')}</button>
+          <button class="btn danger" id="logout">${icon('logout')} ${t('nav.logout')}</button>
+        </div>
+      </aside>
+      <button class="sidebar-scrim" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
+
+      <main class="main">
+        <header class="topbar surface">
+          <button class="icon-button mobile-toggle" id="mobile-menu" aria-label="${t('a11y.openMenu')}">${icon('menu')}</button>
+          <div class="search-wrap">
+            ${icon('search')}
+            <label class="sr-only" for="global-search">${t('a11y.searchLabel')}</label>
+            <input class="input" id="global-search" type="search" autocomplete="off" placeholder="${t('shell.searchPlaceholder')}" />
+            <span class="shortcut">${t('shell.shortcut')}</span>
+          </div>
+          <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">${t('nav.newNote')}</span></button>
+          <div class="avatar">${escapeHTML(state.user?.name?.[0] || 'M')}</div>
+        </header>
+        <section id="view-root"></section>
+      </main>
+
+      <nav class="bottom-nav">
+        ${[['dashboard', t('nav.home')], ['notes', t('nav.notes')], ['productivity', t('nav.productivity')], ['ideas', t('nav.ideas')]].map(([id, label]) => `
+          <a class="bottom-nav-item ${view === id ? 'active' : ''}" href="#/app/${id}" aria-label="${label}">
+            ${icon(id)}
+            <span>${label}</span>
           </a>
         `).join('')}
       </nav>
-      <div class="sidebar-footer">
-        <div class="lang-menu" id="lang-menu-sidebar">
-          <button class="btn lang-toggle" id="lang-toggle-sidebar" type="button">${langLabel}</button>
-          <div class="lang-dropdown" id="lang-dropdown-sidebar">
-            ${['en', 'ar', 'kmr'].map((lang) => `
-              <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                ${langs[lang]}
-                ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
-              </button>
-            `).join('')}
-          </div>
+
+      <div class="toast-stack" aria-live="polite"></div>
+      <div class="command-backdrop" id="command">
+        <div class="cmd surface">
+          <label class="sr-only" for="cmd-input">${t('a11y.commandPalette')}</label>
+          <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="${t('shell.cmdPlaceholder')}" />
+          <div class="cmd-results" id="cmd-results"></div>
         </div>
-        <button class="btn" id="cmd-open">${icon('command')} ${t('nav.command')}</button>
-        <button class="btn" id="theme-toggle">${icon('theme')} ${t('nav.theme')}</button>
-        <button class="btn danger" id="logout">${icon('logout')} ${t('nav.logout')}</button>
       </div>
-    </aside>
-    <button class="sidebar-scrim" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
+    `;
 
-    <main class="main">
-      <header class="topbar surface">
-        <button class="icon-button mobile-toggle" id="mobile-menu" aria-label="${t('a11y.openMenu')}">${icon('menu')}</button>
-        <div class="search-wrap">
-          ${icon('search')}
-          <label class="sr-only" for="global-search">${t('a11y.searchLabel')}</label>
-          <input class="input" id="global-search" type="search" autocomplete="off" placeholder="${t('shell.searchPlaceholder')}" />
-          <span class="shortcut">${t('shell.shortcut')}</span>
-        </div>
-        <button class="btn" id="quick-note">${icon('plus')}<span class="hide-mobile">${t('nav.newNote')}</span></button>
-        <div class="avatar">${escapeHTML(state.user?.name?.[0] || 'M')}</div>
-      </header>
-      <section id="view-root"></section>
-    </main>
+    setupLanguageMenu('lang-menu-sidebar', 'lang-toggle-sidebar', 'lang-dropdown-sidebar');
+    bindShell();
+    gsap.fromTo(app, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out' });
+  } else {
+    // Persistent Shell Optimization: Just update active classes in navigation without replacing HTML
+    app.querySelectorAll('.side-link').forEach((link) => {
+      const href = link.getAttribute('href');
+      const active = href === `#/app/${view}`;
+      link.classList.toggle('active', active);
+    });
+    app.querySelectorAll('.bottom-nav-item').forEach((link) => {
+      const href = link.getAttribute('href');
+      const active = href === `#/app/${view}`;
+      link.classList.toggle('active', active);
+    });
+    // Update active user day streak
+    const streakText = state.isOffline ? t('shell.localMode') : t('shell.dayStreak', { count: insights.streak || 0 });
+    const pillTextEl = app.querySelector('.workspace-pill span.muted');
+    if (pillTextEl) pillTextEl.textContent = streakText;
+  }
 
-    <nav class="bottom-nav">
-      ${[['dashboard', t('nav.home')], ['notes', t('nav.notes')], ['productivity', t('nav.productivity')], ['ideas', t('nav.ideas')]].map(([id, label]) => `
-        <a class="bottom-nav-item ${view === id ? 'active' : ''}" href="#/app/${id}" aria-label="${label}">
-          ${icon(id)}
-          <span>${label}</span>
-        </a>
-      `).join('')}
-    </nav>
-
-    <div class="toast-stack" aria-live="polite"></div>
-    <div class="command-backdrop" id="command">
-      <div class="cmd surface">
-        <label class="sr-only" for="cmd-input">${t('a11y.commandPalette')}</label>
-        <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="${t('shell.cmdPlaceholder')}" />
-        <div class="cmd-results" id="cmd-results"></div>
-      </div>
-    </div>
-  `;
-
-  setupLanguageMenu('lang-menu-sidebar', 'lang-toggle-sidebar', 'lang-dropdown-sidebar');
-  bindShell();
-  renderView(view);
-  gsap.from('.main', { opacity: 0, y: 10, duration: 0.25, ease: 'power2.out' });
+  // Animate inner page navigation transition on view change
+  animatePageTransition(app.querySelector('#view-root'), () => {
+    renderView(view);
+  });
 }
 
 function bindShell() {
@@ -885,14 +918,12 @@ function bindShell() {
   const scrim = document.querySelector('#sidebar-scrim');
   const mobileMenu = document.querySelector('#mobile-menu');
   const closeMenu = () => {
-    sidebar.classList.remove('open');
-    scrim.classList.remove('open');
+    closeSidebarAnimation(sidebar, scrim);
   };
   const openMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    sidebar.classList.add('open');
-    scrim.classList.add('open');
+    openSidebarAnimation(sidebar, scrim);
   };
   mobileMenu.addEventListener('click', openMenu);
   mobileMenu.addEventListener('touchend', (e) => {
@@ -1291,6 +1322,12 @@ function renderGraph(root) {
 
   api.getGraphNodes().then((payload) => {
     if (!document.body.contains(graphCanvas)) return;
+
+    if (root._skeletonPulseCleanup) {
+      root._skeletonPulseCleanup();
+      root._skeletonPulseCleanup = null;
+    }
+
     graphController = createGraphExperience(graphCanvas, payload?.data || payload, {
       onSelect: (node) => {
         const typeLabel = node.type === 'idea' ? t('graph.typeIdea') : t('graph.typeNote');
@@ -1343,7 +1380,13 @@ function renderGraph(root) {
         if (action === 'download') await graphController.downloadPng();
       };
     });
+
+    staggerEntrance(root);
   }).catch(() => {
+    if (root._skeletonPulseCleanup) {
+      root._skeletonPulseCleanup();
+      root._skeletonPulseCleanup = null;
+    }
     graphPanel.innerHTML = `<p class="muted">${t('graph.loadError')}</p>`;
   });
 }

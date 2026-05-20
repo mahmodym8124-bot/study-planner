@@ -328,7 +328,7 @@ body.light .glass {
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--text);
-  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .btn {
@@ -916,7 +916,7 @@ body.light .sidebar {
   border-radius: var(--radius);
   color: var(--muted);
   overflow-wrap: anywhere;
-  transition: 0.18s ease;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
 .side-link .icon-mark,
@@ -1873,7 +1873,7 @@ body.light .tag {
 
 /* ── Todo Animation ── */
 .todo {
-  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  transition: color 0.3s var(--ease);
 }
 
 .todo.done span {
@@ -1883,7 +1883,7 @@ body.light .tag {
 }
 
 .todo-check {
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease-bounce);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
 }
 
 .todo-check:hover {
