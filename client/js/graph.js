@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import i18n from './i18n.js';
 
 const NODE_COLORS = ['#2dd4bf', '#f59e0b', '#10b981', '#a78bfa'];
 
@@ -128,7 +129,7 @@ export function createGraphExperience(container, payload, callbacks = {}) {
   const nodes = parsed.nodes.length ? parsed.nodes : [{
     id: 'placeholder',
     _id: 'placeholder',
-    title: 'Create your first note',
+    title: i18n.t('graph.placeholderNode'),
     type: 'note',
     tags: [],
     color: NODE_COLORS[0],
@@ -243,7 +244,7 @@ export function createGraphExperience(container, payload, callbacks = {}) {
     .attr('text-anchor', 'middle')
     .attr('dy', '0.35em')
     .style('display', 'none')
-    .text('No notes found');
+    .text(i18n.t('graph.noNodesFound'));
 
   links.forEach((link, index) => {
     link.gradientId = `${graphId}-edge-gradient-${index}`;
@@ -252,6 +253,7 @@ export function createGraphExperience(container, payload, callbacks = {}) {
       .attr('gradientUnits', 'userSpaceOnUse');
     gradient.append('stop').attr('offset', '0%').attr('stop-color', link.source.color);
     gradient.append('stop').attr('offset', '100%').attr('stop-color', link.target.color);
+    link.gradientSelection = gradient;
   });
 
   const edgeSelection = edgeLayer.selectAll('path')
@@ -329,15 +331,16 @@ export function createGraphExperience(container, payload, callbacks = {}) {
     .attr('dy', '0.35em')
     .text((d) => String(d.title || '?').trim().charAt(0).toUpperCase() || '?');
 
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
   const simulation = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(links).id((d) => d.id).distance((d) => clamp(130 - (d.weight * 8), 72, 160)).strength(0.25))
-    .force('charge', d3.forceManyBody().strength(-220))
+    .force('charge', d3.forceManyBody().strength(isMobile ? -140 : -220))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('x', d3.forceX(width / 2).strength(0.025))
-    .force('y', d3.forceY(height / 2).strength(0.025))
-    .force('collision', createCollisionForce(nodes, 8))
+    .force('x', d3.forceX(width / 2).strength(isMobile ? 0.04 : 0.025))
+    .force('y', d3.forceY(height / 2).strength(isMobile ? 0.04 : 0.025))
+    .force('collision', isMobile ? null : createCollisionForce(nodes, 8))
     .velocityDecay(0.34)
-    .alphaDecay(0.06);
+    .alphaDecay(isMobile ? 0.1 : 0.06);
 
   const dragBehavior = d3.drag()
     .on('start', (event, node) => {
@@ -392,11 +395,13 @@ export function createGraphExperience(container, payload, callbacks = {}) {
 
     edgeSelection.attr('d', (link) => curvePath(link));
     links.forEach((link) => {
-      defs.select(`#${link.gradientId}`)
-        .attr('x1', link.source.x)
-        .attr('y1', link.source.y)
-        .attr('x2', link.target.x)
-        .attr('y2', link.target.y);
+      if (link.gradientSelection) {
+        link.gradientSelection
+          .attr('x1', link.source.x)
+          .attr('y1', link.source.y)
+          .attr('x2', link.target.x)
+          .attr('y2', link.target.y);
+      }
     });
   }
 
@@ -495,6 +500,7 @@ export function createGraphExperience(container, payload, callbacks = {}) {
     resizeTimeout = setTimeout(() => {
       width = Math.max(400, container.clientWidth || 400);
       height = Math.max(420, container.clientHeight || 420);
+      const activeMobile = window.matchMedia('(max-width: 768px)').matches;
       svg.attr('viewBox', `0 0 ${width} ${height}`);
       svg.select('.kg-background').attr('width', width).attr('height', height);
       gridRect
@@ -505,8 +511,11 @@ export function createGraphExperience(container, payload, callbacks = {}) {
       svg.select('.kg-vignette').attr('width', width).attr('height', height);
       noResults.attr('x', width / 2).attr('y', height / 2);
       simulation.force('center', d3.forceCenter(width / 2, height / 2));
-      simulation.force('x', d3.forceX(width / 2).strength(0.025));
-      simulation.force('y', d3.forceY(height / 2).strength(0.025));
+      simulation.force('x', d3.forceX(width / 2).strength(activeMobile ? 0.04 : 0.025));
+      simulation.force('y', d3.forceY(height / 2).strength(activeMobile ? 0.04 : 0.025));
+      simulation.force('charge', d3.forceManyBody().strength(activeMobile ? -140 : -220));
+      simulation.force('collision', activeMobile ? null : createCollisionForce(nodes, 8));
+      simulation.alphaDecay(activeMobile ? 0.1 : 0.06);
       simulation.alpha(0.2).restart();
     }, 120);
   }

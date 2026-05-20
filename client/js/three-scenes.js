@@ -38,7 +38,9 @@ function disposeScene(scene) {
 function createLoop(render) {
   let frame;
   let last = 0;
-  const minFrameGap = prefersReducedMotion() ? 180 : 0;
+  const prefersReduced = prefersReducedMotion();
+  const isMobileDevice = window.matchMedia?.('(pointer: coarse)').matches;
+  const minFrameGap = prefersReduced ? 180 : (isMobileDevice ? 33 : 0);
 
   function tick(time) {
     if (!document.hidden && time - last >= minFrameGap) {
@@ -104,8 +106,9 @@ export function createAmbientBackground(canvas) {
   const group = new THREE.Group();
   scene.add(group);
 
+  const isMobileDevice = window.matchMedia?.('(pointer: coarse)').matches;
   const geometry = new THREE.BufferGeometry();
-  const count = window.innerWidth < 760 ? 190 : 360;
+  const count = isMobileDevice ? 90 : (window.innerWidth < 760 ? 190 : 360);
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i += 1) {
     positions[i * 3] = (Math.random() - 0.5) * 42;
@@ -165,16 +168,26 @@ export function createHeroScene(container) {
   const core = new THREE.Group();
   scene.add(core);
 
+  const isMobileDevice = window.matchMedia?.('(pointer: coarse)').matches;
+
   // Premium, glass-like and glowing materials
-  const solid = new THREE.MeshPhysicalMaterial({ 
-    color: 0x65e4d4, 
-    roughness: 0.1, 
-    metalness: 0.6, 
-    transmission: 0.8, // glass effect
-    thickness: 0.5,
-    transparent: true, 
-    opacity: 1 
-  });
+  const solid = isMobileDevice
+    ? new THREE.MeshStandardMaterial({
+        color: 0x65e4d4,
+        roughness: 0.2,
+        metalness: 0.5,
+        transparent: true,
+        opacity: 0.85
+      })
+    : new THREE.MeshPhysicalMaterial({ 
+        color: 0x65e4d4, 
+        roughness: 0.1, 
+        metalness: 0.6, 
+        transmission: 0.8, // glass effect
+        thickness: 0.5,
+        transparent: true, 
+        opacity: 1 
+      });
   const wire = new THREE.MeshStandardMaterial({ 
     color: 0x5ba7ff, 
     roughness: 0.2, 
@@ -201,7 +214,7 @@ export function createHeroScene(container) {
   }
 
   const particlesGeo = new THREE.BufferGeometry();
-  const particleCount = window.innerWidth < 760 ? 250 : 450; // Optimized count
+  const particleCount = isMobileDevice ? 120 : (window.innerWidth < 760 ? 250 : 450); // Optimized count
   const particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i += 1) {
     particlePositions[i * 3] = (Math.random() - 0.5) * 14;
@@ -310,19 +323,33 @@ export function createKnowledgeGraph(container, data, onSelect) {
   const lines = [];
   const palette = { note: 0x65e4d4, file: 0x5ba7ff, idea: 0xf5c66b };
   
+  const isMobileDevice = window.matchMedia?.('(pointer: coarse)').matches;
+
   // LOD geometries: low/med/high detail
   const lodGeometries = {
-    note: [
+    note: isMobileDevice ? [
+      new THREE.SphereGeometry(0.35, 4, 4),
+      new THREE.SphereGeometry(0.35, 8, 8),
+      new THREE.SphereGeometry(0.35, 12, 12)
+    ] : [
       new THREE.SphereGeometry(0.35, 8, 8),
       new THREE.SphereGeometry(0.35, 16, 16),
       new THREE.SphereGeometry(0.35, 24, 24)
     ],
-    file: [
+    file: isMobileDevice ? [
+      new THREE.SphereGeometry(0.44, 4, 4),
+      new THREE.SphereGeometry(0.44, 8, 8),
+      new THREE.SphereGeometry(0.44, 12, 12)
+    ] : [
       new THREE.SphereGeometry(0.44, 8, 8),
       new THREE.SphereGeometry(0.44, 16, 16),
       new THREE.SphereGeometry(0.44, 24, 24)
     ],
-    idea: [
+    idea: isMobileDevice ? [
+      new THREE.SphereGeometry(0.35, 4, 4),
+      new THREE.SphereGeometry(0.35, 8, 8),
+      new THREE.SphereGeometry(0.35, 12, 12)
+    ] : [
       new THREE.SphereGeometry(0.35, 8, 8),
       new THREE.SphereGeometry(0.35, 16, 16),
       new THREE.SphereGeometry(0.35, 24, 24)

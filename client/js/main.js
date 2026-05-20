@@ -497,10 +497,10 @@ function renderVerifyEmail() {
     <section class="auth-page">
       <div class="auth-card surface">
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
-        <h1>Verify email</h1>
-        <p class="muted" id="verify-status">Click below to verify your email address.</p>
-        <button class="btn primary" style="width:100%" type="button" id="verify-action">Click to verify</button>
-        <button class="btn" style="width:100%;margin-top:10px;" type="button" id="verify-login">Go to Sign In</button>
+        <h1>${t('auth.verifyTitle')}</h1>
+        <p class="muted" id="verify-status">${t('auth.verifyStatusPlaceholder')}</p>
+        <button class="btn primary" style="width:100%" type="button" id="verify-action">${t('auth.verifyAction')}</button>
+        <button class="btn" style="width:100%;margin-top:10px;" type="button" id="verify-login">${t('auth.backToSignIn')}</button>
       </div>
     </section>
   `;
@@ -511,27 +511,28 @@ function renderVerifyEmail() {
   loginBtn.onclick = () => route('/login');
 
   if (!token) {
-    statusEl.textContent = 'Invalid or expired verification link.';
+    statusEl.textContent = t('auth.verifyFailed');
     verifyBtn.disabled = true;
-    toast('Invalid or expired verification link.', 'error');
+    toast(t('auth.verifyFailed'), 'error');
     return;
   }
 
   verifyBtn.onclick = async () => {
     verifyBtn.disabled = true;
-    verifyBtn.textContent = 'Verifying...';
+    verifyBtn.textContent = t('auth.verifying');
     try {
-      const response = await api.verifyEmail(token);
-      const message = response.message || 'Email verified successfully. You can now log in.';
+      await api.verifyEmail(token);
+      const message = t('auth.verifySuccess');
       statusEl.textContent = message;
       toast(message);
-      verifyBtn.textContent = 'Verified';
+      verifyBtn.textContent = t('auth.verified');
     } catch (error) {
-      const message = error.message || 'Invalid or expired verification link.';
+      console.error('Email verification failed:', error);
+      const message = t('auth.verifyFailed');
       statusEl.textContent = message;
       toast(message, 'error');
       verifyBtn.disabled = false;
-      verifyBtn.textContent = 'Click to verify';
+      verifyBtn.textContent = t('auth.verifyAction');
     }
   };
 }
@@ -1255,14 +1256,14 @@ function renderGraph(root) {
       <div class="graph-panel card" id="graph">
         <div class="graph-canvas" id="graph-canvas"><div class="skeleton"></div></div>
         <div class="graph-vignette" aria-hidden="true"></div>
-        <div class="graph-controls" role="group" aria-label="Graph controls">
-          <button class="graph-control-btn" data-graph-action="zoom-in" aria-label="Zoom in">+</button>
-          <button class="graph-control-btn" data-graph-action="zoom-out" aria-label="Zoom out">-</button>
-          <button class="graph-control-btn" data-graph-action="reset">Reset</button>
-          <button class="graph-control-btn" data-graph-action="fit">Fit</button>
-          <button class="graph-control-btn graph-control-export" data-graph-action="download">Download PNG</button>
+        <div class="graph-controls" role="group" aria-label="${t('graph.controlsLabel')}">
+          <button class="graph-control-btn" data-graph-action="zoom-in" aria-label="${t('graph.zoomIn')}">+</button>
+          <button class="graph-control-btn" data-graph-action="zoom-out" aria-label="${t('graph.zoomOut')}">-</button>
+          <button class="graph-control-btn" data-graph-action="reset">${t('graph.reset')}</button>
+          <button class="graph-control-btn" data-graph-action="fit">${t('graph.fit')}</button>
+          <button class="graph-control-btn graph-control-export" data-graph-action="download">${t('graph.downloadPng')}</button>
         </div>
-        <button class="graph-help-toggle" id="graph-help-toggle" aria-label="How this works">?</button>
+        <button class="graph-help-toggle" id="graph-help-toggle" aria-label="${t('graph.howItWorks')}">?</button>
         <div class="graph-inspector-backdrop" id="graph-inspector-backdrop"></div>
         <aside class="graph-inspector-panel" id="inspector" aria-hidden="true">
           <button class="graph-inspector-close" id="graph-inspector-close" aria-label="${t('common.close')}">
@@ -1276,9 +1277,9 @@ function renderGraph(root) {
         <div class="graph-help-modal" id="graph-help-modal" aria-hidden="true">
           <div class="graph-help-card" role="dialog" aria-modal="true" aria-labelledby="graph-help-title">
             <button class="graph-help-close" id="graph-help-close" aria-label="${t('common.close')}">${icon('close')}</button>
-            <h3 id="graph-help-title">How this works</h3>
-            <p>Each node is a note or idea. Color indicates category, size reflects connection count, and links represent shared tags.</p>
-            <p>Drag nodes to rearrange, use the controls to zoom or fit, and search from the top bar to highlight matching notes.</p>
+            <h3 id="graph-help-title">${t('graph.helpTitle')}</h3>
+            <p>${t('graph.helpBody')}</p>
+            <p>${t('graph.helpBody2')}</p>
           </div>
         </div>
       </div>

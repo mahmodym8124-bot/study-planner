@@ -101,7 +101,14 @@
     "passwordTooShort": "Password must be at least 8 characters.",
     "passwordMismatch": "Passwords do not match.",
     "resettingPassword": "Updating...",
-    "passwordResetSuccess": "Password updated successfully. Please sign in."
+    "passwordResetSuccess": "Password updated successfully. Please sign in.",
+    "verifyTitle": "Verify email",
+    "verifyStatusPlaceholder": "Click below to verify your email address.",
+    "verifyAction": "Click to verify",
+    "verifying": "Verifying...",
+    "verifySuccess": "Email verified successfully. You can now log in.",
+    "verifyFailed": "Invalid or expired verification link.",
+    "verified": "Verified"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -200,7 +207,18 @@
     "placeholderNode": "Create your first note",
     "typeNote": "note",
     "typeIdea": "idea",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset",
+    "fit": "Fit",
+    "downloadPng": "Download PNG",
+    "howItWorks": "How this works",
+    "helpTitle": "How this works",
+    "helpBody": "Each node is a note or idea. Color indicates category, size reflects connection count, and links represent shared tags.",
+    "helpBody2": "Drag nodes to rearrange, use the controls to zoom or fit, and search from the top bar to highlight matching notes.",
+    "controlsLabel": "Graph controls",
+    "noNodesFound": "No notes found"
   },
   "ideas": {
     "title": "Ideas",
