@@ -2903,6 +2903,64 @@ html[dir='rtl'] .lang-option .checkmark {
     margin-top: 56px;
   }
 
+  /* Focus page desktop-only fixes
+     - Ensure todo textarea renders horizontally (not vertical stacked letters)
+     - Make the daily focus input compact on desktop and add bottom padding
+     - Improve column alignment so cards stretch to equal heights
+  */
+  /* Force productivity grid columns and stretching on desktop */
+  .productivity {
+    grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr) minmax(240px, 320px);
+    align-items: stretch; /* allow columns to stretch to same row height */
+  }
+
+  /* Make cards use column flex so their content flows naturally and can stretch */
+  .productivity > .card,
+  .productivity > section.card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* Task form: lay out as single-row controls on desktop */
+  .task-panel #todo-form {
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Ensure the autosize todo input renders as horizontal text on desktop */
+  .task-panel #todo-form .autosize-input,
+  .task-panel #todo-form textarea.autosize-input {
+    min-height: 48px;
+    line-height: 1.4;
+    writing-mode: horizontal-tb !important;
+    white-space: normal !important;
+    overflow: hidden;
+    resize: none;
+  }
+
+  /* Daily focus: make the focus text compact single-line on desktop */
+  .focus-note-card #focus-text {
+    min-height: 40px;
+    height: 40px;
+    line-height: 1.4;
+    padding: 0.5rem 0.75rem;
+    resize: none;
+    overflow: hidden;
+  }
+
+  /* Add breathing room at bottom of the focus panel so the Save button isn't hugging the edge */
+  .focus-note-card {
+    padding-bottom: 20px;
+  }
+
+  /* Make the Save button sit naturally after the textarea (don't push it to card bottom) */
+  .focus-note-card .btn {
+    margin-top: 0.6rem;
+    align-self: flex-start;
+  }
+
   .feature {
     padding: var(--space-6);
     min-height: 160px;
