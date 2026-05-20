@@ -10,6 +10,8 @@ const icons = {
   productivity: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M7 17.5 5.5 19"/><path d="m18.5 19-1.5-1.5"/>',
   focus: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/>',
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/>',
   plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
   theme: '<path d="M12 3a9 9 0 1 0 9 9 6.5 6.5 0 0 1-9-9Z"/>',
   logout: '<path d="M10 17 15 12l-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/>',

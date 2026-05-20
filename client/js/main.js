@@ -201,6 +201,20 @@ function passwordStrength(value = '') {
 
 window.addEventListener('hashchange', () => route(location.hash.replace('#', '') || '/'));
 
+document.body.addEventListener('click', (e) => {
+  const toggleBtn = e.target.closest('.password-toggle-btn');
+  if (toggleBtn) {
+    e.preventDefault();
+    const wrapper = toggleBtn.closest('.password-input-wrapper');
+    const input = wrapper ? wrapper.querySelector('input') : null;
+    if (input) {
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      toggleBtn.innerHTML = icon(isPassword ? 'eyeOff' : 'eye');
+    }
+  }
+});
+
 async function bootstrap() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations()
@@ -389,7 +403,13 @@ function renderAuth(signup) {
         </div>
         ${signup ? `<div class="field"><label for="auth-name">${t('auth.name')}</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="${t('auth.namePlaceholder')}" /></div>` : ''}
         <div class="field"><label for="auth-email">${t('auth.email')}</label><input id="auth-email" class="input" type="email" name="email" autocomplete="${signup ? 'email' : 'username'}" required placeholder="${t('auth.emailPlaceholder')}" /></div>
-        <div class="field"><label for="auth-password">${t('auth.password')}</label><input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${t('auth.passwordPlaceholder')}" /></div>
+        <div class="field">
+          <label for="auth-password">${t('auth.password')}</label>
+          <div class="password-input-wrapper">
+            <input id="auth-password" class="input" type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${t('auth.passwordPlaceholder')}" />
+            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Toggle password visibility">${icon('eye')}</button>
+          </div>
+        </div>
         ${signup ? '' : `<p class="auth-inline-action"><button type="button" id="forgot-password-link">${t('auth.forgotPassword')}</button></p>`}
         <button class="btn primary" style="width:100%" type="submit">${signup ? t('auth.createAccount') : t('auth.signIn')}</button>
         <p class="switch-auth">
@@ -558,13 +578,20 @@ function renderResetPassword() {
         <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
         <h1>${t('auth.resetTitle')}</h1>
         <p class="muted">${t('auth.resetHint')}</p>
+        <input type="text" name="username" autocomplete="username" style="display: none;" aria-hidden="true" />
         <div class="field">
           <label for="reset-password">${t('auth.newPassword')}</label>
-          <input id="reset-password" class="input" type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="${t('auth.passwordPlaceholder')}" />
+          <div class="password-input-wrapper">
+            <input id="reset-password" class="input" type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="${t('auth.passwordPlaceholder')}" />
+            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Toggle password visibility">${icon('eye')}</button>
+          </div>
         </div>
         <div class="field">
           <label for="reset-confirm">${t('auth.confirmPassword')}</label>
-          <input id="reset-confirm" class="input" type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="${t('auth.passwordPlaceholder')}" />
+          <div class="password-input-wrapper">
+            <input id="reset-confirm" class="input" type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="${t('auth.passwordPlaceholder')}" />
+            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Toggle password visibility">${icon('eye')}</button>
+          </div>
         </div>
         <p class="auth-hint" id="password-strength">${t('auth.passwordStrength')}: ${t('auth.strengthWeak')}</p>
         <button class="btn primary" style="width:100%" type="submit">${t('auth.updatePassword')}</button>

@@ -736,6 +736,78 @@ body.light .floating-card {
   font-weight: 780;
 }
 
+/* Forgot password link alignment and styling */
+.auth-inline-action {
+  text-align: right;
+  margin-top: -0.25rem;
+  margin-bottom: 0.85rem;
+}
+
+.auth-inline-action button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.auth-inline-action button:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+html[dir='rtl'] .auth-inline-action {
+  text-align: left;
+}
+
+/* Password Visibility Toggle */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper .input {
+  padding-right: 42px;
+}
+
+html[dir='rtl'] .password-input-wrapper .input {
+  padding-right: 0.92rem;
+  padding-left: 42px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted) !important;
+  cursor: pointer;
+  transition: color 0.18s ease;
+  z-index: 2;
+  box-shadow: none !important;
+  min-height: auto !important;
+  width: auto !important;
+  transform: none !important;
+}
+
+.password-toggle-btn:hover {
+  color: var(--brand) !important;
+}
+
+html[dir='rtl'] .password-toggle-btn {
+  right: auto;
+  left: 12px;
+}
+
 .dashboard-shell {
   display: grid;
   grid-template-columns: var(--sidebar) minmax(0, 1fr);
