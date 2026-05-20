@@ -35,6 +35,8 @@ setupErrorMonitoring({
 });
 
 i18n.on('languageChanged', () => {
+  const container = document.querySelector('#app');
+  if (container) container.className = '';
   render();
 });
 
