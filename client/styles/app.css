@@ -424,6 +424,19 @@ body.light .select {
   line-height: 1.65;
 }
 
+/* smaller autosizing textarea used for quick todo entry */
+.autosize-input {
+  min-height: 40px;
+  max-height: 320px;
+  resize: none;
+  line-height: 1.4;
+  overflow: auto;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .muted {
   color: var(--muted);
 }

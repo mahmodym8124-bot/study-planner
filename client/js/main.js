@@ -1654,7 +1654,7 @@ function renderProductivity(root) {
         <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
           <div>
             <label class="sr-only" for="todo-text">${t('a11y.newTask')}</label>
-            <input class="input" id="todo-text" name="todo" placeholder="${t('focus.addTaskPlaceholder')}" required style="width:100%" />
+            <textarea class="autosize-input" id="todo-text" name="todo" rows="1" placeholder="${t('focus.addTaskPlaceholder')}" required style="width:100%"></textarea>
           </div>
           <div>
             <label class="sr-only" for="todo-priority">${t('a11y.taskPriority')}</label>
@@ -1831,6 +1831,17 @@ function bindProductivity(root) {
       renderView('productivity');
     };
   });
+
+  // Autosize the todo textarea so it expands to show what user types
+  const _todoText = root.querySelector('#todo-text');
+  if (_todoText) {
+    const _autoSize = (el) => {
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight) + 'px';
+    };
+    _autoSize(_todoText);
+    _todoText.addEventListener('input', () => _autoSize(_todoText));
+  }
 
   root.querySelector('#save-focus').onclick = async () => {
     await saveProd({ focus: root.querySelector('#focus-text').value });
