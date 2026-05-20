@@ -974,8 +974,10 @@ html[dir='rtl'] .side-link.active::before {
 }
 
 .sidebar-footer .lang-dropdown {
+  position: static;
   width: 100%;
   min-width: 0;
+  margin-top: 0.5rem;
 }
 
 .sidebar-scrim {
