@@ -23,14 +23,18 @@ export function initGlobalInteractions() {
       if (el.disabled || el.classList.contains('disabled')) return;
 
       // Initialize quickTo properties if they don't exist on the DOM element
-      if (!el._gsapHoverScale) {
-        el._gsapHoverScale = gsap.quickTo(el, 'scale', { duration: 0.2, ease: 'power2.out' });
+      if (!el._gsapHoverScaleX) {
+        el._gsapHoverScaleX = gsap.quickTo(el, 'scaleX', { duration: 0.2, ease: 'power2.out' });
+      }
+      if (!el._gsapHoverScaleY) {
+        el._gsapHoverScaleY = gsap.quickTo(el, 'scaleY', { duration: 0.2, ease: 'power2.out' });
       }
       if (!el._gsapHoverY) {
         el._gsapHoverY = gsap.quickTo(el, 'y', { duration: 0.2, ease: 'power2.out' });
       }
 
-      el._gsapHoverScale(1.02);
+      el._gsapHoverScaleX(1.02);
+      el._gsapHoverScaleY(1.02);
       el._gsapHoverY(-3);
     });
 
@@ -38,7 +42,8 @@ export function initGlobalInteractions() {
       const el = e.target.closest(selector);
       if (!el) return;
 
-      if (el._gsapHoverScale) el._gsapHoverScale(1);
+      if (el._gsapHoverScaleX) el._gsapHoverScaleX(1);
+      if (el._gsapHoverScaleY) el._gsapHoverScaleY(1);
       if (el._gsapHoverY) el._gsapHoverY(0);
     });
   }
@@ -56,10 +61,14 @@ export function initGlobalInteractions() {
 
       if (el.disabled || el.classList.contains('disabled')) return;
 
-      if (!el._gsapClickScale) {
-        el._gsapClickScale = gsap.quickTo(el, 'scale', { duration: 0.1, ease: 'power2.out' });
+      if (!el._gsapClickScaleX) {
+        el._gsapClickScaleX = gsap.quickTo(el, 'scaleX', { duration: 0.1, ease: 'power2.out' });
       }
-      el._gsapClickScale(0.97);
+      if (!el._gsapClickScaleY) {
+        el._gsapClickScaleY = gsap.quickTo(el, 'scaleY', { duration: 0.1, ease: 'power2.out' });
+      }
+      el._gsapClickScaleX(0.97);
+      el._gsapClickScaleY(0.97);
     });
   });
 
@@ -68,10 +77,12 @@ export function initGlobalInteractions() {
       const el = e.target.closest(selector);
       if (!el) return;
 
-      if (el._gsapClickScale) {
+      if (el._gsapClickScaleX && el._gsapClickScaleY) {
         // Return to hover state (1.02) if mouse is still hovering on desktop, else return to normal (1)
         const isStillHovered = !isMobile && el.matches(':hover');
-        el._gsapClickScale(isStillHovered ? 1.02 : 1.0);
+        const targetScale = isStillHovered ? 1.02 : 1.0;
+        el._gsapClickScaleX(targetScale);
+        el._gsapClickScaleY(targetScale);
       }
     });
   });
