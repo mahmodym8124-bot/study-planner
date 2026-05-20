@@ -232,8 +232,8 @@ async function bootstrap() {
       .catch(() => {});
   }
 
-  // Support direct-path links from email providers in hash-based routing.
-  if (!location.hash && (location.pathname === '/verify-email' || location.pathname === '/reset-password')) {
+  // Support direct-path links in hash-based routing.
+  if (!location.hash && ['/verify-email', '/reset-password', '/privacy', '/terms'].includes(location.pathname)) {
     history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
   }
 
@@ -286,6 +286,8 @@ function render() {
     if (currentRoute === '/forgot-password') return renderForgotPassword();
     if (currentRoute === '/reset-password') return renderResetPassword();
     if (currentRoute === '/verify-email') return renderVerifyEmail();
+    if (currentRoute === '/privacy') return renderPrivacy();
+    if (currentRoute === '/terms') return renderTerms();
     return renderApp();
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-error', { route: state.route });
@@ -426,6 +428,14 @@ function renderAuth(signup) {
           ${signup ? t('auth.alreadyHave') : t('auth.newHere')}
           <button type="button" id="switch-auth">${signup ? t('auth.signInLink') : t('auth.createOne')}</button>
         </p>
+        <div class="auth-legal-footer" style="text-align: center; margin-top: 1.75rem; padding-top: 1rem; border-top: 1px solid var(--color-border); font-size: 0.8rem; color: var(--color-muted); opacity: 0.8; line-height: 1.4;">
+          ${t('auth.legalAgreement')}
+          <div style="margin-top: 0.25rem;">
+            <a href="#/terms" style="color: var(--color-primary); text-decoration: underline;">${t('auth.termsOfService')}</a>
+            <span style="margin: 0 0.5rem;">&bull;</span>
+            <a href="#/privacy" style="color: var(--color-primary); text-decoration: underline;">${t('auth.privacyPolicy')}</a>
+          </div>
+        </div>
       </form>
     </section>
   `;
@@ -533,6 +543,108 @@ function renderVerifyEmail() {
       toast(message, 'error');
       verifyBtn.disabled = false;
       verifyBtn.textContent = t('auth.verifyAction');
+    }
+  };
+}
+
+function renderPrivacy() {
+  mountAmbientBackground().catch(() => {});
+  app.className = 'app-shell';
+  app.innerHTML = `
+    <section class="auth-page legal-page">
+      <div class="auth-card surface legal-card" style="max-width: 700px; text-align: left; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+          <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+          <button class="btn" id="legal-back-btn">${t('auth.backToSignIn')}</button>
+        </div>
+        <h1 style="font-size: 2rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Privacy Policy</h1>
+        <p class="muted" style="margin-bottom: 1.5rem; font-size: 0.9rem;">Last Updated: May 20, 2026</p>
+        
+        <div class="legal-content" style="max-height: 450px; overflow-y: auto; padding-right: 10px; font-size: 0.95rem; color: var(--color-text); line-height: 1.6;">
+          <p style="margin-bottom: 1rem;">Welcome to MindVault ("we", "our", or "us"). We are committed to protecting your privacy and ensuring a secure experience. This Privacy Policy explains how we collect, use, and safeguard your information when you use our Study Planner application.</p>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">1. Information We Collect</h3>
+          <p style="margin-bottom: 1rem;">When you sign up or log in using Google OAuth (Google Sign-In), we collect the following personal information provided by Google Identity Services:</p>
+          <ul style="margin-left: 1.5rem; margin-bottom: 1rem; list-style-type: disc;">
+            <li style="margin-bottom: 0.5rem;"><strong>Email Address:</strong> Used to uniquely identify your account, send important notifications, and facilitate secure authentication.</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Full Name:</strong> Used to personalize your study workspace dashboard and user interface.</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Profile Picture:</strong> Used solely to display your avatar in the app dashboard header.</li>
+          </ul>
+          <p style="margin-bottom: 1rem;">We do not collect or request any other sensitive personal data or search histories.</p>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">2. How We Use Your Information</h3>
+          <p style="margin-bottom: 1rem;">The information we collect is utilized strictly for the following purposes:</p>
+          <ul style="margin-left: 1.5rem; margin-bottom: 1rem; list-style-type: disc;">
+            <li style="margin-bottom: 0.5rem;">To provision, manage, and secure your personal Study Planner workspace.</li>
+            <li style="margin-bottom: 0.5rem;">To authenticate your identity and keep you logged in safely.</li>
+            <li style="margin-bottom: 0.5rem;">To provide, maintain, and improve app features like notes, tasks, graphs, and study analytics.</li>
+          </ul>
+
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">3. Data Storage & Security</h3>
+          <p style="margin-bottom: 1rem;">Your security is our priority. We implement modern, high-grade security protocols (including HTTPS, bcrypt encryption, and secure JWT-based tokens) to prevent unauthorized access, alteration, or exposure of your details.</p>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">4. Third-Party Sharing</h3>
+          <p style="margin-bottom: 1rem;">We do NOT sell, trade, rent, or disclose your personal data to third parties, advertising networks, or data brokers. All user data remains confidential within MindVault.</p>
+
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">5. Your Rights & Data Deletion</h3>
+          <p style="margin-bottom: 1rem;">You have the right to request deletion of your account and all associated personal information at any time. To request deletion, please contact our support team at <a href="mailto:support@mindvault.example.com" style="color: var(--color-primary); text-decoration: underline;">support@mindvault.example.com</a> or use the support option inside your account dashboard.</p>
+        </div>
+      </div>
+    </section>
+  `;
+  document.querySelector('#legal-back-btn').onclick = () => {
+    if (state.user) {
+      route('/app/dashboard');
+    } else {
+      route('/login');
+    }
+  };
+}
+
+function renderTerms() {
+  mountAmbientBackground().catch(() => {});
+  app.className = 'app-shell';
+  app.innerHTML = `
+    <section class="auth-page legal-page">
+      <div class="auth-card surface legal-card" style="max-width: 700px; text-align: left; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+          <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+          <button class="btn" id="legal-back-btn">${t('auth.backToSignIn')}</button>
+        </div>
+        <h1 style="font-size: 2rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Terms of Service</h1>
+        <p class="muted" style="margin-bottom: 1.5rem; font-size: 0.9rem;">Last Updated: May 20, 2026</p>
+        
+        <div class="legal-content" style="max-height: 450px; overflow-y: auto; padding-right: 10px; font-size: 0.95rem; color: var(--color-text); line-height: 1.6;">
+          <p style="margin-bottom: 1rem;">By accessing and using MindVault ("the Service"), you agree to be bound by these Terms of Service. Please read them carefully.</p>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">1. Acceptance of Terms</h3>
+          <p style="margin-bottom: 1rem;">By creating an account or logging in via Google Sign-In, you confirm that you accept these terms and agree to comply with them. If you do not agree, you must not access or use the Service.</p>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">2. User Conduct & Accounts</h3>
+          <p style="margin-bottom: 1rem;">When creating an account, you agree to:</p>
+          <ul style="margin-left: 1.5rem; margin-bottom: 1rem; list-style-type: disc;">
+            <li style="margin-bottom: 0.5rem;">Provide accurate and complete information using secure Google Sign-in.</li>
+            <li style="margin-bottom: 0.5rem;">Use the Study Planner strictly for educational, academic, or personal organizer purposes.</li>
+            <li style="margin-bottom: 0.5rem;">Not engage in any unlawful activity or attempt to breach the system's security systems.</li>
+          </ul>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">3. Intellectual Property</h3>
+          <p style="margin-bottom: 1rem;">All features, interactive components, source code, designs, and visual layout are the exclusive intellectual property of MindVault. You retain full ownership and intellectual rights over any study notes, ideas, or files you create inside your planner.</p>
+          
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">4. Limitation of Liability</h3>
+          <p style="margin-bottom: 1rem;">The Service is provided "as is" without warranties of any kind. We shall not be liable for any indirect, incidental, or consequential damages resulting from the use or inability to use the Study Planner application.</p>
+
+          <h3 style="color: var(--color-primary); margin: 1.5rem 0 0.5rem; font-size: 1.15rem;">5. Changes to the Terms</h3>
+          <p style="margin-bottom: 1rem;">We reserve the right to modify these Terms of Service at any time. Your continued use of the application following updates constitutes your acceptance of the new terms.</p>
+        </div>
+      </div>
+    </section>
+  `;
+  document.querySelector('#legal-back-btn').onclick = () => {
+    if (state.user) {
+      route('/app/dashboard');
+    } else {
+      route('/login');
     }
   };
 }
