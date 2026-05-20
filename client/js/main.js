@@ -1832,15 +1832,18 @@ function bindProductivity(root) {
     };
   });
 
-  // Autosize the todo textarea so it expands to show what user types
+  // Autosize the todo textarea vertically so it grows as the user types
   const _todoText = root.querySelector('#todo-text');
   if (_todoText) {
-    const _autoSize = (el) => {
+    const autosize = (el) => {
       el.style.height = 'auto';
-      el.style.height = (el.scrollHeight) + 'px';
+      const scroll = el.scrollHeight;
+      el.style.height = scroll + 'px';
+      el.style.overflowY = 'hidden';
     };
-    _autoSize(_todoText);
-    _todoText.addEventListener('input', () => _autoSize(_todoText));
+    autosize(_todoText);
+    _todoText.addEventListener('input', () => autosize(_todoText));
+    window.addEventListener('resize', () => autosize(_todoText));
   }
 
   root.querySelector('#save-focus').onclick = async () => {
