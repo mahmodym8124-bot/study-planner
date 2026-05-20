@@ -15,6 +15,7 @@ import workspaceRoutes from './routes/workspaceRoutes.js';
 import productivityRoutes from './routes/productivityRoutes.js';
 import focusRoutes from './routes/focusRoutes.js';
 import graphRoutes from './routes/graphRoutes.js';
+import debugRoutes from './routes/debugRoutes.js';
 import { getGraphData } from './controllers/graphController.js';
 import searchRoutes from './routes/searchRoutes.js';
 import { protect } from './middleware/auth.js';
@@ -23,6 +24,7 @@ import { asyncHandler } from './middleware/asyncHandler.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+console.log('server: express app created');
 const dist = path.resolve(__dirname, '..', 'dist');
 const serveDist = express.static(dist);
 let serverInstance = null;
@@ -32,6 +34,8 @@ function getRequestLogger() {
   requestLogger ||= morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev');
   return requestLogger;
 }
+
+console.log('server: modules loaded');
 
 function parseAllowedOrigins(value = process.env.CLIENT_URL) {
   const list = String(value || '')
@@ -116,28 +120,38 @@ function startupMetadata(port) {
 }
 
 app.set('trust proxy', 1);
-app.use(helmet({
-  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      fontSrc: ["'self'"],
-      frameSrc: ["'self'", 'https://accounts.google.com'],
-      connectSrc: ["'self'", 'https://*.mongodb.net', 'https://accounts.google.com', 'https://play.google.com']
+app.use((req, res, next) => {
+  // COOP is required for security headers but breaks OAuth popup handshake if mis-scoped.
+  // Scope the relaxed COOP policy to the Google OAuth endpoint(s) only.
+  const isGoogleAuthEndpoint = req.path === '/api/auth/google' || req.path === '/api/auth/google/callback';
+
+  const helmetOptions = {
+    crossOriginOpenerPolicy: {
+      policy: isGoogleAuthEndpoint ? 'unsafe-none' : 'same-origin-allow-popups'
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        fontSrc: ["'self'"],
+        frameSrc: ["'self'", 'https://accounts.google.com'],
+        connectSrc: ["'self'", 'https://*.mongodb.net', 'https://accounts.google.com', 'https://play.google.com']
+      }
+    },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: []
     }
-  },
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: []
-  }
-}));
+  };
+
+  return helmet(helmetOptions)(req, res, next);
+});
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = parseAllowedOrigins();
@@ -188,11 +202,18 @@ async function requireDatabase(_req, res, next) {
 }
 
 async function ensureDatabaseConnected() {
-  if (databaseStatus().connected) return true;
+  const before = databaseStatus();
+  if (before.connected) return true;
   try {
+    console.log('ensureDatabaseConnected: before connect, status=', before);
+    console.log('ensureDatabaseConnected: calling connectDB');
+    const start = Date.now();
     await connectDB(process.env.MONGODB_URI);
+    const elapsed = Date.now() - start;
+    const after = databaseStatus();
+    console.log(`ensureDatabaseConnected: connectDB returned after ${elapsed}ms, status=`, after);
   } catch (error) {
-    console.error('MongoDB connection failed:', error.message);
+    console.error('ensureDatabaseConnected: MongoDB connection failed:', error && error.stack ? error.stack : String(error));
   }
   return databaseStatus().connected;
 }
@@ -217,6 +238,8 @@ app.use('/api/focus', requireDatabase, focusRoutes);
 app.use('/api/graph', requireDatabase, graphRoutes);
 app.get('/api/graph-data', requireDatabase, asyncHandler(protect), asyncHandler(getGraphData));
 app.use('/api/search', requireDatabase, searchRoutes);
+// Lightweight debug endpoints (do not expose secrets)
+app.use('/api/_debug', debugRoutes);
 
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
