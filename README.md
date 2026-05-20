@@ -76,6 +76,10 @@ Frontend: `http://localhost:5173`
 
 API health: `http://127.0.0.1:8091/api/health`
 
+## Authentication Setup
+
+For full Google OAuth setup (Google Cloud Console, env vars, and validation checklist), see [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
+
 ## Build
 
 ```bash
