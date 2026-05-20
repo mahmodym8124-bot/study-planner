@@ -22,15 +22,15 @@ export function initGlobalInteractions() {
       // Skip elements that explicitly disable motion or are inactive
       if (el.disabled || el.classList.contains('disabled')) return;
 
-      // Initialize quickTo properties if they don't exist on the DOM element
+      // Initialize quickTo properties if they don't exist on the DOM element (increased duration to 0.35s for luxury feel)
       if (!el._gsapHoverScaleX) {
-        el._gsapHoverScaleX = gsap.quickTo(el, 'scaleX', { duration: 0.2, ease: 'power2.out' });
+        el._gsapHoverScaleX = gsap.quickTo(el, 'scaleX', { duration: 0.35, ease: 'power2.out' });
       }
       if (!el._gsapHoverScaleY) {
-        el._gsapHoverScaleY = gsap.quickTo(el, 'scaleY', { duration: 0.2, ease: 'power2.out' });
+        el._gsapHoverScaleY = gsap.quickTo(el, 'scaleY', { duration: 0.35, ease: 'power2.out' });
       }
       if (!el._gsapHoverY) {
-        el._gsapHoverY = gsap.quickTo(el, 'y', { duration: 0.2, ease: 'power2.out' });
+        el._gsapHoverY = gsap.quickTo(el, 'y', { duration: 0.35, ease: 'power2.out' });
       }
 
       el._gsapHoverScaleX(1.02);
@@ -62,10 +62,10 @@ export function initGlobalInteractions() {
       if (el.disabled || el.classList.contains('disabled')) return;
 
       if (!el._gsapClickScaleX) {
-        el._gsapClickScaleX = gsap.quickTo(el, 'scaleX', { duration: 0.1, ease: 'power2.out' });
+        el._gsapClickScaleX = gsap.quickTo(el, 'scaleX', { duration: 0.2, ease: 'power2.out' });
       }
       if (!el._gsapClickScaleY) {
-        el._gsapClickScaleY = gsap.quickTo(el, 'scaleY', { duration: 0.1, ease: 'power2.out' });
+        el._gsapClickScaleY = gsap.quickTo(el, 'scaleY', { duration: 0.2, ease: 'power2.out' });
       }
       el._gsapClickScaleX(0.97);
       el._gsapClickScaleY(0.97);
@@ -116,7 +116,7 @@ export function animatePageTransition(container, renderCallback) {
   gsap.to(container, {
     opacity: 0,
     y: -8,
-    duration: 0.15,
+    duration: 0.25,
     ease: 'power2.in',
     onComplete: () => {
       // 1. Render the new DOM layout
@@ -133,7 +133,7 @@ export function animatePageTransition(container, renderCallback) {
       gsap.to(container, {
         opacity: 1,
         y: 0,
-        duration: 0.35,
+        duration: 0.55,
         ease: 'power2.out',
         onComplete: () => {
           // If skeletons are resolved, fire the stagger card entrances!
@@ -163,8 +163,8 @@ export function staggerEntrance(container) {
   gsap.killTweensOf(targets);
 
   const slideY = isMobile ? 15 : 30;
-  const staggerVal = isMobile ? 0.04 : 0.06;
-  const durationVal = isMobile ? 0.3 : 0.4;
+  const staggerVal = isMobile ? 0.05 : 0.08;
+  const durationVal = isMobile ? 0.45 : 0.6;
 
   gsap.fromTo(targets,
     { opacity: 0, y: slideY },
@@ -234,12 +234,12 @@ export function openSidebarAnimation(sidebar, scrim) {
 
   // 1. Scrim fade in
   scrim.style.display = 'block';
-  gsap.fromTo(scrim, { opacity: 0 }, { opacity: 0.5, duration: 0.25, ease: 'power2.out' });
+  gsap.fromTo(scrim, { opacity: 0 }, { opacity: 0.5, duration: 0.35, ease: 'power2.out' });
 
   // 2. Sidebar slide in
   gsap.fromTo(sidebar,
     { x: startX },
-    { x: '0%', duration: 0.3, ease: 'power2.inOut' }
+    { x: '0%', duration: 0.45, ease: 'power2.inOut' }
   );
 
   // 3. Menu items stagger fade in
@@ -248,7 +248,7 @@ export function openSidebarAnimation(sidebar, scrim) {
     gsap.killTweensOf(items);
     gsap.fromTo(items,
       { opacity: 0, x: isRTL ? 15 : -15 },
-      { opacity: 1, x: 0, duration: 0.3, stagger: 0.03, ease: 'power2.out', delay: 0.05 }
+      { opacity: 1, x: 0, duration: 0.45, stagger: 0.04, ease: 'power2.out', delay: 0.05 }
     );
   }
 }
@@ -283,7 +283,7 @@ export function closeSidebarAnimation(sidebar, scrim, onComplete) {
   // 1. Fade out scrim
   gsap.to(scrim, {
     opacity: 0,
-    duration: 0.25,
+    duration: 0.35,
     ease: 'power2.in',
     onComplete: () => {
       scrim.classList.remove('open');
@@ -294,7 +294,7 @@ export function closeSidebarAnimation(sidebar, scrim, onComplete) {
   // 2. Slide out sidebar
   gsap.to(sidebar, {
     x: endX,
-    duration: 0.3,
+    duration: 0.45,
     ease: 'power2.inOut',
     onComplete: () => {
       sidebar.classList.remove('open');
