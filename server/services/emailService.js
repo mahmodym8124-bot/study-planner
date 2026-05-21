@@ -142,9 +142,9 @@ export function assertMailConfigured() {
   }
 }
 
-function buildPasswordResetUrl(resetToken) {
+export function buildPasswordResetUrl(resetToken) {
   const baseUrl = getPasswordResetBaseUrl();
-  return `${baseUrl}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
+  return `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
 }
 
 function buildVerificationUrl(token) {

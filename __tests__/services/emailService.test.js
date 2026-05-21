@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
-import { getMailConfigStatus } from '../../server/services/emailService.js';
+import { buildPasswordResetUrl, getMailConfigStatus } from '../../server/services/emailService.js';
 
 const EMAIL_ENV_KEYS = [
   'NODE_ENV',
@@ -83,5 +83,14 @@ describe('email service configuration', () => {
 
     expect(status.configured).toBe(false);
     expect(status.invalid).toContain('PASSWORD_RESET_BASE_URL must use HTTPS in production');
+  });
+
+  it('builds direct reset links for app route handling', () => {
+    setValidGmailEnv({ PASSWORD_RESET_BASE_URL: 'https://mindvault.example.com/' });
+
+    const resetUrl = buildPasswordResetUrl('token with spaces');
+
+    expect(resetUrl).toBe('https://mindvault.example.com/reset-password?token=token%20with%20spaces');
+    expect(resetUrl).not.toContain('/#/reset-password');
   });
 });
