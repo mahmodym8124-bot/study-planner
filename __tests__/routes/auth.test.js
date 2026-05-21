@@ -7,9 +7,34 @@ import {
 import { testUser, testUser2, validationErrors } from '../fixtures/data.fixture.js';
 import request from 'supertest';
 import crypto from 'crypto';
+import { jest } from '@jest/globals';
 import User from '../../server/models/User.js';
 
 const itIfMongo = it;
+
+function makeResetToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function resetRequest(ipSuffix) {
+  return request(app)
+    .post('/api/auth/reset-password')
+    .set('X-Forwarded-For', `203.0.113.${ipSuffix}`);
+}
+
+async function seedResetToken({ expiresAt = new Date(Date.now() + (60 * 60 * 1000)) } = {}) {
+  await createTestUser();
+  const rawToken = makeResetToken();
+  await User.updateOne(
+    { email: testUser.email.toLowerCase() },
+    { $set: { resetToken: hashResetToken(rawToken), resetExpires: expiresAt } }
+  );
+  return rawToken;
+}
 
 describe('Auth Routes', () => {
   describe('POST /api/auth/register', () => {
@@ -236,28 +261,64 @@ describe('Auth Routes', () => {
       expect(user.resetToken).toBeFalsy();
       expect(user.resetExpires).toBeFalsy();
     });
+
+    it('should rate limit forgot-password after 3 attempts without limiting login or register', async () => {
+      jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval']
+      });
+      jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      try {
+        const rateLimitIp = '203.0.113.42';
+        const sendForgotPassword = () => request(app)
+          .post('/api/auth/forgot-password')
+          .set('X-Forwarded-For', rateLimitIp)
+          .send({ email: 'limited@example.com' });
+
+        for (let i = 0; i < 3; i += 1) {
+          const res = await sendForgotPassword();
+          expect(res.status).toBe(200);
+          expect(res.body.message).toBe('If an account exists, a reset email has been sent.');
+        }
+
+        const blocked = await sendForgotPassword();
+        expect(blocked.status).toBe(429);
+        expect(blocked.body.error).toBe('Too many attempts. Try again in 15 minutes.');
+
+        const loginRes = await request(app)
+          .post('/api/auth/login')
+          .set('X-Forwarded-For', rateLimitIp)
+          .send({ email: 'missing@example.com', password: 'Strong123!' });
+        expect(loginRes.status).toBe(400);
+
+        const registerRes = await request(app)
+          .post('/api/auth/register')
+          .set('X-Forwarded-For', rateLimitIp)
+          .send({
+            name: 'Rate Limit Check',
+            email: 'rate-limit-check@example.com',
+            password: 'Strong123!'
+          });
+        expect(registerRes.status).toBe(201);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('POST /api/auth/reset-password', () => {
     it('should reject invalid reset token payload', async () => {
-      const res = await request(app)
-        .post('/api/auth/reset-password')
+      const res = await resetRequest(50)
         .send({ token: 'short', password: 'Strong123!' });
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Validation failed');
     });
 
-    itIfMongo('should reset password with a valid token', async () => {
-      const user = await createTestUser();
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const resetTokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-      await User.updateOne(
-        { email: testUser.email.toLowerCase() },
-        { $set: { resetToken: resetTokenHash, resetExpires: new Date(Date.now() + (60 * 60 * 1000)) } }
-      );
+    itIfMongo('should reset password with a valid token and allow login with the new password', async () => {
+      const rawToken = await seedResetToken();
 
-      const res = await request(app)
-        .post('/api/auth/reset-password')
+      const res = await resetRequest(51)
         .send({ token: rawToken, password: 'NewStrong123!' });
 
       expect(res.status).toBe(200);
@@ -266,6 +327,68 @@ describe('Auth Routes', () => {
         .post('/api/auth/login')
         .send({ email: testUser.email, password: 'NewStrong123!' });
       expect(loginRes.status).toBe(200);
+    });
+
+    itIfMongo('should reject an expired reset token', async () => {
+      jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval']
+      });
+      jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      try {
+        const rawToken = await seedResetToken({ expiresAt: new Date(Date.now() - 1000) });
+
+        const res = await resetRequest(52)
+          .send({ token: rawToken, password: 'NewStrong123!' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Reset link is invalid or expired');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('should reject an invalid but well-formed reset token', async () => {
+      const res = await resetRequest(53)
+        .send({ token: makeResetToken(), password: 'NewStrong123!' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Reset link is invalid or expired');
+    });
+
+    itIfMongo.each(['123', 'password'])('should reject weak reset password "%s"', async (weakPassword) => {
+      const rawToken = await seedResetToken();
+
+      const res = await resetRequest(54)
+        .send({ token: rawToken, password: weakPassword });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Validation failed');
+      expect(res.body.errors).toBeTruthy();
+    });
+
+    itIfMongo('should reject reuse of a reset token after it is consumed', async () => {
+      const rawToken = await seedResetToken();
+
+      const firstReset = await resetRequest(55)
+        .send({ token: rawToken, password: 'NewStrong123!' });
+      expect(firstReset.status).toBe(200);
+
+      const secondReset = await resetRequest(55)
+        .send({ token: rawToken, password: 'AnotherStrong123!' });
+      expect(secondReset.status).toBe(400);
+      expect(secondReset.body.message).toBe('Reset link is invalid or expired');
+    });
+
+    it.each([
+      [{ password: 'Strong123!' }],
+      [{ token: makeResetToken() }]
+    ])('should reject missing reset-password fields', async (payload) => {
+      const res = await resetRequest(56)
+        .send(payload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Validation failed');
     });
   });
 

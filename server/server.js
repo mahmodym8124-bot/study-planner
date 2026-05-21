@@ -7,6 +7,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import * as Sentry from '@sentry/node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { connectDB, databaseStatus } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import noteRoutes from './routes/noteRoutes.js';
@@ -28,6 +30,13 @@ const dist = path.resolve(__dirname, '..', 'dist');
 const serveDist = express.static(dist);
 let serverInstance = null;
 let requestLogger = null;
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 1.0,
+  profilesSampleRate: 1.0,
+  integrations: [nodeProfilingIntegration()]
+});
 
 function getRequestLogger() {
   requestLogger ||= morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev');
@@ -173,13 +182,6 @@ app.use(['/api/auth/login', '/api/auth/register', '/api/auth/google'], rateLimit
   legacyHeaders: false,
   message: { message: 'Too many authentication attempts. Please wait and try again.' }
 }));
-app.use('/api/auth/forgot-password', rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 3,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many password reset requests. Please wait and try again.' }
-}));
 app.use('/api/auth/reset-password', rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -233,6 +235,8 @@ app.use('/api/search', requireDatabase, searchRoutes);
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/_debug', debugRoutes);
 }
+
+Sentry.setupExpressErrorHandler(app);
 
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
