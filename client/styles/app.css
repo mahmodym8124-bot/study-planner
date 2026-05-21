@@ -1727,7 +1727,7 @@ body.light .tag {
 
 .focus-task-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(132px, auto) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, auto) auto;
   align-items: stretch;
   gap: 12px;
   margin: var(--space-4) 0;
@@ -1739,6 +1739,16 @@ body.light .tag {
 .focus-task-form .btn {
   min-width: 0;
   width: 100%;
+}
+
+.focus-task-form .select {
+  max-width: 140px;
+}
+
+.task-progress-wrap {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: var(--space-4);
 }
 
 .focus-task-form .btn {
@@ -1766,6 +1776,7 @@ body.light .tag {
 
 .task-panel .todo-list {
   align-content: start;
+  gap: 0.8rem;
 }
 
 @media (max-width: 1040px) {
