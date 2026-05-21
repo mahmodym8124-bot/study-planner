@@ -36,7 +36,6 @@
     "morgan": "^1.10.0",
     "nodemailer": "^8.0.7",
     "three": "^0.172.0"
-    ,"serverless-http": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

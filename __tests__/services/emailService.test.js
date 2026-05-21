@@ -86,11 +86,11 @@ describe('email service configuration', () => {
   });
 
   it('builds direct reset links for app route handling', () => {
-    setValidGmailEnv({ PASSWORD_RESET_BASE_URL: 'https://mindvault.example.com/' });
+    setValidGmailEnv({ PASSWORD_RESET_BASE_URL: 'https://app.mindvault.test/' });
 
     const resetUrl = buildPasswordResetUrl('token with spaces');
 
-    expect(resetUrl).toBe('https://mindvault.example.com/reset-password?token=token%20with%20spaces');
+    expect(resetUrl).toBe('https://app.mindvault.test/reset-password?token=token%20with%20spaces');
     expect(resetUrl).not.toContain('/#/reset-password');
   });
 });

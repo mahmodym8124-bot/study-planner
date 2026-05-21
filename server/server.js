@@ -254,6 +254,14 @@ app.get('*', (req, res, next) => {
   return next();
 });
 
+app.use('/api', (req, res) => res.status(404).json({
+  message: `API route not found: ${req.method} ${req.originalUrl || req.url}`
+}));
+
+app.use((req, res) => res.status(404).json({
+  message: `Route not found: ${req.method} ${req.originalUrl || req.url}`
+}));
+
 // eslint-disable-next-line no-unused-vars
 app.use((error, _req, res, next) => {
   console.error(error);
