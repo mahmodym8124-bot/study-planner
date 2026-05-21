@@ -833,6 +833,11 @@ body.light .floating-card {
 @media (max-width: 720px) {
   .productivity {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "tasks"
+      "daily"
+      "summary";
     gap: 12px;
   }
 
@@ -877,19 +882,18 @@ body.light .floating-card {
   }
 
   /* Task panel: stack the todo form controls vertically and make inputs full width */
-  .task-panel #todo-form {
-    grid-template-columns: 1fr auto;
+  .focus-task-form {
+    grid-template-columns: 1fr;
     gap: 8px;
-    align-items: center;
   }
-  .task-panel #todo-form > div {
-    width: 100%;
+
+  .focus-task-form .select,
+  .focus-task-form .btn {
+    min-height: 44px;
   }
-  .task-panel #todo-form .select {
-    width: 84px;
-  }
-  .task-panel #todo-form .btn {
-    padding: 0.5rem 0.8rem;
+
+  .focus-task-form .autosize-input {
+    min-height: 48px;
   }
 
   /* reduce padding on cards to fit mobile viewport */
@@ -1688,12 +1692,95 @@ body.light .tag {
 }
 
 .productivity {
-  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr) minmax(280px, 1fr);
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(420px, 1fr);
+  grid-template-areas:
+    "timer tasks"
+    "timer daily"
+    "summary daily";
   align-items: start;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+.focus-timer-card {
+  grid-area: timer;
+}
+
+.task-panel {
+  grid-area: tasks;
+}
+
+.focus-note-card {
+  grid-area: daily;
 }
 
 .focus-summary-card {
-  grid-column: span 1;
+  grid-area: summary;
+}
+
+.productivity > .card,
+.productivity > section.card {
+  min-width: 0;
+}
+
+.focus-task-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(132px, auto) auto;
+  align-items: stretch;
+  gap: 12px;
+  margin: var(--space-4) 0;
+}
+
+.focus-task-form > div,
+.focus-task-form .autosize-input,
+.focus-task-form .select,
+.focus-task-form .btn {
+  min-width: 0;
+  width: 100%;
+}
+
+.focus-task-form .btn {
+  white-space: nowrap;
+}
+
+.focus-task-form .autosize-input {
+  min-height: 52px;
+  max-height: 120px;
+  line-height: 1.45;
+  resize: vertical;
+  writing-mode: horizontal-tb;
+  white-space: normal;
+}
+
+.focus-note-card #focus-text {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.focus-note-card #save-focus {
+  align-self: flex-start;
+  margin-top: var(--space-4);
+}
+
+.task-panel .todo-list {
+  align-content: start;
+}
+
+@media (max-width: 1040px) {
+  .productivity {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "tasks"
+      "daily"
+      "summary";
+  }
+
+  .focus-task-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .timer {
@@ -2323,6 +2410,11 @@ html[dir='rtl'] .lang-option .checkmark {
   /* Focus-page tablet/mobile adjustments (sidebar is fixed mode at <=1040px) */
   .productivity {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "tasks"
+      "daily"
+      "summary";
     gap: 12px;
   }
 
@@ -2901,64 +2993,6 @@ html[dir='rtl'] .lang-option .checkmark {
   .features {
     gap: 2.5rem;
     margin-top: 56px;
-  }
-
-  /* Focus page desktop-only fixes
-     - Ensure todo textarea renders horizontally (not vertical stacked letters)
-     - Make the daily focus input compact on desktop and add bottom padding
-     - Improve column alignment so cards stretch to equal heights
-  */
-  /* Force productivity grid columns and stretching on desktop */
-  .productivity {
-    grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr) minmax(240px, 320px);
-    align-items: stretch; /* allow columns to stretch to same row height */
-  }
-
-  /* Make cards use column flex so their content flows naturally and can stretch */
-  .productivity > .card,
-  .productivity > section.card {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
-  /* Task form: lay out as single-row controls on desktop */
-  .task-panel #todo-form {
-    grid-template-columns: 1fr auto auto;
-    align-items: center;
-    gap: 12px;
-  }
-
-  /* Ensure the autosize todo input renders as horizontal text on desktop */
-  .task-panel #todo-form .autosize-input,
-  .task-panel #todo-form textarea.autosize-input {
-    min-height: 48px;
-    line-height: 1.4;
-    writing-mode: horizontal-tb !important;
-    white-space: normal !important;
-    overflow: hidden;
-    resize: none;
-  }
-
-  /* Daily focus: make the focus text compact single-line on desktop */
-  .focus-note-card #focus-text {
-    min-height: 40px;
-    height: 40px;
-    line-height: 1.4;
-    padding: 0.5rem 0.75rem;
-    resize: none;
-    overflow: hidden;
-  }
-
-  /* Add breathing room at bottom of the focus panel so the Save button isn't hugging the edge */
-  .focus-note-card {
-    padding-bottom: 20px;
-  }
-
-  /* Make the Save button sit naturally after the textarea (don't push it to card bottom) */
-  .focus-note-card .btn {
-    margin-top: 0.6rem;
-    align-self: flex-start;
   }
 
   .feature {

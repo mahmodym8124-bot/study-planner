@@ -24,7 +24,6 @@ import { asyncHandler } from './middleware/asyncHandler.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-console.log('server: express app created');
 const dist = path.resolve(__dirname, '..', 'dist');
 const serveDist = express.static(dist);
 let serverInstance = null;
@@ -34,8 +33,6 @@ function getRequestLogger() {
   requestLogger ||= morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev');
   return requestLogger;
 }
-
-console.log('server: modules loaded');
 
 function parseAllowedOrigins(value = process.env.CLIENT_URL) {
   const list = String(value || '')
@@ -205,13 +202,7 @@ async function ensureDatabaseConnected() {
   const before = databaseStatus();
   if (before.connected) return true;
   try {
-    console.log('ensureDatabaseConnected: before connect, status=', before);
-    console.log('ensureDatabaseConnected: calling connectDB');
-    const start = Date.now();
     await connectDB(process.env.MONGODB_URI);
-    const elapsed = Date.now() - start;
-    const after = databaseStatus();
-    console.log(`ensureDatabaseConnected: connectDB returned after ${elapsed}ms, status=`, after);
   } catch (error) {
     console.error('ensureDatabaseConnected: MongoDB connection failed:', error && error.stack ? error.stack : String(error));
   }
@@ -238,8 +229,10 @@ app.use('/api/focus', requireDatabase, focusRoutes);
 app.use('/api/graph', requireDatabase, graphRoutes);
 app.get('/api/graph-data', requireDatabase, asyncHandler(protect), asyncHandler(getGraphData));
 app.use('/api/search', requireDatabase, searchRoutes);
-// Lightweight debug endpoints (do not expose secrets)
-app.use('/api/_debug', debugRoutes);
+// Lightweight debug endpoints (development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/_debug', debugRoutes);
+}
 
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {

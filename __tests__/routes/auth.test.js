@@ -9,7 +9,7 @@ import request from 'supertest';
 import crypto from 'crypto';
 import User from '../../server/models/User.js';
 
-const itIfMongo = process.platform === 'win32' ? it.skip : it;
+const itIfMongo = it;
 
 describe('Auth Routes', () => {
   describe('POST /api/auth/register', () => {

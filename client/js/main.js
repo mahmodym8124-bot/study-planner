@@ -1651,14 +1651,14 @@ function renderProductivity(root) {
           </div>
           <div class="task-summary">${t('focus.taskSummary', { done: doneTodos, total: todos.length || 0, pct: formatPercent(percentComplete) })}</div>
         </div>
-        <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
+        <form id="todo-form" class="focus-task-form">
           <div>
             <label class="sr-only" for="todo-text">${t('a11y.newTask')}</label>
             <textarea class="autosize-input" id="todo-text" name="todo" rows="1" placeholder="${t('focus.addTaskPlaceholder')}" required style="width:100%"></textarea>
           </div>
           <div>
             <label class="sr-only" for="todo-priority">${t('a11y.taskPriority')}</label>
-            <select class="select" id="todo-priority" name="priority" style="width: auto;">
+            <select class="select" id="todo-priority" name="priority">
             <option value="low">${t('ideas.priorityLow')}</option>
             <option value="medium" selected>${t('ideas.priorityMedium')}</option>
             <option value="high">${t('ideas.priorityHigh')}</option>

@@ -98,10 +98,25 @@ function installMemoryAdapter() {
     return { acknowledged: true, modifiedCount: result.result.n };
   };
   
-  Collection.updateOne = async function(filter, update, options) {
-    const doc = await memDb.collection(this.name).findOne(filter);
-    if (!doc) return { acknowledged: true, modifiedCount: 0, matchedCount: 0 };
-    Object.assign(doc, update.$set);
+  Collection.updateOne = async function(filter, update, options = {}) {
+    const collection = memDb.collection(this.name);
+    const doc = await collection.findOne(filter);
+
+    if (!doc) {
+      if (options.upsert) {
+        await collection.findOneAndUpdate(filter, update, { upsert: true, new: true });
+        return { acknowledged: true, modifiedCount: 0, matchedCount: 0, upsertedCount: 1 };
+      }
+      return { acknowledged: true, modifiedCount: 0, matchedCount: 0 };
+    }
+
+    if (update.$set) Object.assign(doc, update.$set);
+    if (update.$unset) {
+      for (const key of Object.keys(update.$unset)) {
+        delete doc[key];
+      }
+    }
+    collection.documents.set(String(doc._id), doc);
     return { acknowledged: true, modifiedCount: 1, matchedCount: 1 };
   };
   

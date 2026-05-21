@@ -12,3 +12,8 @@ test-results/
 playwright-report/
 .continue/config.yaml
 
+# Generated deployment artifacts
+.gh-pages-temp
+
+test-graph-performance.js
+
