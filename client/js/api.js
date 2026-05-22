@@ -11,6 +11,8 @@ function ensureApiPath(raw = '') {
 
 const PRODUCTION_API_URL = ensureApiPath(import.meta.env.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api');
 const API_BASE = (import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : (window.location.hostname.endsWith('.github.io') ? PRODUCTION_API_URL : '/api'));
+const configuredApiTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
+const API_TIMEOUT_MS = Number.isFinite(configuredApiTimeout) && configuredApiTimeout > 0 ? configuredApiTimeout : 15000;
 const TOKEN_KEY = 'mindvault_token';
 const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
@@ -321,7 +323,7 @@ async function parseJSON(response) {
   }
 }
 
-async function request(path, { method = 'GET', body, headers = {} } = {}) {
+async function request(path, { method = 'GET', body, headers = {}, timeoutMs = API_TIMEOUT_MS } = {}) {
   const isOfflineToken = storage.token?.startsWith(OFFLINE_TOKEN_PREFIX);
   const isAuthRoute = path.startsWith('/auth/login')
     || path.startsWith('/auth/register')
@@ -356,7 +358,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${API_BASE}${path}`, {
@@ -392,16 +394,19 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     return data;
   } catch (error) {
     clearTimeout(timeout);
+    const apiError = error.name === 'AbortError'
+      ? Object.assign(new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`), { name: 'AbortError', status: 408 })
+      : error;
     
     // Capture error for error boundary
     if (typeof window !== 'undefined' && window.__errorBoundary) {
-      const source = error.name === 'AbortError' ? 'api-timeout' : 'api-error';
-      const context = { path, method, status: error.status };
-      window.__errorBoundary.captureError(error, source, context);
+      const source = apiError.name === 'AbortError' ? 'api-timeout' : 'api-error';
+      const context = { path, method, status: apiError.status };
+      window.__errorBoundary.captureError(apiError, source, context);
     }
     
     if (OFFLINE_MODE_ENABLED && OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
-    throw error;
+    throw apiError;
   } finally {
     clearTimeout(timeout);
   }
@@ -419,6 +424,12 @@ function normalizeListPayload(response, key) {
   return response;
 }
 
+function normalizeItemPayload(response, key) {
+  if (response?.[key]) return response;
+  if (response?.data) return { [key]: response.data };
+  return response;
+}
+
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
@@ -431,10 +442,10 @@ export const api = {
   activity: () => request('/workspace/activity'),
   search: (q) => request(`/search?q=${encodeURIComponent(q)}`),
   notes: () => request('/notes').then((response) => normalizeListPayload(response, 'notes')),
-  saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }),
+  saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }).then((response) => normalizeItemPayload(response, 'note')),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
   ideas: () => request('/ideas').then((response) => normalizeListPayload(response, 'ideas')),
-  saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }),
+  saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }).then((response) => normalizeItemPayload(response, 'idea')),
   deleteIdea: (id) => request(`/ideas/${id}`, { method: 'DELETE' }),
   productivity: () => request('/productivity'),
   saveProductivity: (payload) => request('/productivity', { method: 'PUT', body: payload }),

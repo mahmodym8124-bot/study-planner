@@ -1,5 +1,6 @@
 import Note from '../models/Note.js';
 import Idea from '../models/Idea.js';
+import { operationTimeoutMS } from '../config/db.js';
 
 export async function search(req, res) {
   const { q } = req.query;
@@ -30,6 +31,7 @@ export async function search(req, res) {
     .sort({ updatedAt: -1 })
     .limit(limit)
     .skip(skip)
+    .maxTimeMS(operationTimeoutMS())
     .lean();
 
   const ideaPromise = Idea.find(
@@ -46,6 +48,7 @@ export async function search(req, res) {
     .sort({ updatedAt: -1 })
     .limit(limit)
     .skip(skip)
+    .maxTimeMS(operationTimeoutMS())
     .lean();
 
   const [notes, ideas] = await Promise.all([notePromise, ideaPromise]);
@@ -63,7 +66,7 @@ export async function search(req, res) {
       { tags: searchRegex },
       { folder: searchRegex }
     ]
-  });
+  }).maxTimeMS(operationTimeoutMS());
 
   const totalIdeas = await Idea.countDocuments({
     user: req.user._id,
@@ -73,7 +76,7 @@ export async function search(req, res) {
       { tags: searchRegex },
       { category: searchRegex }
     ]
-  });
+  }).maxTimeMS(operationTimeoutMS());
 
   res.json({
     data: results.slice(0, limit),

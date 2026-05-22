@@ -11,4 +11,5 @@ const fileAssetSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 fileAssetSchema.index({ user: 1, updatedAt: -1 });
+fileAssetSchema.index({ user: 1, createdAt: -1 });
 export default mongoose.model('FileAsset', fileAssetSchema);

@@ -5,7 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
 import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
-import { recordActivity } from '../utils/activity.js';
+import { recordActivitySoon } from '../utils/activity.js';
 import { assertMailConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
@@ -89,7 +89,7 @@ export async function register(req, res) {
     verificationTokenExpires
   });
   await Productivity.create({ user: user._id, todos: [], reminders: [] });
-  await recordActivity(user._id, 'Created vault', 'MindVault account', 'auth', user._id);
+  recordActivitySoon(user._id, 'Created vault', 'MindVault account', 'auth', user._id);
   await sendVerificationEmail(user.email, verificationToken);
   res.status(201).json({ message: 'Account created. Please check your email to verify your account.' });
 }
@@ -120,7 +120,7 @@ export async function login(req, res) {
   if (!user.verified) {
     return res.status(403).json({ error: 'Please verify your email before logging in. Check your inbox.' });
   }
-  await recordActivity(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
+  recordActivitySoon(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
   res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
@@ -158,7 +158,7 @@ export async function googleLogin(req, res) {
     if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
     user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
     await ensureProductivity(user._id);
-    await recordActivity(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
+    recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
     return res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
   }
 
@@ -171,7 +171,7 @@ export async function googleLogin(req, res) {
     verified: true
   });
   await Productivity.create({ user: user._id, todos: [], reminders: [] });
-  await recordActivity(user._id, 'Created vault', 'Google account', 'auth', user._id);
+  recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
   return res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
@@ -235,7 +235,7 @@ export async function resetPassword(req, res) {
     { resetToken: hashedToken },
     { $set: { password: hashedPassword, resetToken: null, resetExpires: null } }
   );
-  await recordActivity(user._id, 'Reset password', 'Password reset completed', 'auth', user._id);
+  recordActivitySoon(user._id, 'Reset password', 'Password reset completed', 'auth', user._id);
   return res.json({ message: 'Password updated successfully' });
 }
 

@@ -14,4 +14,5 @@ const ideaSchema = new mongoose.Schema({
 ideaSchema.index({ title: 'text', description: 'text', tags: 'text', category: 'text' });
 ideaSchema.index({ user: 1, updatedAt: -1 });
 ideaSchema.index({ user: 1, status: 1, updatedAt: -1 });
+ideaSchema.index({ user: 1, createdAt: -1 });
 export default mongoose.model('Idea', ideaSchema);

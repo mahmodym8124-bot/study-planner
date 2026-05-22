@@ -302,6 +302,32 @@ async function loadWorkspace() {
   });
 }
 
+function sortNotesForView(notes) {
+  return [...notes].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+  });
+}
+
+function sortIdeasForView(ideas) {
+  return [...ideas].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+}
+
+function renderCurrentAppView() {
+  const root = document.querySelector('#view-root');
+  if (!root) return;
+  const view = currentView();
+  if (APP_VIEW_IDS.includes(view)) renderView(view);
+}
+
+function refreshWorkspaceInBackground(view) {
+  void loadWorkspace()
+    .then(() => {
+      if (!view || currentView() === view) renderCurrentAppView();
+    })
+    .catch(() => {});
+}
+
 function renderStatePage({
   root = app,
   inShell = false,
@@ -1360,15 +1386,14 @@ function renderDashboard(root) {
   root.querySelector('#dash-notes').onclick = () => route('/app/notes');
   root.querySelector('#dash-start-focus')?.addEventListener('click', async (event) => {
     const text = event.currentTarget.dataset.focusTask;
-    if (text) await saveProd({ focus: text });
+    if (text) saveProd({ focus: text });
     route('/app/productivity');
   });
   root.querySelectorAll('[data-dashboard-todo]').forEach((button) => {
-    button.onclick = async () => {
-      await saveProd({
+    button.onclick = () => {
+      saveProd({
         todos: (state.productivity.todos || []).map((todo) => todo.id === button.dataset.dashboardTodo ? { ...todo, done: true } : todo)
       });
-      await loadWorkspace();
       renderDashboard(root);
     };
   });
@@ -1448,10 +1473,39 @@ async function openNoteEditor(note = {}) {
       pinned: form.querySelector('[name=pinned]').checked,
       favorite: form.querySelector('[name=favorite]').checked
     };
-    await api.saveNote(payload, note._id);
-    toast(t('toast.noteSaved'));
-    await loadWorkspace();
+    const previousNotes = state.notes;
+    const stamp = new Date().toISOString();
+    const optimisticId = note._id || `pending-${uid()}`;
+    const optimisticNote = {
+      ...note,
+      ...payload,
+      _id: optimisticId,
+      user: note.user || state.user?._id || state.user?.id,
+      createdAt: note.createdAt || stamp,
+      updatedAt: stamp
+    };
+
+    setState({
+      notes: sortNotesForView(note._id
+        ? previousNotes.map((item) => item._id === note._id ? optimisticNote : item)
+        : [optimisticNote, ...previousNotes])
+    });
     route('/app/notes');
+    api.saveNote(payload, note._id)
+      .then(({ note: savedNote }) => {
+        if (!savedNote) return;
+        setState({
+          notes: sortNotesForView(state.notes.map((item) => item._id === optimisticId || item._id === savedNote._id ? savedNote : item))
+        });
+        if (currentView() === 'notes') renderCurrentAppView();
+        toast(t('toast.noteSaved'));
+        refreshWorkspaceInBackground('notes');
+      })
+      .catch((error) => {
+        setState({ notes: previousNotes });
+        if (currentView() === 'notes') renderCurrentAppView();
+        toast(error.message || 'Note save failed', 'error');
+      });
   });
 
   setTimeout(() => {
@@ -1461,11 +1515,20 @@ async function openNoteEditor(note = {}) {
   }, 0);
 }
 
-async function deleteNote(id) {
-  await api.deleteNote(id);
-  toast(t('toast.noteDeleted'));
-  await loadWorkspace();
-  renderView('notes');
+function deleteNote(id) {
+  const previousNotes = state.notes;
+  setState({ notes: previousNotes.filter((note) => note._id !== id) });
+  renderCurrentAppView();
+  api.deleteNote(id)
+    .then(() => {
+      toast(t('toast.noteDeleted'));
+      refreshWorkspaceInBackground(currentView());
+    })
+    .catch((error) => {
+      setState({ notes: previousNotes });
+      renderCurrentAppView();
+      toast(error.message || 'Note delete failed', 'error');
+    });
 }
 
 
@@ -1650,11 +1713,29 @@ function renderIdeas(root) {
   });
   root.querySelectorAll('.lane').forEach((lane) => {
     lane.ondragover = (event) => event.preventDefault();
-    lane.ondrop = async (event) => {
+    lane.ondrop = (event) => {
       const idea = state.ideas.find((item) => item._id === event.dataTransfer.getData('text/plain'));
-      await api.saveIdea({ ...idea, status: lane.dataset.status }, idea._id);
-      await loadWorkspace();
+      if (!idea) return;
+      const previousIdeas = state.ideas;
+      const optimisticIdea = { ...idea, status: lane.dataset.status, updatedAt: new Date().toISOString() };
+      setState({
+        ideas: sortIdeasForView(previousIdeas.map((item) => item._id === idea._id ? optimisticIdea : item))
+      });
       renderView('ideas');
+      api.saveIdea({ ...idea, status: lane.dataset.status }, idea._id)
+        .then(({ idea: savedIdea }) => {
+          if (!savedIdea) return;
+          setState({
+            ideas: sortIdeasForView(state.ideas.map((item) => item._id === savedIdea._id ? savedIdea : item))
+          });
+          if (currentView() === 'ideas') renderCurrentAppView();
+          refreshWorkspaceInBackground('ideas');
+        })
+        .catch((error) => {
+          setState({ ideas: previousIdeas });
+          if (currentView() === 'ideas') renderCurrentAppView();
+          toast(error.message || 'Idea save failed', 'error');
+        });
     };
   });
 }
@@ -1687,7 +1768,7 @@ function openIdeaEditor(idea = {}) {
     <div class="field"><label for="modal-idea-tags">${t('ideas.tags')}</label><input class="input" id="modal-idea-tags" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="${t('ideas.tagsPlaceholder')}" /></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
-    await api.saveIdea({
+    const payload = {
       title: form.querySelector('[name=title]').value || t('ideas.untitled'),
       description: form.querySelector('[name=description]').value,
       status: form.querySelector('[name=status]').value,
@@ -1695,10 +1776,40 @@ function openIdeaEditor(idea = {}) {
       category: form.querySelector('[name=category]').value || 'General',
       progress: Number(form.querySelector('[name=progress]').value),
       tags: form.querySelector('[name=tags]').value.split(',').map((tag) => tag.trim()).filter(Boolean)
-    }, idea._id);
-    toast(t('toast.ideaSaved'));
-    await loadWorkspace();
+    };
+    const previousIdeas = state.ideas;
+    const stamp = new Date().toISOString();
+    const optimisticId = idea._id || `pending-${uid()}`;
+    const optimisticIdea = {
+      ...idea,
+      ...payload,
+      _id: optimisticId,
+      user: idea.user || state.user?._id || state.user?.id,
+      createdAt: idea.createdAt || stamp,
+      updatedAt: stamp
+    };
+
+    setState({
+      ideas: sortIdeasForView(idea._id
+        ? previousIdeas.map((item) => item._id === idea._id ? optimisticIdea : item)
+        : [optimisticIdea, ...previousIdeas])
+    });
     route('/app/ideas');
+    api.saveIdea(payload, idea._id)
+      .then(({ idea: savedIdea }) => {
+        if (!savedIdea) return;
+        setState({
+          ideas: sortIdeasForView(state.ideas.map((item) => item._id === optimisticId || item._id === savedIdea._id ? savedIdea : item))
+        });
+        if (currentView() === 'ideas') renderCurrentAppView();
+        toast(t('toast.ideaSaved'));
+        refreshWorkspaceInBackground('ideas');
+      })
+      .catch((error) => {
+        setState({ ideas: previousIdeas });
+        if (currentView() === 'ideas') renderCurrentAppView();
+        toast(error.message || 'Idea save failed', 'error');
+      });
   });
 }
 
@@ -1969,9 +2080,19 @@ function bindProductivity(root) {
 }
 
 async function saveProd(patch) {
+  const previousProductivity = state.productivity;
   const productivity = { ...state.productivity, ...patch };
-  const response = await api.saveProductivity(productivity);
-  setState({ productivity: response.productivity || productivity });
+  setState({ productivity });
+  void api.saveProductivity(productivity)
+    .then((response) => {
+      setState({ productivity: response.productivity || productivity });
+    })
+    .catch((error) => {
+      setState({ productivity: previousProductivity });
+      renderCurrentAppView();
+      toast(error.message || 'Productivity save failed', 'error');
+    });
+  return productivity;
 }
 
 function openCommand(seed = '') {

@@ -1,5 +1,8 @@
 import mongoose from 'mongoose';
 
+// Save-latency investigation: the app already reused one Mongoose singleton, but the pool defaulted cold/small
+// and write responses waited on secondary activity logging. The connection defaults below keep a warmer pool
+// and fail slow database operations faster while activity logging is now handled off the critical save path.
 let connectionPromise = null;
 
 function numberFromEnv(name, fallback) {
@@ -16,16 +19,20 @@ function compactOptions(options) {
 function timeoutDefaults() {
   return {
     serverSelectionTimeoutMS: numberFromEnv('MONGODB_TIMEOUT_MS', 5000),
-    connectTimeoutMS: numberFromEnv('MONGODB_CONNECT_TIMEOUT_MS', 10000),
-    socketTimeoutMS: numberFromEnv('MONGODB_SOCKET_TIMEOUT_MS', 45000)
+    connectTimeoutMS: numberFromEnv('MONGODB_CONNECT_TIMEOUT_MS', 5000),
+    socketTimeoutMS: numberFromEnv('MONGODB_SOCKET_TIMEOUT_MS', 15000)
   };
 }
 
 function poolDefaults() {
   return {
-    maxPoolSize: numberFromEnv('MONGODB_MAX_POOL_SIZE', 10),
-    minPoolSize: numberFromEnv('MONGODB_MIN_POOL_SIZE', 0)
+    maxPoolSize: numberFromEnv('MONGODB_MAX_POOL_SIZE', 50),
+    minPoolSize: numberFromEnv('MONGODB_MIN_POOL_SIZE', 5)
   };
+}
+
+export function operationTimeoutMS() {
+  return numberFromEnv('MONGODB_OPERATION_TIMEOUT_MS', 8000);
 }
 
 export async function connectDB(uri, options = {}) {

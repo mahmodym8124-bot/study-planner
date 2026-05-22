@@ -29,8 +29,8 @@ function installMemoryAdapter() {
   
   Collection.find = async function(filter, options) {
     const docs = await memDb.collection(this.name).find(filter || {});
-    let limitVal = null;
-    let skipVal = 0;
+    let limitVal = Number.isInteger(options?.limit) ? options.limit : null;
+    let skipVal = Number.isInteger(options?.skip) ? options.skip : 0;
     return {
       toArray: async function() { 
         let result = docs;

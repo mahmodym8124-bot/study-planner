@@ -100,9 +100,28 @@ export function modal(title, body, onSave) {
   root.querySelectorAll('[data-close]').forEach((button) => {
     button.onclick = () => root.classList.remove('open');
   });
-  root.querySelector('[data-save]').onclick = async () => {
-    await onSave(root);
-    root.classList.remove('open');
+  const saveButton = root.querySelector('[data-save]');
+  let saving = false;
+  saveButton.onclick = async () => {
+    if (saving) return;
+    saving = true;
+    saveButton.disabled = true;
+    saveButton.setAttribute('aria-busy', 'true');
+    root.querySelectorAll('[data-close]').forEach((button) => {
+      button.disabled = true;
+    });
+
+    try {
+      await onSave(root);
+      root.classList.remove('open');
+    } finally {
+      saving = false;
+      saveButton.disabled = false;
+      saveButton.removeAttribute('aria-busy');
+      root.querySelectorAll('[data-close]').forEach((button) => {
+        button.disabled = false;
+      });
+    }
   };
 }
 
