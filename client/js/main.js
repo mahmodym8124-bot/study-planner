@@ -10,7 +10,7 @@ import {
   closeSidebarAnimation
 } from './animation.js';
 import i18n from './i18n.js';
-import { api, clearAllAppData, getDailyScore, storage } from './api.js';
+import { api, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
@@ -995,14 +995,6 @@ function computeStreak(activity = []) {
   return streak;
 }
 
-function hasActivityToday(activity = []) {
-  const today = new Date().toISOString().split('T')[0];
-  return scoreableActivity(activity).some((item) => {
-    const createdAt = new Date(item.createdAt);
-    return !Number.isNaN(createdAt.getTime()) && createdAt.toISOString().split('T')[0] === today;
-  });
-}
-
 function dashboardInsights() {
   const todos = state.productivity.todos || [];
   const doneTodos = todos.filter((todo) => todo.done).length;
@@ -1011,9 +1003,7 @@ function dashboardInsights() {
   const recentNotes = state.stats.recentNotes || state.notes.filter((note) => daysAgo(note.updatedAt || note.createdAt) <= 7).length;
   const streak = computeStreak(state.activity);
   const completion = todos.length ? (doneTodos / todos.length) * 100 : 0;
-  const focusDepth = state.productivity.focus?.trim() ? 18 : 0;
-  const calculatedFocusScore = clamp(Math.round((completion * 0.44) + (Math.min(streak, 7) * 6) + Math.min(activeIdeas * 5, 20) + focusDepth), 0, 100);
-  const focusScore = getDailyScore(calculatedFocusScore, hasActivityToday(state.activity));
+  const focusScore = getDailyScore();
 
   return {
     todos,
@@ -1027,6 +1017,11 @@ function dashboardInsights() {
     focusSessionsToday: state.stats.focusSessionsToday || 0,
     focusSessionsTotal: state.stats.focusSessionsTotal || 0
   };
+}
+
+function recordDailyAction() {
+  incrementDailyScore();
+  if (currentView() === 'dashboard') renderCurrentAppView();
 }
 
 function weekActivityBars() {
@@ -1212,9 +1207,13 @@ function bindShell() {
   });
   document.querySelector('#quick-note').onclick = () => openNoteEditor();
   document.querySelector('#cmd-open').onclick = () => openCommand();
-  document.querySelector('#clear-all-data').onclick = () => {
+  document.querySelector('#clear-all-data').onclick = async () => {
     if (window.confirm('This will delete all notes, scores, and streaks. This cannot be undone.')) {
-      clearAllAppData();
+      try {
+        await clearAllAppData();
+      } catch (error) {
+        toast(error.message || 'Could not clear app data', 'error');
+      }
     }
   };
   window.onkeydown = (event) => {
@@ -1519,6 +1518,7 @@ async function openNoteEditor(note = {}) {
         setState({
           notes: sortNotesForView(state.notes.map((item) => item._id === optimisticId || item._id === savedNote._id ? savedNote : item))
         });
+        recordDailyAction();
         if (currentView() === 'notes') renderCurrentAppView();
         toast(t('toast.noteSaved'));
         refreshWorkspaceInBackground('notes');
@@ -1543,6 +1543,7 @@ function deleteNote(id) {
   renderCurrentAppView();
   api.deleteNote(id)
     .then(() => {
+      recordDailyAction();
       toast(t('toast.noteDeleted'));
       refreshWorkspaceInBackground(currentView());
     })
@@ -1750,6 +1751,7 @@ function renderIdeas(root) {
           setState({
             ideas: sortIdeasForView(state.ideas.map((item) => item._id === savedIdea._id ? savedIdea : item))
           });
+          recordDailyAction();
           if (currentView() === 'ideas') renderCurrentAppView();
           refreshWorkspaceInBackground('ideas');
         })
@@ -1823,6 +1825,7 @@ function openIdeaEditor(idea = {}) {
         setState({
           ideas: sortIdeasForView(state.ideas.map((item) => item._id === optimisticId || item._id === savedIdea._id ? savedIdea : item))
         });
+        recordDailyAction();
         if (currentView() === 'ideas') renderCurrentAppView();
         toast(t('toast.ideaSaved'));
         refreshWorkspaceInBackground('ideas');
@@ -2006,6 +2009,7 @@ function bindProductivity(root) {
         totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
         seconds = totalSeconds;
         faceIsReady = false;
+        recordDailyAction();
       }
       timerLabel.textContent = mode === 'work' ? t('focus.focusing') : t('focus.break');
     }
@@ -2108,6 +2112,7 @@ async function saveProd(patch) {
   void api.saveProductivity(productivity)
     .then((response) => {
       setState({ productivity: response.productivity || productivity });
+      recordDailyAction();
     })
     .catch((error) => {
       setState({ productivity: previousProductivity });

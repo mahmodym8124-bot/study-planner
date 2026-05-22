@@ -51,6 +51,20 @@ export async function activity(req, res) {
   res.json({ activity: rows });
 }
 
+export async function resetWorkspace(req, res) {
+  const user = req.user._id;
+  await Promise.all([
+    Note.deleteMany({ user }).maxTimeMS(operationTimeoutMS()),
+    FileAsset.deleteMany({ user }).maxTimeMS(operationTimeoutMS()),
+    Idea.deleteMany({ user }).maxTimeMS(operationTimeoutMS()),
+    Activity.deleteMany({ user }).maxTimeMS(operationTimeoutMS()),
+    FocusSession.deleteMany({ user }).maxTimeMS(operationTimeoutMS()),
+    DailyFocus.deleteMany({ user }).maxTimeMS(operationTimeoutMS()),
+    Productivity.deleteOne({ user }).maxTimeMS(operationTimeoutMS())
+  ]);
+  res.json({ ok: true });
+}
+
 export async function updateSettings(req, res) {
   const { defaultFocusTime, theme } = req.body;
   // Update productivity/pomodoro work time
