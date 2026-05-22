@@ -125,8 +125,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 10000;
   animation: fadeIn 0.3s ease-out;
 }
@@ -142,6 +143,7 @@
 
 .error-recovery-content {
   background: var(--surface-strong, #111827);
+  border: 0;
   border-radius: 12px;
   padding: 32px;
   max-width: 480px;

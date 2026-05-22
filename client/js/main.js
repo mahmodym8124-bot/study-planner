@@ -1331,7 +1331,7 @@ function renderDashboard(root) {
           <span class="metric-chip">${state.activity.length}</span>
         </div>
         <div class="timeline">
-          ${state.activity.slice(0, 8).map((item) => `
+          ${state.activity.slice(0, 5).map((item) => `
             <div class="timeline-item">
               <span class="dot"></span>
               <div>
