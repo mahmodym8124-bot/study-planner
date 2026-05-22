@@ -13,6 +13,7 @@ const PRODUCTION_API_URL = ensureApiPath(import.meta.env.VITE_API_URL || 'https:
 const API_BASE = (import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : (window.location.hostname.endsWith('.github.io') ? PRODUCTION_API_URL : '/api'));
 const configuredApiTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
 const API_TIMEOUT_MS = Number.isFinite(configuredApiTimeout) && configuredApiTimeout > 0 ? configuredApiTimeout : 15000;
+const APP_STORAGE_PREFIX = 'mindvault_';
 const TOKEN_KEY = 'mindvault_token';
 const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
@@ -29,6 +30,37 @@ export const storage = {
     else localStorage.removeItem(TOKEN_KEY);
   }
 };
+
+function todayStorageDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function dailyScoreKey(date = todayStorageDate()) {
+  return `${APP_STORAGE_PREFIX}daily_${date}`;
+}
+
+export function getDailyScore(calculatedScore = 0, hasActivityToday = false) {
+  const key = dailyScoreKey();
+  const savedRaw = localStorage.getItem(key);
+  const savedScore = Number(savedRaw);
+
+  if (!hasActivityToday) {
+    if (savedRaw === null) localStorage.setItem(key, '0');
+    return Number.isFinite(savedScore) ? savedScore : 0;
+  }
+
+  const nextScore = Math.max(0, Math.round(Number(calculatedScore) || 0));
+  localStorage.setItem(key, String(nextScore));
+  return nextScore;
+}
+
+export function clearAllAppData() {
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(APP_STORAGE_PREFIX)) localStorage.removeItem(key);
+  }
+  window.location.reload();
+}
 
 function makeError(message, status) {
   const error = new Error(message);

@@ -10,7 +10,7 @@ import {
   closeSidebarAnimation
 } from './animation.js';
 import i18n from './i18n.js';
-import { api, storage } from './api.js';
+import { api, clearAllAppData, getDailyScore, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
@@ -979,8 +979,12 @@ function daysAgo(value) {
   return Math.max(0, Math.floor(diff / 86_400_000));
 }
 
+function scoreableActivity(activity = []) {
+  return activity.filter((item) => String(item.entityType || item.type || '').toLowerCase() !== 'auth');
+}
+
 function computeStreak(activity = []) {
-  const days = new Set(activity.map((item) => new Date(item.createdAt).toDateString()));
+  const days = new Set(scoreableActivity(activity).map((item) => new Date(item.createdAt).toDateString()));
   let streak = 0;
   const cursor = new Date();
   for (let i = 0; i < 30; i += 1) {
@@ -989,6 +993,14 @@ function computeStreak(activity = []) {
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+function hasActivityToday(activity = []) {
+  const today = new Date().toISOString().split('T')[0];
+  return scoreableActivity(activity).some((item) => {
+    const createdAt = new Date(item.createdAt);
+    return !Number.isNaN(createdAt.getTime()) && createdAt.toISOString().split('T')[0] === today;
+  });
 }
 
 function dashboardInsights() {
@@ -1000,7 +1012,8 @@ function dashboardInsights() {
   const streak = computeStreak(state.activity);
   const completion = todos.length ? (doneTodos / todos.length) * 100 : 0;
   const focusDepth = state.productivity.focus?.trim() ? 18 : 0;
-  const focusScore = clamp(Math.round((completion * 0.44) + (Math.min(streak, 7) * 6) + Math.min(activeIdeas * 5, 20) + focusDepth), 0, 100);
+  const calculatedFocusScore = clamp(Math.round((completion * 0.44) + (Math.min(streak, 7) * 6) + Math.min(activeIdeas * 5, 20) + focusDepth), 0, 100);
+  const focusScore = getDailyScore(calculatedFocusScore, hasActivityToday(state.activity));
 
   return {
     todos,
@@ -1125,6 +1138,10 @@ function renderApp() {
           <label class="sr-only" for="cmd-input">${t('a11y.commandPalette')}</label>
           <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="${t('shell.cmdPlaceholder')}" />
           <div class="cmd-results" id="cmd-results"></div>
+          <div class="cmd-danger-zone">
+            <b>Danger Zone</b>
+            <button class="btn danger" id="clear-all-data" type="button">Clear All Data & Reset</button>
+          </div>
         </div>
       </div>
     `;
@@ -1195,6 +1212,11 @@ function bindShell() {
   });
   document.querySelector('#quick-note').onclick = () => openNoteEditor();
   document.querySelector('#cmd-open').onclick = () => openCommand();
+  document.querySelector('#clear-all-data').onclick = () => {
+    if (window.confirm('This will delete all notes, scores, and streaks. This cannot be undone.')) {
+      clearAllAppData();
+    }
+  };
   window.onkeydown = (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();

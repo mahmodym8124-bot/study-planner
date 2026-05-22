@@ -2079,6 +2079,16 @@ body.light .tag {
   padding: 0.7rem;
 }
 
+.cmd-danger-zone {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.7rem;
+}
+
+.cmd-danger-zone .btn {
+  width: 100%;
+}
+
 .cmd-item {
   display: flex;
   justify-content: space-between;
