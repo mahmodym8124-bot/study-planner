@@ -77,14 +77,15 @@ export function modal(title, body, onSave) {
   let root = document.querySelector('.modal-backdrop');
   if (!root) {
     root = document.createElement('div');
-    root.className = 'modal-backdrop';
+    root.className = 'modal-backdrop modal-layer';
     document.body.appendChild(root);
   }
+  root.classList.add('modal-layer');
 
   root.innerHTML = `
-    <div class="modal surface">
+    <div class="modal surface" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-head">
-        <h2>${escapeHTML(title)}</h2>
+        <h2 id="modal-title">${escapeHTML(title)}</h2>
         <button class="icon-button" data-close aria-label="${i18n.t('common.close')}">${icon('close')}</button>
       </div>
       <div class="modal-body">${body}</div>

@@ -1093,7 +1093,7 @@ function renderApp() {
           <button class="btn danger" id="logout">${icon('logout')} ${t('nav.logout')}</button>
         </div>
       </aside>
-      <button class="sidebar-scrim" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
+      <button class="sidebar-scrim modal-layer" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
 
       <main class="main">
         <header class="topbar surface">
@@ -1120,7 +1120,7 @@ function renderApp() {
       </nav>
 
       <div class="toast-stack" aria-live="polite"></div>
-      <div class="command-backdrop" id="command">
+      <div class="command-backdrop modal-layer" id="command">
         <div class="cmd surface">
           <label class="sr-only" for="cmd-input">${t('a11y.commandPalette')}</label>
           <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="${t('shell.cmdPlaceholder')}" />
@@ -1553,7 +1553,7 @@ function renderGraph(root) {
           <button class="graph-control-btn graph-control-export" data-graph-action="download">${t('graph.downloadPng')}</button>
         </div>
         <button class="graph-help-toggle" id="graph-help-toggle" aria-label="${t('graph.howItWorks')}">?</button>
-        <div class="graph-inspector-backdrop" id="graph-inspector-backdrop"></div>
+        <div class="graph-inspector-backdrop modal-layer" id="graph-inspector-backdrop"></div>
         <aside class="graph-inspector-panel" id="inspector" aria-hidden="true">
           <button class="graph-inspector-close" id="graph-inspector-close" aria-label="${t('common.close')}">
             ${icon('close')}
@@ -1563,7 +1563,7 @@ function renderGraph(root) {
             <p class="muted">${t('graph.selectHint')}</p>
           </div>
         </aside>
-        <div class="graph-help-modal" id="graph-help-modal" aria-hidden="true">
+        <div class="graph-help-modal modal-layer" id="graph-help-modal" aria-hidden="true">
           <div class="graph-help-card" role="dialog" aria-modal="true" aria-labelledby="graph-help-title">
             <button class="graph-help-close" id="graph-help-close" aria-label="${t('common.close')}">${icon('close')}</button>
             <h3 id="graph-help-title">${t('graph.helpTitle')}</h3>

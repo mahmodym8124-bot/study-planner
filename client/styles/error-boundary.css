@@ -125,9 +125,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--modal-backdrop, rgba(0, 0, 0, 0.68));
+  backdrop-filter: var(--modal-backdrop-filter, blur(8px));
+  -webkit-backdrop-filter: var(--modal-backdrop-filter, blur(8px));
   z-index: 10000;
   animation: fadeIn 0.3s ease-out;
 }
@@ -142,13 +142,13 @@
 }
 
 .error-recovery-content {
-  background: var(--surface-strong, #111827);
+  background: var(--modal-surface, #111827);
   border: 0;
   border-radius: 12px;
   padding: 32px;
   max-width: 480px;
   width: 90%;
-  box-shadow: var(--shadow-glow-strong, 0 24px 68px rgba(0, 0, 0, 0.58));
+  box-shadow: var(--modal-shadow, 0 24px 68px rgba(0, 0, 0, 0.58));
   text-align: center;
   animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -272,7 +272,7 @@
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .error-recovery-content {
-    background: var(--surface-color, #1a1a1a);
+    background: var(--modal-surface, #1a1a1a);
   }
 
   .error-recovery-title {
