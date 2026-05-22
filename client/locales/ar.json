@@ -299,6 +299,25 @@
     "enter": "مفتاح الإدخال",
     "noMatches": "لا توجد نتائج مطابقة"
   },
+  "state": {
+    "loadingTitle": "جار تحميل MindVault",
+    "loadingBody": "يتم تجهيز مساحة العمل والواجهة.",
+    "workspaceLoadingTitle": "جار فتح مساحة العمل",
+    "workspaceLoadingBody": "يتم جلب الملاحظات والأفكار والنشاط وبيانات التركيز.",
+    "errorCode": "خطأ في التشغيل",
+    "errorTitle": "حدث خطأ",
+    "errorBody": "تعذر على MindVault إكمال هذه الشاشة. حدّث الصفحة أو ارجع إلى مكان آمن.",
+    "renderErrorTitle": "فشل عرض الشاشة",
+    "renderErrorBody": "واجه هذا العرض خطأ في التشغيل. حدّث الصفحة للمحاولة مرة أخرى.",
+    "startupErrorTitle": "تعذر بدء MindVault",
+    "startupErrorBody": "فشل التطبيق أثناء التهيئة. حدّث الصفحة للمحاولة مرة أخرى.",
+    "notFoundCode": "404",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundBody": "هذا المسار غير موجود في مساحة العمل.",
+    "refresh": "تحديث",
+    "goDashboard": "الذهاب إلى لوحة التحكم",
+    "goHome": "الذهاب إلى الرئيسية"
+  },
   "common": {
     "save": "حفظ",
     "cancel": "إلغاء",

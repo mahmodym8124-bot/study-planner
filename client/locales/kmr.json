@@ -299,6 +299,25 @@
     "enter": "دوگمەی Enter",
     "noMatches": "هیچ دۆزینەوە نییە"
   },
+  "state": {
+    "loadingTitle": "MindVault دادەبارێت",
+    "loadingBody": "جهێ کاری و ڕووکار ئامادە دەبن.",
+    "workspaceLoadingTitle": "جهێ کاری دەکرێتەوە",
+    "workspaceLoadingBody": "تێبینی، ئیدیا، چالاکی و داتای تێدەرکەوی دەهێنرێن.",
+    "errorCode": "هەڵەی جێبەجێکردن",
+    "errorTitle": "شتەک هەڵە بوو",
+    "errorBody": "MindVault نەیتوانی ئەم پەردەیە تەواو بکات. لاپەڕەکە نوێ بکەوە یان بگەڕێوە شوێنێکی سەلامەت.",
+    "renderErrorTitle": "پەردەکە پیشان نەدرا",
+    "renderErrorBody": "ئەم بینینە هەڵەی جێبەجێکردنی هەبوو. لاپەڕەکە نوێ بکەوە.",
+    "startupErrorTitle": "MindVault دەستپێ نەکرا",
+    "startupErrorBody": "ئەپەکە لە کاتی ئامادەکردندا شکستی هێنا. لاپەڕەکە نوێ بکەوە.",
+    "notFoundCode": "404",
+    "notFoundTitle": "لاپەڕە نەدۆزرایەوە",
+    "notFoundBody": "ئەم ڕێیە لەم جهێ کارییەدا بوونی نییە.",
+    "refresh": "نوێکردنەوە",
+    "goDashboard": "بڕۆ بۆ تابلۆ",
+    "goHome": "بڕۆ بۆ ماڵ"
+  },
   "common": {
     "save": "پاشەکەوت",
     "cancel": "هەڵوەشاندن",

@@ -299,6 +299,25 @@
     "enter": "Enter key",
     "noMatches": "No matches"
   },
+  "state": {
+    "loadingTitle": "Loading MindVault",
+    "loadingBody": "Preparing your workspace and interface.",
+    "workspaceLoadingTitle": "Opening your workspace",
+    "workspaceLoadingBody": "Fetching notes, ideas, activity, and focus data.",
+    "errorCode": "Runtime error",
+    "errorTitle": "Something went wrong",
+    "errorBody": "MindVault could not finish this screen. Refresh the page or return to a safe place.",
+    "renderErrorTitle": "Screen failed to render",
+    "renderErrorBody": "This view hit a runtime error. Refresh to try again.",
+    "startupErrorTitle": "MindVault could not start",
+    "startupErrorBody": "The app failed during initialization. Refresh the page to retry.",
+    "notFoundCode": "404",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "That route does not exist in this workspace.",
+    "refresh": "Refresh",
+    "goDashboard": "Go to dashboard",
+    "goHome": "Go home"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

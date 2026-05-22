@@ -74,6 +74,26 @@ const TODO_PRIORITY_I18N = {
   critical: 'ideas.priorityCritical'
 };
 
+const APP_VIEW_IDS = ['dashboard', 'notes', 'graph', 'ideas', 'productivity'];
+const NAV_LABEL_KEYS = {
+  dashboard: 'nav.dashboard',
+  notes: 'nav.notes',
+  graph: 'nav.graph',
+  ideas: 'nav.ideas',
+  productivity: 'nav.productivity'
+};
+const PUBLIC_ROUTES = new Set([
+  '/',
+  '/landing',
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+  '/privacy',
+  '/terms'
+]);
+
 function tIdeaStatus(status) {
   const normalized = String(status || '').trim().toLowerCase();
   const canonical = normalized === 'done' ? 'completed' : normalized;
@@ -146,6 +166,7 @@ async function setupGoogleAuthButton() {
           storage.token = data.token;
           setState({ user: data.user, isOffline: false });
           toast(t('toast.workspaceOpened'));
+          renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
           await loadWorkspace();
           route('/app/dashboard');
         } catch (error) {
@@ -225,31 +246,42 @@ document.body.addEventListener('click', (e) => {
 });
 
 async function bootstrap() {
-  initGlobalInteractions();
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-      .catch(() => {});
-  }
+  try {
+    initGlobalInteractions();
+    renderLoadingScreen();
 
-  // Support direct-path links in hash-based routing.
-  if (!location.hash && ['/verify-email', '/reset-password', '/privacy', '/terms'].includes(location.pathname)) {
-    history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
-  }
-
-  if (storage.token) {
-    const isOffline = storage.token.startsWith('offline-token:');
-    try {
-      const { user } = await api.me();
-      setState({ user, isOffline });
-      await loadWorkspace();
-    } catch {
-      storage.token = null;
-      setState({ isOffline: false });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+        .catch(() => {});
     }
-  }
 
-  route(location.hash.replace('#', '') || '/');
+    // Support direct-path links in hash-based routing.
+    if (!location.hash && ['/verify-email', '/reset-password', '/privacy', '/terms'].includes(location.pathname)) {
+      history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
+    }
+
+    if (storage.token) {
+      const isOffline = storage.token.startsWith('offline-token:');
+      try {
+        renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
+        const { user } = await api.me();
+        setState({ user, isOffline });
+        await loadWorkspace();
+      } catch {
+        storage.token = null;
+        setState({ isOffline: false });
+      }
+    }
+
+    route(location.hash.replace('#', '') || '/');
+  } catch (error) {
+    globalErrorBoundary.captureError(error, 'bootstrap-error', {});
+    renderErrorPage({
+      title: t('state.startupErrorTitle'),
+      body: t('state.startupErrorBody')
+    });
+  }
 }
 
 async function loadWorkspace() {
@@ -270,6 +302,96 @@ async function loadWorkspace() {
   });
 }
 
+function renderStatePage({
+  root = app,
+  inShell = false,
+  kind = 'info',
+  iconName = 'vault',
+  code = '',
+  title,
+  body,
+  loading = false,
+  primaryLabel,
+  primaryHref,
+  reload = false,
+  secondaryLabel,
+  secondaryHref
+} = {}) {
+  const pageClass = `state-page${inShell ? ' in-shell' : ''}`;
+  if (!inShell) {
+    mountAmbientBackground().catch(() => {});
+    app.className = `app-shell ${kind}-state`;
+  }
+
+  root.innerHTML = `
+    <section class="${pageClass}" aria-live="${loading ? 'polite' : 'assertive'}">
+      <div class="state-card ${kind}-state-card">
+        ${loading ? '<div class="loading-spinner" aria-hidden="true"></div>' : `<div class="icon-circle">${icon(iconName)}</div>`}
+        ${code ? `<span class="state-code">${escapeHTML(code)}</span>` : ''}
+        <h1>${escapeHTML(title || t('state.errorTitle'))}</h1>
+        <p>${escapeHTML(body || t('state.errorBody'))}</p>
+        ${(primaryLabel || secondaryLabel) ? `
+          <div class="actions">
+            ${primaryLabel ? (reload
+              ? `<button type="button" class="btn primary" data-state-reload>${escapeHTML(primaryLabel)}</button>`
+              : `<a class="btn primary" href="${primaryHref || '#/'}">${escapeHTML(primaryLabel)}</a>`) : ''}
+            ${secondaryLabel ? `<a class="btn" href="${secondaryHref || '#/'}">${escapeHTML(secondaryLabel)}</a>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    </section>
+  `;
+
+  root.querySelector('[data-state-reload]')?.addEventListener('click', () => location.reload());
+}
+
+function renderLoadingScreen(title = t('state.loadingTitle'), body = t('state.loadingBody')) {
+  renderStatePage({
+    kind: 'loading',
+    loading: true,
+    title,
+    body
+  });
+}
+
+function renderErrorPage({
+  title = t('state.errorTitle'),
+  body = t('state.errorBody'),
+  code = t('state.errorCode'),
+  inShell = false,
+  root = app
+} = {}) {
+  renderStatePage({
+    root,
+    inShell,
+    kind: 'error',
+    iconName: 'spark',
+    code,
+    title,
+    body,
+    primaryLabel: t('state.refresh'),
+    reload: true,
+    secondaryLabel: state.user ? t('state.goDashboard') : t('state.goHome'),
+    secondaryHref: state.user ? '#/app/dashboard' : '#/'
+  });
+}
+
+function renderNotFound(root = app, { inShell = false } = {}) {
+  renderStatePage({
+    root,
+    inShell,
+    kind: 'not-found',
+    iconName: 'search',
+    code: t('state.notFoundCode'),
+    title: t('state.notFoundTitle'),
+    body: t('state.notFoundBody'),
+    primaryLabel: state.user ? t('state.goDashboard') : t('state.goHome'),
+    primaryHref: state.user ? '#/app/dashboard' : '#/',
+    secondaryLabel: state.user ? t('nav.notes') : t('landing.signIn'),
+    secondaryHref: state.user ? '#/app/notes' : '#/login'
+  });
+}
+
 function render() {
   try {
     clearInterval(focusTimerId);
@@ -281,6 +403,7 @@ function render() {
     graphUi = { closeInspector: () => {}, closeHelp: () => {} };
 
     const currentRoute = routePath();
+    if (!PUBLIC_ROUTES.has(currentRoute) && !currentRoute.startsWith('/app')) return renderNotFound();
     if (currentRoute === '/' || currentRoute === '/landing') return renderLanding();
     if (currentRoute === '/login' || currentRoute === '/signup') return renderAuth(currentRoute === '/signup');
     if (currentRoute === '/forgot-password') return renderForgotPassword();
@@ -288,19 +411,14 @@ function render() {
     if (currentRoute === '/verify-email') return renderVerifyEmail();
     if (currentRoute === '/privacy') return renderPrivacy();
     if (currentRoute === '/terms') return renderTerms();
+    if (!currentRoute.startsWith('/app')) return renderNotFound();
     return renderApp();
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-error', { route: state.route });
-    
-    app.className = 'app-shell error-state';
-    app.innerHTML = `
-      <div class="error-recovery-content" style="margin: 48px auto; max-width: 480px; text-align: center;">
-        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-        <h2 style="margin: 16px 0 8px;">Rendering Error</h2>
-        <p style="color: #666; margin: 0 0 24px;">Failed to render the page. Please try refreshing.</p>
-        <button class="btn primary" onclick="location.reload()" style="width: 100%;">Refresh Page</button>
-      </div>
-    `;
+    renderErrorPage({
+      title: t('state.renderErrorTitle'),
+      body: t('state.renderErrorBody')
+    });
   }
 }
 
@@ -374,12 +492,10 @@ function renderLanding() {
     gsap.from('.hero > *, .feature', { y: 18, opacity: 0, stagger: 0.06, duration: 0.5, ease: 'power2.out' });
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-landing', {});
-    app.className = 'app-shell error-state';
-    app.innerHTML = `
-      <div style="padding: 48px; text-align: center;">
-        <p style="color: #666;">Failed to load landing page. Please refresh.</p>
-      </div>
-    `;
+    renderErrorPage({
+      title: t('state.renderErrorTitle'),
+      body: t('state.renderErrorBody')
+    });
   }
 }
 
@@ -472,6 +588,7 @@ function renderAuth(signup) {
       if (isOffline) toast(t('toast.localOpened'), 'info');
       else toast(t('toast.workspaceOpened'));
       
+      renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
       await loadWorkspace();
       route('/app/dashboard');
     } catch (error) {
@@ -490,12 +607,10 @@ function renderAuth(signup) {
   };
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-auth', { signup });
-    app.className = 'app-shell error-state';
-    app.innerHTML = `
-      <div style="padding: 48px; text-align: center;">
-        <p style="color: #666;">Failed to load authentication page. Please refresh.</p>
-      </div>
-    `;
+    renderErrorPage({
+      title: t('state.renderErrorTitle'),
+      body: t('state.renderErrorBody')
+    });
   }
 }
 
@@ -779,17 +894,14 @@ function renderResetPassword() {
 }
 
 function navItems() {
-  return [
-    ['dashboard', t('nav.dashboard')],
-    ['notes', t('nav.notes')],
-    ['graph', t('nav.graph')],
-    ['ideas', t('nav.ideas')],
-    ['productivity', t('nav.productivity')]
-  ];
+  return APP_VIEW_IDS.map((id) => [id, t(NAV_LABEL_KEYS[id])]);
 }
 
 function currentView() {
-  return routePath().split('/').pop() || 'dashboard';
+  const path = routePath();
+  if (path === '/app') return 'dashboard';
+  if (!path.startsWith('/app/')) return 'dashboard';
+  return path.split('/').filter(Boolean)[1] || 'dashboard';
 }
 
 function clamp(value, min, max) {
@@ -1089,6 +1201,8 @@ function bindShell() {
 
 function renderView(view) {
   const root = document.querySelector('#view-root');
+  if (!APP_VIEW_IDS.includes(view)) return renderNotFound(root, { inShell: true });
+  if (view === 'dashboard') return renderDashboard(root);
   if (view === 'notes') return renderNotes(root);
 
   if (view === 'graph') return renderGraph(root);
