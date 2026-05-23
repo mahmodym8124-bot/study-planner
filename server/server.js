@@ -140,13 +140,9 @@ app.use(attachRequestId);
 app.use(enforceHttps);
 app.use(detectSuspiciousTraffic);
 app.use((req, res, next) => {
-  // COOP is required for security headers but breaks OAuth popup handshake if mis-scoped.
-  // Scope the relaxed COOP policy to the Google OAuth endpoint(s) only.
-  const isGoogleAuthEndpoint = req.path === '/api/auth/google' || req.path === '/api/auth/google/callback';
-
   const helmetOptions = {
     crossOriginOpenerPolicy: {
-      policy: isGoogleAuthEndpoint ? 'unsafe-none' : 'same-origin-allow-popups'
+      policy: 'same-origin-allow-popups'
     },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: {
