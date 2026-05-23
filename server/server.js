@@ -145,9 +145,9 @@ app.use((req, res, next) => {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'https:'],
-        fontSrc: ["'self'"],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         frameSrc: ["'self'", 'https://accounts.google.com'],
         connectSrc: ["'self'", 'https://accounts.google.com', 'https://play.google.com']
       }
