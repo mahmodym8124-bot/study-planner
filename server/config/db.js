@@ -56,13 +56,10 @@ export async function connectDB(uri, options = {}) {
   function maskUri(u = '') {
     try {
       if (!u) return '<not-set>';
-      if (u.includes('mongodb+srv://') || u.includes('.mongodb.net')) {
-        return u.replace(/:(?:[^@]+)@/, ':***@');
-      }
       const parsed = new URL(u);
-      if (parsed.password) parsed.password = '***';
       if (parsed.username) parsed.username = '***';
-      return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+      if (parsed.password) parsed.password = '***';
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
     } catch {
       return '<invalid>';
     }

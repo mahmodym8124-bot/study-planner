@@ -87,14 +87,10 @@ function isAllowedOrigin(origin, allowedOrigins) {
 
 function sanitizeMongoUri(uri = '') {
   try {
-    const isAtlas = uri.includes('mongodb+srv://') || uri.includes('.mongodb.net');
-    if (isAtlas) {
-      return uri.replace(/:([^@]+)@/, ':***@');
-    }
     const parsed = new URL(uri);
     if (parsed.username) parsed.username = '***';
     if (parsed.password) parsed.password = '***';
-    return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
   } catch {
     return '<invalid>';
   }
