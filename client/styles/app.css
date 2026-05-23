@@ -6,8 +6,8 @@
   --surface-solid: #05070a;
   --card: rgba(255, 255, 255, 0.03);
   --card-hover: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --border: rgba(255, 255, 255, 0);
+  --border-strong: rgba(255, 255, 255, 0);
   --text: #fdfdfe;
   --muted: #94a3b8;
   --brand: #2dd4bf;
@@ -16,8 +16,16 @@
   --accent: #fbbf24;
   --danger: #ef4444;
   --success: #10b981;
-  --shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-  --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.4);
+  --shadow: 0 22px 54px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(45, 212, 191, 0.08);
+  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.34), 0 4px 20px rgba(45, 212, 191, 0.06);
+  --shadow-glow: 0 14px 34px rgba(0, 0, 0, 0.38), 0 4px 20px rgba(45, 212, 191, 0.08);
+  --shadow-glow-strong: 0 22px 56px rgba(0, 0, 0, 0.54), 0 4px 24px rgba(45, 212, 191, 0.1);
+  --modal-backdrop: rgba(0, 0, 0, 0.68);
+  --modal-backdrop-filter: blur(8px);
+  --modal-surface: #0a0d14;
+  --modal-shadow: 0 28px 72px rgba(0, 0, 0, 0.62), 0 8px 28px rgba(45, 212, 191, 0.12);
+  --header-surface: rgba(2, 4, 8, 0.94);
+  --header-surface-strong: rgba(1, 3, 7, 0.97);
   --radius: 14px;
   --radius-lg: 24px;
   --sidebar: 290px;
@@ -46,12 +54,19 @@ body.light {
   --surface-solid: #ffffff;
   --card: rgba(17, 24, 39, 0.055);
   --card-hover: rgba(17, 24, 39, 0.09);
-  --border: rgba(17, 24, 39, 0.12);
-  --border-strong: rgba(17, 24, 39, 0.18);
+  --border: rgba(17, 24, 39, 0);
+  --border-strong: rgba(17, 24, 39, 0);
   --text: #111827;
   --muted: #647084;
   --shadow: 0 20px 60px rgba(59, 75, 102, 0.16);
   --shadow-soft: 0 12px 28px rgba(59, 75, 102, 0.12);
+  --shadow-glow: 0 16px 38px rgba(59, 75, 102, 0.14), 0 0 28px rgba(14, 165, 233, 0.08);
+  --shadow-glow-strong: 0 24px 68px rgba(59, 75, 102, 0.18), 0 0 38px rgba(14, 165, 233, 0.1);
+  --modal-backdrop: rgba(0, 0, 0, 0.62);
+  --modal-surface: #ffffff;
+  --modal-shadow: 0 28px 72px rgba(15, 23, 42, 0.24), 0 8px 28px rgba(14, 165, 233, 0.1);
+  --header-surface: rgba(255, 255, 255, 0.94);
+  --header-surface-strong: rgba(255, 255, 255, 0.98);
   color-scheme: light;
 }
 
@@ -196,13 +211,19 @@ p {
   min-height: 100dvh;
 }
 
+.modal-layer {
+  background: var(--modal-backdrop);
+  backdrop-filter: var(--modal-backdrop-filter);
+  -webkit-backdrop-filter: var(--modal-backdrop-filter);
+}
+
 .surface,
 .glass,
 .card,
 .lane {
-  border: 1px solid var(--border);
+  border: 0;
   background: var(--surface);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-glow);
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
 }
@@ -220,12 +241,12 @@ p {
   background: rgba(255, 255, 255, 0.03) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 0 !important;
+  box-shadow: var(--shadow-glow) !important;
 }
 
 body.light .glass {
   background: rgba(255, 255, 255, 0.62) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 .loading-spinner {
@@ -239,6 +260,61 @@ body.light .glass {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.state-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 48px);
+}
+
+.state-page.in-shell {
+  min-height: min(640px, calc(100vh - 140px));
+  padding: clamp(18px, 3vw, 36px) 0;
+}
+
+.state-card {
+  width: min(520px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  padding: clamp(1.35rem, 4vw, 2.4rem);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.12), transparent 58%),
+    var(--surface-strong);
+  box-shadow: var(--shadow-glow-strong);
+  text-align: center;
+}
+
+.state-card h1,
+.state-card h2 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.85rem, 6vw, 3rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.state-card p {
+  max-width: 36rem;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.state-card .actions {
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
+.state-code {
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 
@@ -283,8 +359,9 @@ body.light .glass {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  border: 1px solid var(--border);
+  border: 0;
   background: linear-gradient(135deg, rgba(101, 228, 212, 0.16), rgba(91, 167, 255, 0.18));
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.08);
   color: var(--text);
 }
 
@@ -325,7 +402,7 @@ body.light .glass {
   gap: 0.55rem;
   min-height: 40px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 0;
   background: var(--card);
   color: var(--text);
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
@@ -351,8 +428,7 @@ body.light .glass {
 .idea-row:hover {
   transform: translateY(-3px) scale(1.01);
   background: var(--card-hover);
-  border-color: rgba(94, 234, 212, 0.45);
-  box-shadow: 0 8px 30px rgba(94, 234, 212, 0.12);
+  box-shadow: 0 8px 30px rgba(94, 234, 212, 0.14);
 }
 
 .btn:active,
@@ -369,8 +445,7 @@ body.light .glass {
 .select:focus,
 .cmd-item:focus-visible {
   outline: 0;
-  border-color: rgba(101, 228, 212, 0.72);
-  box-shadow: 0 0 0 4px rgba(101, 228, 212, 0.12);
+  box-shadow: 0 0 0 3px rgba(101, 228, 212, 0.18), 0 0 24px rgba(101, 228, 212, 0.14);
 }
 
 .btn.primary {
@@ -474,6 +549,11 @@ body.light .select {
   border-radius: var(--radius);
 }
 
+.nav.surface {
+  background: var(--header-surface);
+  box-shadow: var(--shadow-glow-strong);
+}
+
 .nav-links,
 .actions,
 .hero-actions {
@@ -542,9 +622,9 @@ body.light .select {
 .mini-stat,
 .feature {
   padding: var(--space-4);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-glow);
   line-height: 1.65;
 }
 
@@ -575,8 +655,8 @@ html[dir='rtl'] .feature span {
   min-height: 430px;
   overflow: hidden;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
   background: radial-gradient(circle at 35% 25%, rgba(101, 228, 212, 0.12), transparent 44%), rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow-glow-strong);
 }
 
 .hero-visual canvas,
@@ -593,9 +673,9 @@ html[dir='rtl'] .feature span {
   left: 18px;
   max-width: 430px;
   padding: var(--space-4);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: rgba(12, 15, 22, 0.78);
+  box-shadow: var(--shadow-glow);
   backdrop-filter: blur(16px);
 }
 
@@ -635,7 +715,7 @@ body.light .floating-card {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--muted);
-  border: 1px solid var(--border);
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.05);
 }
 
 .progress-bar {
@@ -672,6 +752,7 @@ body.light .floating-card {
   max-width: 100%;
   padding: var(--space-6);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-glow-strong);
 }
 
 .auth-toolbar {
@@ -833,6 +914,11 @@ body.light .floating-card {
 @media (max-width: 720px) {
   .productivity {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "tasks"
+      "daily"
+      "summary";
     gap: 12px;
   }
 
@@ -845,12 +931,13 @@ body.light .floating-card {
 
   /* reduce timer size for mobile */
   .timer-ring-wrap {
+    --timer-label-offset: 1.7rem;
     width: 140px;
     height: 140px;
     margin: 16px auto;
   }
   .timer-display .timer {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
   .timer {
     margin: 12px 0;
@@ -877,19 +964,18 @@ body.light .floating-card {
   }
 
   /* Task panel: stack the todo form controls vertically and make inputs full width */
-  .task-panel #todo-form {
-    grid-template-columns: 1fr auto;
+  .focus-task-form {
+    grid-template-columns: 1fr;
     gap: 8px;
-    align-items: center;
   }
-  .task-panel #todo-form > div {
-    width: 100%;
+
+  .focus-task-form .select,
+  .focus-task-form .btn {
+    min-height: 44px;
   }
-  .task-panel #todo-form .select {
-    width: 84px;
-  }
-  .task-panel #todo-form .btn {
-    padding: 0.5rem 0.8rem;
+
+  .focus-task-form .autosize-input {
+    min-height: 48px;
   }
 
   /* reduce padding on cards to fit mobile viewport */
@@ -959,8 +1045,9 @@ html[dir='rtl'] .password-toggle-btn {
   flex-direction: column;
   gap: var(--space-4);
   padding: 18px;
-  border-right: 1px solid var(--border);
-  background: rgba(10, 13, 20, 0.82);
+  border-right: 0;
+  background: rgba(4, 7, 12, 0.92);
+  box-shadow: 18px 0 44px rgba(0, 0, 0, 0.38), 0 0 30px rgba(45, 212, 191, 0.04);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
   overflow-y: auto;
@@ -989,7 +1076,7 @@ html[dir='rtl'] .password-toggle-btn {
 
 html[dir='rtl'] .sidebar {
   border-right: 0;
-  border-left: 1px solid var(--border);
+  border-left: 0;
 }
 
 body.light .sidebar {
@@ -1002,9 +1089,9 @@ body.light .sidebar {
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-3);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: var(--shadow-glow);
 }
 
 .workspace-pill b,
@@ -1049,7 +1136,7 @@ body.light .sidebar {
   min-width: 0;
   min-height: 44px;
   padding: 0.78rem 0.85rem;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--radius);
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -1152,6 +1239,8 @@ html[dir='rtl'] .side-link.active::before {
   margin-bottom: 22px;
   padding: 0.75rem;
   border-radius: var(--radius);
+  background: var(--header-surface);
+  box-shadow: var(--shadow-glow-strong);
   line-height: 1.2;
   word-spacing: normal;
 }
@@ -1226,12 +1315,11 @@ html[dir='rtl'] .side-link.active::before {
   align-items: center;
   margin-bottom: 18px;
   padding: var(--space-8);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background:
     linear-gradient(135deg, rgba(101, 228, 212, 0.12), rgba(91, 167, 255, 0.06)),
     var(--surface);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-glow-strong);
 }
 
 .dashboard-hero h2 {
@@ -1270,11 +1358,14 @@ html[dir='rtl'] .study-quote {
   width: 176px;
   height: 176px;
   display: grid;
+  align-content: center;
+  justify-items: center;
   place-items: center;
   justify-self: end;
   border-radius: 50%;
   background: conic-gradient(var(--brand) calc(var(--score) * 1%), rgba(255, 255, 255, 0.12) 0);
-  box-shadow: inset 0 0 0 1px var(--border), 0 18px 40px rgba(101, 228, 212, 0.12);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34), 0 0 30px rgba(101, 228, 212, 0.14);
+  text-align: center;
 }
 
 .focus-orb::before {
@@ -1294,8 +1385,12 @@ html[dir='rtl'] .study-quote {
 }
 
 .focus-orb span {
+  min-width: 3ch;
   font-size: 3rem;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: 0;
   line-height: 1;
 }
 
@@ -1396,9 +1491,9 @@ html[dir='rtl'] .study-quote {
 .metric-chip {
   flex: 0 0 auto;
   padding: 0.32rem 0.58rem;
-  border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--card);
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.05);
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 780;
@@ -1464,9 +1559,10 @@ body.light .bar-wrap[data-active="false"] .bar {
   display: grid;
   width: 100%;
   min-height: 46px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: var(--shadow-soft);
   color: var(--text);
   text-align: left;
 }
@@ -1529,9 +1625,9 @@ progress::-moz-progress-bar {
   align-content: center;
   gap: 0.6rem;
   padding: var(--space-5);
-  border: 1px dashed var(--border);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.035);
+  box-shadow: var(--shadow-glow);
   text-align: center;
 }
 
@@ -1596,9 +1692,9 @@ progress::-moz-progress-bar {
 
 .tag {
   padding: 0.25rem 0.5rem;
-  border: 1px solid rgba(101, 228, 212, 0.24);
   border-radius: 999px;
   background: rgba(101, 228, 212, 0.1);
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.06);
   color: #b8fff8;
   font-size: 0.75rem;
 }
@@ -1660,40 +1756,160 @@ body.light .tag {
 .ideas-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(230px, 1fr));
-  gap: 16px;
+  gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
 }
 
 .lane {
   min-height: 420px;
-  padding: var(--space-4);
+  padding: 0.75rem;
 }
 
 .lane h3 {
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-top: 0;
+  margin: 0 0 0.55rem;
+  font-size: 0.98rem;
 }
 
 .idea-card {
-  margin: 0.75rem 0;
-  padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  margin: 0.36rem 0;
+  min-height: 0;
+  padding: 0.56rem 0.62rem;
+  border: 0;
+  border-radius: 12px;
   background: var(--surface-solid);
   cursor: grab;
   box-shadow: var(--shadow-soft);
 }
 
+.idea-card .priority {
+  padding: 0.12rem 0.36rem;
+  font-size: 0.62rem;
+}
+
+.idea-card h3 {
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.idea-card p {
+  display: -webkit-box;
+  margin: 0.16rem 0 0.4rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.75rem;
+  line-height: 1.32;
+}
+
+.idea-card progress {
+  height: 4px;
+}
+
 .productivity {
-  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr) minmax(280px, 1fr);
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(420px, 1fr);
+  grid-template-areas:
+    "timer tasks"
+    "timer daily"
+    "summary daily";
   align-items: start;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+.focus-timer-card {
+  grid-area: timer;
+}
+
+.task-panel {
+  grid-area: tasks;
+}
+
+.focus-note-card {
+  grid-area: daily;
 }
 
 .focus-summary-card {
-  grid-column: span 1;
+  grid-area: summary;
+}
+
+.productivity > .card,
+.productivity > section.card {
+  min-width: 0;
+}
+
+.focus-task-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, auto) auto;
+  align-items: stretch;
+  gap: 12px;
+  margin: var(--space-4) 0;
+}
+
+.focus-task-form > div,
+.focus-task-form .autosize-input,
+.focus-task-form .select,
+.focus-task-form .btn {
+  min-width: 0;
+  width: 100%;
+}
+
+.focus-task-form .select {
+  max-width: 140px;
+}
+
+.task-progress-wrap {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: var(--space-4);
+}
+
+.focus-task-form .btn {
+  white-space: nowrap;
+}
+
+.focus-task-form .autosize-input {
+  min-height: 52px;
+  max-height: 120px;
+  line-height: 1.45;
+  resize: vertical;
+  writing-mode: horizontal-tb;
+  white-space: normal;
+}
+
+.focus-note-card #focus-text {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.focus-note-card #save-focus {
+  align-self: flex-start;
+  margin-top: var(--space-4);
+}
+
+.task-panel .todo-list {
+  align-content: start;
+  gap: 0.8rem;
+}
+
+@media (max-width: 1040px) {
+  .productivity {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "tasks"
+      "daily"
+      "summary";
+  }
+
+  .focus-task-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .timer {
@@ -1714,9 +1930,10 @@ body.light .tag {
   gap: 0.6rem;
   min-height: 52px;
   padding: 0.58rem;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: var(--shadow-soft);
 }
 
 .todo span {
@@ -1736,9 +1953,9 @@ body.light .tag {
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.05);
 }
 
 .summary-list > div {
@@ -1766,7 +1983,9 @@ body.light .tag {
   display: none;
   place-items: center;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.58);
+  background: var(--modal-backdrop);
+  backdrop-filter: var(--modal-backdrop-filter);
+  -webkit-backdrop-filter: var(--modal-backdrop-filter);
 }
 
 .modal-backdrop.open,
@@ -1779,7 +1998,10 @@ body.light .tag {
   max-height: 88vh;
   overflow: auto;
   padding: var(--space-5);
+  border: 0;
   border-radius: var(--radius);
+  background: var(--modal-surface);
+  box-shadow: var(--modal-shadow);
 }
 
 .modal-head {
@@ -1807,14 +2029,13 @@ body.light .tag {
 
 .toast {
   padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-solid);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-glow-strong);
 }
 
 .toast.error {
-  border-color: rgba(255, 111, 143, 0.45);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48), 0 0 26px rgba(239, 68, 68, 0.16);
 }
 
 .skeleton {
@@ -1844,6 +2065,8 @@ body.light .tag {
   width: min(720px, 100%);
   overflow: hidden;
   border-radius: var(--radius);
+  background: var(--modal-surface);
+  box-shadow: var(--modal-shadow);
 }
 
 .cmd .input {
@@ -1854,6 +2077,16 @@ body.light .tag {
   max-height: 360px;
   overflow: auto;
   padding: 0.7rem;
+}
+
+.cmd-danger-zone {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.7rem;
+}
+
+.cmd-danger-zone .btn {
+  width: 100%;
 }
 
 .cmd-item {
@@ -1879,6 +2112,7 @@ body.light .tag {
 /* ── Circular Timer ── */
 .timer-ring-wrap {
   position: relative;
+  --timer-label-offset: 2.1rem;
   width: 200px;
   height: 200px;
   margin: var(--space-4) auto;
@@ -1915,25 +2149,43 @@ body.light .tag {
 .timer-display {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 0.25rem;
+  display: block;
+  text-align: center;
 }
 
 .timer-display .timer {
-  font-size: 3.2rem;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6.35ch;
+  max-width: calc(100% - 42px);
+  display: block;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  white-space: nowrap;
+  font-size: 2.65rem;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: 0;
   line-height: 1;
   min-height: auto;
   margin: 0;
 }
 
 .timer-mode-label {
+  position: absolute;
+  top: calc(50% + var(--timer-label-offset));
+  left: 50%;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  transform: translateX(-50%);
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .current-task-card,
@@ -1942,9 +2194,9 @@ body.light .tag {
   gap: 0.45rem;
   margin: 0 0 var(--space-4);
   padding: 0.86rem;
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: var(--shadow-glow);
 }
 
 .current-task-card b,
@@ -1957,7 +2209,6 @@ body.light .tag {
 }
 
 .timer-complete {
-  border-color: rgba(101, 228, 212, 0.34);
   background:
     linear-gradient(135deg, rgba(101, 228, 212, 0.14), rgba(167, 139, 250, 0.1)),
     var(--card);
@@ -2071,8 +2322,8 @@ body.light .tag {
   gap: 0.5rem;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
   background: var(--card);
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.05);
   font-size: 0.82rem;
   color: var(--muted);
   font-weight: 600;
@@ -2095,9 +2346,8 @@ body.light .tag {
   right: 0;
   min-width: 160px;
   background: var(--surface-solid);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-glow-strong);
   display: none;
   flex-direction: column;
   z-index: 100;
@@ -2155,9 +2405,9 @@ html[dir='rtl'] .lang-option .checkmark {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  border: 1px solid rgba(101, 228, 212, 0.2);
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, rgba(101, 228, 212, 0.08), rgba(91, 167, 255, 0.04));
+  box-shadow: var(--shadow-glow);
   margin-bottom: 18px;
 }
 
@@ -2299,7 +2549,9 @@ html[dir='rtl'] .lang-option .checkmark {
     display: none;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.45);
+    background: var(--modal-backdrop);
+    backdrop-filter: var(--modal-backdrop-filter);
+    -webkit-backdrop-filter: var(--modal-backdrop-filter);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -2323,6 +2575,11 @@ html[dir='rtl'] .lang-option .checkmark {
   /* Focus-page tablet/mobile adjustments (sidebar is fixed mode at <=1040px) */
   .productivity {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "tasks"
+      "daily"
+      "summary";
     gap: 12px;
   }
 
@@ -2334,13 +2591,14 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .timer-ring-wrap {
+    --timer-label-offset: 1.9rem;
     width: 170px;
     height: 170px;
     margin: 16px auto;
   }
 
   .timer-display .timer {
-    font-size: 2.6rem;
+    font-size: 2.3rem;
   }
 }
 
@@ -2491,10 +2749,11 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .timer-display .timer {
-    font-size: 2.6rem;
+    font-size: 2.3rem;
   }
 
   .timer-ring-wrap {
+    --timer-label-offset: 1.9rem;
     width: 170px;
     height: 170px;
   }
@@ -2579,10 +2838,11 @@ html[dir='rtl'] .lang-option .checkmark {
     left: 0;
     right: 0;
     height: 64px;
-    background: rgba(10, 13, 20, 0.9);
+    background: rgba(2, 4, 8, 0.94);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+    border-top: 0;
+    box-shadow: 0 -18px 36px rgba(0, 0, 0, 0.36), 0 0 24px rgba(45, 212, 191, 0.05);
     z-index: 40;
     justify-content: space-around;
     align-items: center;
@@ -2729,10 +2989,11 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .timer-display .timer {
-    font-size: 2.2rem;
+    font-size: 1.9rem;
   }
 
   .timer-ring-wrap {
+    --timer-label-offset: 1.65rem;
     width: 150px;
     height: 150px;
   }
@@ -2841,10 +3102,11 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .timer-display .timer {
-    font-size: 1.9rem;
+    font-size: 1.55rem;
   }
 
   .timer-ring-wrap {
+    --timer-label-offset: 1.45rem;
     width: 130px;
     height: 130px;
   }
@@ -2870,10 +3132,11 @@ html[dir='rtl'] .lang-option .checkmark {
 @media (min-width: 1041px) {
   /* ── Desktop & Laptop Layout Optimizations (≥1041px) ── */
   .nav {
-    background: rgba(3, 5, 8, 0.72) !important;
+    background: var(--header-surface-strong) !important;
     backdrop-filter: blur(28px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 0 !important;
+    box-shadow: var(--shadow-glow-strong) !important;
     padding: 0.85rem 1.2rem;
   }
 
@@ -2903,64 +3166,6 @@ html[dir='rtl'] .lang-option .checkmark {
     margin-top: 56px;
   }
 
-  /* Focus page desktop-only fixes
-     - Ensure todo textarea renders horizontally (not vertical stacked letters)
-     - Make the daily focus input compact on desktop and add bottom padding
-     - Improve column alignment so cards stretch to equal heights
-  */
-  /* Force productivity grid columns and stretching on desktop */
-  .productivity {
-    grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr) minmax(240px, 320px);
-    align-items: stretch; /* allow columns to stretch to same row height */
-  }
-
-  /* Make cards use column flex so their content flows naturally and can stretch */
-  .productivity > .card,
-  .productivity > section.card {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
-  /* Task form: lay out as single-row controls on desktop */
-  .task-panel #todo-form {
-    grid-template-columns: 1fr auto auto;
-    align-items: center;
-    gap: 12px;
-  }
-
-  /* Ensure the autosize todo input renders as horizontal text on desktop */
-  .task-panel #todo-form .autosize-input,
-  .task-panel #todo-form textarea.autosize-input {
-    min-height: 48px;
-    line-height: 1.4;
-    writing-mode: horizontal-tb !important;
-    white-space: normal !important;
-    overflow: hidden;
-    resize: none;
-  }
-
-  /* Daily focus: make the focus text compact single-line on desktop */
-  .focus-note-card #focus-text {
-    min-height: 40px;
-    height: 40px;
-    line-height: 1.4;
-    padding: 0.5rem 0.75rem;
-    resize: none;
-    overflow: hidden;
-  }
-
-  /* Add breathing room at bottom of the focus panel so the Save button isn't hugging the edge */
-  .focus-note-card {
-    padding-bottom: 20px;
-  }
-
-  /* Make the Save button sit naturally after the textarea (don't push it to card bottom) */
-  .focus-note-card .btn {
-    margin-top: 0.6rem;
-    align-self: flex-start;
-  }
-
   .feature {
     padding: var(--space-6);
     min-height: 160px;
@@ -2976,8 +3181,8 @@ html[dir='rtl'] .lang-option .checkmark {
 
   .auth-card {
     padding: var(--space-8);
-    border: 1px solid var(--border-strong);
-    box-shadow: var(--shadow);
+    border: 0;
+    box-shadow: var(--shadow-glow-strong);
   }
 
   .auth-card h1 {

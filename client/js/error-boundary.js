@@ -144,7 +144,7 @@ export class ErrorBoundary {
 
   createRecoveryUI(title, description, actions = []) {
     const container = document.createElement('div');
-    container.className = 'error-boundary-recovery';
+    container.className = 'error-boundary-recovery modal-layer';
 
     const content = document.createElement('div');
     content.className = 'error-recovery-content';

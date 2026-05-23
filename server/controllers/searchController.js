@@ -1,10 +1,15 @@
 import Note from '../models/Note.js';
 import Idea from '../models/Idea.js';
+import { operationTimeoutMS } from '../config/db.js';
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export async function search(req, res) {
   const { q } = req.query;
   let limit = parseInt(req.query.limit) || 20;
-  const skip = parseInt(req.query.skip) || 0;
+  const skip = Math.max(0, parseInt(req.query.skip) || 0);
   // cap limit to a reasonable max for performance/tests
   const MAX_LIMIT = 50;
   if (limit > MAX_LIMIT) limit = MAX_LIMIT;
@@ -13,7 +18,7 @@ export async function search(req, res) {
     return res.json({ data: [], total: 0, limit, skip });
   }
 
-  const searchRegex = new RegExp(q, 'i');
+  const searchRegex = new RegExp(escapeRegex(q.trim()), 'i');
 
   const notePromise = Note.find(
     {
@@ -30,6 +35,7 @@ export async function search(req, res) {
     .sort({ updatedAt: -1 })
     .limit(limit)
     .skip(skip)
+    .maxTimeMS(operationTimeoutMS())
     .lean();
 
   const ideaPromise = Idea.find(
@@ -46,6 +52,7 @@ export async function search(req, res) {
     .sort({ updatedAt: -1 })
     .limit(limit)
     .skip(skip)
+    .maxTimeMS(operationTimeoutMS())
     .lean();
 
   const [notes, ideas] = await Promise.all([notePromise, ideaPromise]);
@@ -63,7 +70,7 @@ export async function search(req, res) {
       { tags: searchRegex },
       { folder: searchRegex }
     ]
-  });
+  }).maxTimeMS(operationTimeoutMS());
 
   const totalIdeas = await Idea.countDocuments({
     user: req.user._id,
@@ -73,7 +80,7 @@ export async function search(req, res) {
       { tags: searchRegex },
       { category: searchRegex }
     ]
-  });
+  }).maxTimeMS(operationTimeoutMS());
 
   res.json({
     data: results.slice(0, limit),

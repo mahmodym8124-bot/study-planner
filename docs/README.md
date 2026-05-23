@@ -1,12 +1,22 @@
-study-planner — Docs
+# MindVault Docs
 
-This small docs folder is intended for agents that need a compact, curated snapshot of the repository to perform deep searches, code navigation, and context-aware suggestions.
+This folder holds focused documentation for MindVault. Keep the root [README.md](../README.md) as the main project overview and use these files for deeper setup and implementation details.
 
-What is included
-- `api.md` — short API endpoint summary and examples.
-- `AGENT_INGESTION.md` — instructions for feeding this repository to a sidebar agent or "Continue"/OpenRouter-style assistant.
+## Contents
 
-How agents should use this folder
-- Read `AGENT_INGESTION.md` first for run commands and recommended ingestion order.
-- Read `api.md` for example requests and common payloads.
-- If an agent supports indexing, include this `docs/` folder and the `server/` and `client/js/` folders in the index scope.
+- [api.md](api.md) - Express API route groups, auth rules, and example requests.
+- [google-oauth-setup.md](google-oauth-setup.md) - Google Identity Services setup for local and deployed environments.
+- [ERROR_BOUNDARIES.md](ERROR_BOUNDARIES.md) - Frontend error-boundary architecture and usage.
+
+## Related Root Docs
+
+- [../README.md](../README.md) - Project overview, setup, checks, and deployment summary.
+- [../DEPLOYMENT.md](../DEPLOYMENT.md) - Vercel deployment checklist and troubleshooting.
+- [../AGENTS.md](../AGENTS.md) - Single source of instructions for coding agents.
+
+## Maintenance Rules
+
+- Use `MindVault` as the app name.
+- Use `study-planner` only when referring to the repository or local folder.
+- Link to source files instead of copying large code blocks.
+- Keep examples aligned with `server/routes/*` and `client/js/api.js`.

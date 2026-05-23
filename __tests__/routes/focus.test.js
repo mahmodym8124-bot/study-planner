@@ -1,4 +1,5 @@
 import {
+  createTestNote,
   createTestUser,
   makeAuthenticatedRequest
 } from '../utils.js';
@@ -39,6 +40,17 @@ describe('Focus Session APIs', () => {
         .send(testFocusSession);
 
       expect(res.body.data).toHaveProperty('createdAt');
+    });
+
+    it('should reject linking a focus session to another user\'s task', async () => {
+      const otherUser = await createTestUser({ email: 'focus-other@example.com' });
+      const otherNote = await createTestNote(otherUser, { title: 'Private task' });
+
+      const res = await req
+        .post('/api/focus/start')
+        .send({ ...testFocusSession, taskId: otherNote._id, taskModel: 'Note' });
+
+      expect(res.status).toBe(404);
     });
   });
 

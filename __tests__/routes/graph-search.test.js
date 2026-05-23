@@ -211,14 +211,20 @@ describe('Search API', () => {
     it('should enforce limit bounds', async () => {
       const res = await req.get('/api/search?q=test&limit=1000');
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.length).toBeLessThanOrEqual(50); // Assuming max is 50
+      expect(res.status).toBe(422);
     });
 
     it('should validate skip parameter', async () => {
       const res = await req.get('/api/search?q=test&skip=abc');
 
-      expect([200, 400]).toContain(res.status);
+      expect(res.status).toBe(422);
+    });
+
+    it('should treat regex metacharacters as literal search text', async () => {
+      const res = await req.get('/api/search?q=.*');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.length).toBe(0);
     });
   });
 });

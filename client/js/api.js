@@ -9,14 +9,20 @@ function ensureApiPath(raw = '') {
   }
 }
 
-const PRODUCTION_API_URL = ensureApiPath(import.meta.env.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api');
-const API_BASE = (import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : (window.location.hostname.endsWith('.github.io') ? PRODUCTION_API_URL : '/api'));
+const API_BASE = import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : '/api';
+const configuredApiTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
+const API_TIMEOUT_MS = Number.isFinite(configuredApiTimeout) && configuredApiTimeout > 0 ? configuredApiTimeout : 15000;
 const TOKEN_KEY = 'mindvault_token';
+const THEME_KEY = 'mindvault_theme';
+const LANG_KEY = 'mindvault_lang';
+const DAILY_SCORE_KEY = 'mindvault_daily_score';
+const DAILY_SCORE_DATE_KEY = 'mindvault_lastDate';
 const AUTH_EXPIRED_EVENT = 'mindvault:auth-expired';
 const OFFLINE_STORE_KEY = 'mindvault_offline_store_v1';
 const OFFLINE_TOKEN_PREFIX = 'offline-token:';
 const OFFLINE_HOST = window.location.hostname.endsWith('github.io');
 const OFFLINE_MODE_ENABLED = false;
+const APP_STORAGE_KEYS = [TOKEN_KEY, THEME_KEY, LANG_KEY, OFFLINE_STORE_KEY, DAILY_SCORE_KEY, DAILY_SCORE_DATE_KEY];
 
 export const storage = {
   get token() {
@@ -27,6 +33,51 @@ export const storage = {
     else localStorage.removeItem(TOKEN_KEY);
   }
 };
+
+function todayStorageDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function ensureDailyScoreDate() {
+  const today = todayStorageDate();
+  if (localStorage.getItem(DAILY_SCORE_DATE_KEY) !== today) {
+    localStorage.setItem(DAILY_SCORE_DATE_KEY, today);
+    localStorage.setItem(DAILY_SCORE_KEY, '0');
+  }
+}
+
+export function getDailyScore() {
+  ensureDailyScoreDate();
+  const savedScore = Number(localStorage.getItem(DAILY_SCORE_KEY));
+  return Number.isFinite(savedScore) ? Math.max(0, savedScore) : 0;
+}
+
+export function incrementDailyScore() {
+  const nextScore = getDailyScore() + 1;
+  localStorage.setItem(DAILY_SCORE_KEY, String(nextScore));
+  return nextScore;
+}
+
+export function clearClientStorage() {
+  for (const key of APP_STORAGE_KEYS) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  }
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith('mindvault_daily_')) localStorage.removeItem(key);
+  }
+  for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+    const key = sessionStorage.key(index);
+    if (key?.startsWith('mindvault_daily_')) sessionStorage.removeItem(key);
+  }
+}
+
+export async function clearAllAppData() {
+  if (storage.token) await request('/workspace/reset', { method: 'DELETE' });
+  clearClientStorage();
+  window.location.reload();
+}
 
 function makeError(message, status) {
   const error = new Error(message);
@@ -185,6 +236,15 @@ async function offlineRequest(path, { method = 'GET', body } = {}) {
     return { activity: clone(activity.slice(0, 25)) };
   }
 
+  if (pathname === '/workspace/reset' && method === 'DELETE') {
+    store.notesByUser[userId] = [];
+    store.ideasByUser[userId] = [];
+    store.activityByUser[userId] = [];
+    store.productivityByUser[userId] = defaultProductivity();
+    writeOfflineStore(store);
+    return { ok: true };
+  }
+
   if (pathname === '/workspace/search' && method === 'GET') {
     const q = queryValue(query, 'q').trim().toLowerCase();
     if (!q) return { results: [] };
@@ -321,7 +381,7 @@ async function parseJSON(response) {
   }
 }
 
-async function request(path, { method = 'GET', body, headers = {} } = {}) {
+async function request(path, { method = 'GET', body, headers = {}, timeoutMs = API_TIMEOUT_MS } = {}) {
   const isOfflineToken = storage.token?.startsWith(OFFLINE_TOKEN_PREFIX);
   const isAuthRoute = path.startsWith('/auth/login')
     || path.startsWith('/auth/register')
@@ -356,7 +416,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${API_BASE}${path}`, {
@@ -392,16 +452,19 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
     return data;
   } catch (error) {
     clearTimeout(timeout);
+    const apiError = error.name === 'AbortError'
+      ? Object.assign(new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`), { name: 'AbortError', status: 408 })
+      : error;
     
     // Capture error for error boundary
     if (typeof window !== 'undefined' && window.__errorBoundary) {
-      const source = error.name === 'AbortError' ? 'api-timeout' : 'api-error';
-      const context = { path, method, status: error.status };
-      window.__errorBoundary.captureError(error, source, context);
+      const source = apiError.name === 'AbortError' ? 'api-timeout' : 'api-error';
+      const context = { path, method, status: apiError.status };
+      window.__errorBoundary.captureError(apiError, source, context);
     }
     
     if (OFFLINE_MODE_ENABLED && OFFLINE_HOST) return offlineRequest(path, { method, body, headers });
-    throw error;
+    throw apiError;
   } finally {
     clearTimeout(timeout);
   }
@@ -419,6 +482,12 @@ function normalizeListPayload(response, key) {
   return response;
 }
 
+function normalizeItemPayload(response, key) {
+  if (response?.[key]) return response;
+  if (response?.data) return { [key]: response.data };
+  return response;
+}
+
 export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }).then(normalizeAuthPayload),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }).then(normalizeAuthPayload),
@@ -429,12 +498,13 @@ export const api = {
   me: () => request('/auth/me'),
   stats: () => request('/workspace/stats'),
   activity: () => request('/workspace/activity'),
+  clearAllData: () => request('/workspace/reset', { method: 'DELETE' }),
   search: (q) => request(`/search?q=${encodeURIComponent(q)}`),
   notes: () => request('/notes').then((response) => normalizeListPayload(response, 'notes')),
-  saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }),
+  saveNote: (payload, id) => request(id ? `/notes/${id}` : '/notes', { method: id ? 'PUT' : 'POST', body: payload }).then((response) => normalizeItemPayload(response, 'note')),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
   ideas: () => request('/ideas').then((response) => normalizeListPayload(response, 'ideas')),
-  saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }),
+  saveIdea: (payload, id) => request(id ? `/ideas/${id}` : '/ideas', { method: id ? 'PUT' : 'POST', body: payload }).then((response) => normalizeItemPayload(response, 'idea')),
   deleteIdea: (id) => request(`/ideas/${id}`, { method: 'DELETE' }),
   productivity: () => request('/productivity'),
   saveProductivity: (payload) => request('/productivity', { method: 'PUT', body: payload }),

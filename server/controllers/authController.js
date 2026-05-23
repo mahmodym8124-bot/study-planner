@@ -5,15 +5,16 @@ import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import Productivity from '../models/Productivity.js';
 import { getJwtExpiresIn, getJwtSecret } from '../config/auth.js';
-import { recordActivity } from '../utils/activity.js';
+import { recordActivitySoon } from '../utils/activity.js';
 import { assertMailConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
+import { logSecurityEvent } from '../middleware/security.js';
 
 function sign(user) { return jwt.sign({ id: user._id }, getJwtSecret(), { expiresIn: getJwtExpiresIn() }); }
 function hashResetToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
 const googleClient = new OAuth2Client();
 
 function getGoogleClientId() {
-  return process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+  return process.env.GOOGLE_CLIENT_ID || '';
 }
 
 function safeGoogleName(payload) {
@@ -49,11 +50,15 @@ function respondMailNotConfigured(res, context) {
 export async function register(req, res) {
   const { name, email, password } = req.body;
   const existingUser = await User.findOne({ email });
-  if (existingUser?.verified) return res.status(409).json({ error: 'Email is already registered' });
+  if (existingUser?.verified) {
+    logSecurityEvent(req, 'register_duplicate_email', { email }, 'warn');
+    return res.status(409).json({ error: 'Email is already registered' });
+  }
   if (respondMailNotConfigured(res, 'Registration email configuration failed')) return;
 
   const hashedPassword = await bcrypt.hash(password, 12);
   const verificationToken = crypto.randomBytes(32).toString('hex');
+  const verificationTokenHash = hashResetToken(verificationToken);
   const verificationTokenExpires = new Date(Date.now() + (24 * 60 * 60 * 1000));
 
   if (existingUser && !existingUser.verified) {
@@ -64,7 +69,7 @@ export async function register(req, res) {
           name,
           password: hashedPassword,
           verified: false,
-          verificationToken,
+          verificationToken: verificationTokenHash,
           verificationTokenExpires,
           resetToken: null,
           resetExpires: null
@@ -77,6 +82,7 @@ export async function register(req, res) {
       { upsert: true }
     );
     await sendVerificationEmail(existingUser.email, verificationToken);
+    logSecurityEvent(req, 'register_reissued_verification', { email });
     return res.status(201).json({ message: 'Account created. Please check your email to verify your account.' });
   }
 
@@ -85,30 +91,33 @@ export async function register(req, res) {
     email,
     password: hashedPassword,
     verified: false,
-    verificationToken,
+    verificationToken: verificationTokenHash,
     verificationTokenExpires
   });
   await Productivity.create({ user: user._id, todos: [], reminders: [] });
-  await recordActivity(user._id, 'Created vault', 'MindVault account', 'auth', user._id);
+  recordActivitySoon(user._id, 'Created vault', 'MindVault account', 'auth', user._id);
   await sendVerificationEmail(user.email, verificationToken);
+  logSecurityEvent(req, 'register_success', { userId: user._id, email });
   res.status(201).json({ message: 'Account created. Please check your email to verify your account.' });
 }
 
 export async function verifyEmail(req, res) {
   const { token } = req.body;
   const user = await User.findOne({
-    verificationToken: token,
+    verificationToken: hashResetToken(token),
     verificationTokenExpires: { $gt: new Date() }
   });
 
   if (!user) {
+    logSecurityEvent(req, 'email_verification_failed', {}, 'warn');
     return res.status(400).json({ message: 'Invalid or expired verification link.' });
   }
 
-  user.verified = true;
-  user.verificationToken = undefined;
-  user.verificationTokenExpires = undefined;
-  await user.save();
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { verified: true }, $unset: { verificationToken: '', verificationTokenExpires: '' } }
+  );
+  logSecurityEvent(req, 'email_verified', { userId: user._id });
 
   return res.json({ message: 'Email verified successfully. You can now log in.' });
 }
@@ -116,11 +125,16 @@ export async function verifyEmail(req, res) {
 export async function login(req, res) {
   const { email, password } = req.body;
   const user = await User.findOne({ email }).select('+password');
-  if (!user || !(await user.comparePassword(password))) return res.status(400).json({ error: 'Invalid credentials' });
+  if (!user || !(await user.comparePassword(password))) {
+    logSecurityEvent(req, 'login_failed', { email }, 'warn');
+    return res.status(400).json({ error: 'Invalid credentials' });
+  }
   if (!user.verified) {
+    logSecurityEvent(req, 'login_unverified_blocked', { userId: user._id, email }, 'warn');
     return res.status(403).json({ error: 'Please verify your email before logging in. Check your inbox.' });
   }
-  await recordActivity(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
+  recordActivitySoon(user._id, 'Unlocked vault', 'Signed in', 'auth', user._id);
+  logSecurityEvent(req, 'login_success', { userId: user._id, email });
   res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
@@ -129,6 +143,7 @@ export async function googleLogin(req, res) {
   const googleClientId = getGoogleClientId();
 
   if (!googleClientId) {
+    logSecurityEvent(req, 'google_login_not_configured', {}, 'warn');
     return res.status(503).json({ error: 'Google sign-in is not configured' });
   }
 
@@ -140,6 +155,7 @@ export async function googleLogin(req, res) {
   const email = String(payload?.email || '').toLowerCase();
 
   if (!payload?.sub || !email || !payload.email_verified) {
+    logSecurityEvent(req, 'google_login_failed', { email }, 'warn');
     return res.status(401).json({ error: 'Google account could not be verified' });
   }
 
@@ -158,7 +174,8 @@ export async function googleLogin(req, res) {
     if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
     user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
     await ensureProductivity(user._id);
-    await recordActivity(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
+    recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
+    logSecurityEvent(req, 'google_login_success', { userId: user._id, email });
     return res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
   }
 
@@ -171,7 +188,8 @@ export async function googleLogin(req, res) {
     verified: true
   });
   await Productivity.create({ user: user._id, todos: [], reminders: [] });
-  await recordActivity(user._id, 'Created vault', 'Google account', 'auth', user._id);
+  recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
+  logSecurityEvent(req, 'google_register_success', { userId: user._id, email });
   return res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
@@ -181,13 +199,20 @@ export async function requestPasswordReset(req, res, next) {
 
   try {
     const user = await User.findOne({ email }).select('_id name email verified');
-    if (!user) return res.json(genericMessage);
-    if (!user.verified) return res.json(genericMessage);
+    if (!user) {
+      logSecurityEvent(req, 'password_reset_requested_unknown_email', { email }, 'warn');
+      return res.json(genericMessage);
+    }
+    if (!user.verified) {
+      logSecurityEvent(req, 'password_reset_requested_unverified', { userId: user._id, email }, 'warn');
+      return res.json(genericMessage);
+    }
     if (shouldCheckMailConfig()) {
       try {
         assertMailConfigured();
       } catch (error) {
         console.error('Password reset email configuration failed:', error.message);
+        logSecurityEvent(req, 'password_reset_mail_not_configured', { userId: user._id }, 'warn');
         return res.json(genericMessage);
       }
     }
@@ -204,8 +229,10 @@ export async function requestPasswordReset(req, res, next) {
 
     try {
       await sendPasswordResetEmail(user.email, resetToken);
+      logSecurityEvent(req, 'password_reset_requested', { userId: user._id });
     } catch (error) {
       console.error('Password reset email failed after token creation:', error.message);
+      logSecurityEvent(req, 'password_reset_email_failed', { userId: user._id }, 'error');
       await User.updateOne(
         { email: user.email },
         { $set: { resetToken: null, resetExpires: null } }
@@ -225,8 +252,12 @@ export async function resetPassword(req, res) {
 
   const user = await User.findOne({ resetToken: hashedToken }).select('_id +resetToken +resetExpires');
 
-  if (!user) return res.status(400).json({ message: 'Reset link is invalid or expired' });
+  if (!user) {
+    logSecurityEvent(req, 'password_reset_invalid_token', {}, 'warn');
+    return res.status(400).json({ message: 'Reset link is invalid or expired' });
+  }
   if (!user.resetExpires || user.resetExpires <= new Date()) {
+    logSecurityEvent(req, 'password_reset_expired_token', { userId: user._id }, 'warn');
     return res.status(400).json({ message: 'Reset link is invalid or expired' });
   }
 
@@ -235,7 +266,8 @@ export async function resetPassword(req, res) {
     { resetToken: hashedToken },
     { $set: { password: hashedPassword, resetToken: null, resetExpires: null } }
   );
-  await recordActivity(user._id, 'Reset password', 'Password reset completed', 'auth', user._id);
+  recordActivitySoon(user._id, 'Reset password', 'Password reset completed', 'auth', user._id);
+  logSecurityEvent(req, 'password_reset_success', { userId: user._id });
   return res.json({ message: 'Password updated successfully' });
 }
 

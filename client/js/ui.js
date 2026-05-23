@@ -77,14 +77,15 @@ export function modal(title, body, onSave) {
   let root = document.querySelector('.modal-backdrop');
   if (!root) {
     root = document.createElement('div');
-    root.className = 'modal-backdrop';
+    root.className = 'modal-backdrop modal-layer';
     document.body.appendChild(root);
   }
+  root.classList.add('modal-layer');
 
   root.innerHTML = `
-    <div class="modal surface">
+    <div class="modal surface" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-head">
-        <h2>${escapeHTML(title)}</h2>
+        <h2 id="modal-title">${escapeHTML(title)}</h2>
         <button class="icon-button" data-close aria-label="${i18n.t('common.close')}">${icon('close')}</button>
       </div>
       <div class="modal-body">${body}</div>
@@ -100,9 +101,28 @@ export function modal(title, body, onSave) {
   root.querySelectorAll('[data-close]').forEach((button) => {
     button.onclick = () => root.classList.remove('open');
   });
-  root.querySelector('[data-save]').onclick = async () => {
-    await onSave(root);
-    root.classList.remove('open');
+  const saveButton = root.querySelector('[data-save]');
+  let saving = false;
+  saveButton.onclick = async () => {
+    if (saving) return;
+    saving = true;
+    saveButton.disabled = true;
+    saveButton.setAttribute('aria-busy', 'true');
+    root.querySelectorAll('[data-close]').forEach((button) => {
+      button.disabled = true;
+    });
+
+    try {
+      await onSave(root);
+      root.classList.remove('open');
+    } finally {
+      saving = false;
+      saveButton.disabled = false;
+      saveButton.removeAttribute('aria-busy');
+      root.querySelectorAll('[data-close]').forEach((button) => {
+        button.disabled = false;
+      });
+    }
   };
 }
 

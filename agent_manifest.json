@@ -1,12 +1,12 @@
 {
-  "project":"study-planner",
+  "project":"MindVault",
   "summary":"Node+Express backend, Vite frontend (vanilla JS), MongoDB. Key files and recommended read order for agents.",
   "files":{
-    "root": ["README.md","AGENTS.md","AGENT_CONTEXT.md","package.json"],
+    "root": ["README.md","AGENTS.md","package.json"],
     "server": ["server/server.js","server/controllers/","server/routes/","server/models/"],
     "api": ["api/index.js"],
     "client": ["client/js/main.js","client/js/api.js","client/js/store.js","index.html","client/styles/app.css"],
-    "docs": ["docs/README.md","docs/api.md","docs/agent.md"]
+    "docs": ["docs/README.md","docs/api.md","docs/google-oauth-setup.md","docs/ERROR_BOUNDARIES.md"]
   },
   "indexing":{
     "include": ["docs/","server/","client/js/"],

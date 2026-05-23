@@ -10,7 +10,7 @@ import {
   closeSidebarAnimation
 } from './animation.js';
 import i18n from './i18n.js';
-import { api, storage } from './api.js';
+import { api, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
@@ -18,7 +18,7 @@ import { globalErrorBoundary, setupErrorMonitoring } from './error-utils.js';
 import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '271491864203-jdrhu2gvdvudd3omut7eu9lg26503cbf.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 let googleIdentityPromise;
 
 // Expose error boundary globally for API error handling
@@ -73,6 +73,26 @@ const TODO_PRIORITY_I18N = {
   high: 'ideas.priorityHigh',
   critical: 'ideas.priorityCritical'
 };
+
+const APP_VIEW_IDS = ['dashboard', 'notes', 'graph', 'ideas', 'productivity'];
+const NAV_LABEL_KEYS = {
+  dashboard: 'nav.dashboard',
+  notes: 'nav.notes',
+  graph: 'nav.graph',
+  ideas: 'nav.ideas',
+  productivity: 'nav.productivity'
+};
+const PUBLIC_ROUTES = new Set([
+  '/',
+  '/landing',
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+  '/privacy',
+  '/terms'
+]);
 
 function tIdeaStatus(status) {
   const normalized = String(status || '').trim().toLowerCase();
@@ -146,6 +166,7 @@ async function setupGoogleAuthButton() {
           storage.token = data.token;
           setState({ user: data.user, isOffline: false });
           toast(t('toast.workspaceOpened'));
+          renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
           await loadWorkspace();
           route('/app/dashboard');
         } catch (error) {
@@ -225,31 +246,42 @@ document.body.addEventListener('click', (e) => {
 });
 
 async function bootstrap() {
-  initGlobalInteractions();
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-      .catch(() => {});
-  }
+  try {
+    initGlobalInteractions();
+    renderLoadingScreen();
 
-  // Support direct-path links in hash-based routing.
-  if (!location.hash && ['/verify-email', '/reset-password', '/privacy', '/terms'].includes(location.pathname)) {
-    history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
-  }
-
-  if (storage.token) {
-    const isOffline = storage.token.startsWith('offline-token:');
-    try {
-      const { user } = await api.me();
-      setState({ user, isOffline });
-      await loadWorkspace();
-    } catch {
-      storage.token = null;
-      setState({ isOffline: false });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+        .catch(() => {});
     }
-  }
 
-  route(location.hash.replace('#', '') || '/');
+    // Support direct-path links in hash-based routing.
+    if (!location.hash && ['/verify-email', '/reset-password', '/privacy', '/terms'].includes(location.pathname)) {
+      history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
+    }
+
+    if (storage.token) {
+      const isOffline = storage.token.startsWith('offline-token:');
+      try {
+        renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
+        const { user } = await api.me();
+        setState({ user, isOffline });
+        await loadWorkspace();
+      } catch {
+        storage.token = null;
+        setState({ isOffline: false });
+      }
+    }
+
+    route(location.hash.replace('#', '') || '/');
+  } catch (error) {
+    globalErrorBoundary.captureError(error, 'bootstrap-error', {});
+    renderErrorPage({
+      title: t('state.startupErrorTitle'),
+      body: t('state.startupErrorBody')
+    });
+  }
 }
 
 async function loadWorkspace() {
@@ -270,6 +302,122 @@ async function loadWorkspace() {
   });
 }
 
+function sortNotesForView(notes) {
+  return [...notes].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+  });
+}
+
+function sortIdeasForView(ideas) {
+  return [...ideas].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+}
+
+function renderCurrentAppView() {
+  const root = document.querySelector('#view-root');
+  if (!root) return;
+  const view = currentView();
+  if (APP_VIEW_IDS.includes(view)) renderView(view);
+}
+
+function refreshWorkspaceInBackground(view) {
+  void loadWorkspace()
+    .then(() => {
+      if (!view || currentView() === view) renderCurrentAppView();
+    })
+    .catch(() => {});
+}
+
+function renderStatePage({
+  root = app,
+  inShell = false,
+  kind = 'info',
+  iconName = 'vault',
+  code = '',
+  title,
+  body,
+  loading = false,
+  primaryLabel,
+  primaryHref,
+  reload = false,
+  secondaryLabel,
+  secondaryHref
+} = {}) {
+  const pageClass = `state-page${inShell ? ' in-shell' : ''}`;
+  if (!inShell) {
+    mountAmbientBackground().catch(() => {});
+    app.className = `app-shell ${kind}-state`;
+  }
+
+  root.innerHTML = `
+    <section class="${pageClass}" aria-live="${loading ? 'polite' : 'assertive'}">
+      <div class="state-card ${kind}-state-card">
+        ${loading ? '<div class="loading-spinner" aria-hidden="true"></div>' : `<div class="icon-circle">${icon(iconName)}</div>`}
+        ${code ? `<span class="state-code">${escapeHTML(code)}</span>` : ''}
+        <h1>${escapeHTML(title || t('state.errorTitle'))}</h1>
+        <p>${escapeHTML(body || t('state.errorBody'))}</p>
+        ${(primaryLabel || secondaryLabel) ? `
+          <div class="actions">
+            ${primaryLabel ? (reload
+              ? `<button type="button" class="btn primary" data-state-reload>${escapeHTML(primaryLabel)}</button>`
+              : `<a class="btn primary" href="${primaryHref || '#/'}">${escapeHTML(primaryLabel)}</a>`) : ''}
+            ${secondaryLabel ? `<a class="btn" href="${secondaryHref || '#/'}">${escapeHTML(secondaryLabel)}</a>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    </section>
+  `;
+
+  root.querySelector('[data-state-reload]')?.addEventListener('click', () => location.reload());
+}
+
+function renderLoadingScreen(title = t('state.loadingTitle'), body = t('state.loadingBody')) {
+  renderStatePage({
+    kind: 'loading',
+    loading: true,
+    title,
+    body
+  });
+}
+
+function renderErrorPage({
+  title = t('state.errorTitle'),
+  body = t('state.errorBody'),
+  code = t('state.errorCode'),
+  inShell = false,
+  root = app
+} = {}) {
+  renderStatePage({
+    root,
+    inShell,
+    kind: 'error',
+    iconName: 'spark',
+    code,
+    title,
+    body,
+    primaryLabel: t('state.refresh'),
+    reload: true,
+    secondaryLabel: state.user ? t('state.goDashboard') : t('state.goHome'),
+    secondaryHref: state.user ? '#/app/dashboard' : '#/'
+  });
+}
+
+function renderNotFound(root = app, { inShell = false } = {}) {
+  renderStatePage({
+    root,
+    inShell,
+    kind: 'not-found',
+    iconName: 'search',
+    code: t('state.notFoundCode'),
+    title: t('state.notFoundTitle'),
+    body: t('state.notFoundBody'),
+    primaryLabel: state.user ? t('state.goDashboard') : t('state.goHome'),
+    primaryHref: state.user ? '#/app/dashboard' : '#/',
+    secondaryLabel: state.user ? t('nav.notes') : t('landing.signIn'),
+    secondaryHref: state.user ? '#/app/notes' : '#/login'
+  });
+}
+
 function render() {
   try {
     clearInterval(focusTimerId);
@@ -281,6 +429,7 @@ function render() {
     graphUi = { closeInspector: () => {}, closeHelp: () => {} };
 
     const currentRoute = routePath();
+    if (!PUBLIC_ROUTES.has(currentRoute) && !currentRoute.startsWith('/app')) return renderNotFound();
     if (currentRoute === '/' || currentRoute === '/landing') return renderLanding();
     if (currentRoute === '/login' || currentRoute === '/signup') return renderAuth(currentRoute === '/signup');
     if (currentRoute === '/forgot-password') return renderForgotPassword();
@@ -288,19 +437,14 @@ function render() {
     if (currentRoute === '/verify-email') return renderVerifyEmail();
     if (currentRoute === '/privacy') return renderPrivacy();
     if (currentRoute === '/terms') return renderTerms();
+    if (!currentRoute.startsWith('/app')) return renderNotFound();
     return renderApp();
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-error', { route: state.route });
-    
-    app.className = 'app-shell error-state';
-    app.innerHTML = `
-      <div class="error-recovery-content" style="margin: 48px auto; max-width: 480px; text-align: center;">
-        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-        <h2 style="margin: 16px 0 8px;">Rendering Error</h2>
-        <p style="color: #666; margin: 0 0 24px;">Failed to render the page. Please try refreshing.</p>
-        <button class="btn primary" onclick="location.reload()" style="width: 100%;">Refresh Page</button>
-      </div>
-    `;
+    renderErrorPage({
+      title: t('state.renderErrorTitle'),
+      body: t('state.renderErrorBody')
+    });
   }
 }
 
@@ -374,12 +518,10 @@ function renderLanding() {
     gsap.from('.hero > *, .feature', { y: 18, opacity: 0, stagger: 0.06, duration: 0.5, ease: 'power2.out' });
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-landing', {});
-    app.className = 'app-shell error-state';
-    app.innerHTML = `
-      <div style="padding: 48px; text-align: center;">
-        <p style="color: #666;">Failed to load landing page. Please refresh.</p>
-      </div>
-    `;
+    renderErrorPage({
+      title: t('state.renderErrorTitle'),
+      body: t('state.renderErrorBody')
+    });
   }
 }
 
@@ -472,6 +614,7 @@ function renderAuth(signup) {
       if (isOffline) toast(t('toast.localOpened'), 'info');
       else toast(t('toast.workspaceOpened'));
       
+      renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
       await loadWorkspace();
       route('/app/dashboard');
     } catch (error) {
@@ -490,12 +633,10 @@ function renderAuth(signup) {
   };
   } catch (error) {
     globalErrorBoundary.captureError(error, 'render-auth', { signup });
-    app.className = 'app-shell error-state';
-    app.innerHTML = `
-      <div style="padding: 48px; text-align: center;">
-        <p style="color: #666;">Failed to load authentication page. Please refresh.</p>
-      </div>
-    `;
+    renderErrorPage({
+      title: t('state.renderErrorTitle'),
+      body: t('state.renderErrorBody')
+    });
   }
 }
 
@@ -779,17 +920,14 @@ function renderResetPassword() {
 }
 
 function navItems() {
-  return [
-    ['dashboard', t('nav.dashboard')],
-    ['notes', t('nav.notes')],
-    ['graph', t('nav.graph')],
-    ['ideas', t('nav.ideas')],
-    ['productivity', t('nav.productivity')]
-  ];
+  return APP_VIEW_IDS.map((id) => [id, t(NAV_LABEL_KEYS[id])]);
 }
 
 function currentView() {
-  return routePath().split('/').pop() || 'dashboard';
+  const path = routePath();
+  if (path === '/app') return 'dashboard';
+  if (!path.startsWith('/app/')) return 'dashboard';
+  return path.split('/').filter(Boolean)[1] || 'dashboard';
 }
 
 function clamp(value, min, max) {
@@ -841,8 +979,12 @@ function daysAgo(value) {
   return Math.max(0, Math.floor(diff / 86_400_000));
 }
 
+function scoreableActivity(activity = []) {
+  return activity.filter((item) => String(item.entityType || item.type || '').toLowerCase() !== 'auth');
+}
+
 function computeStreak(activity = []) {
-  const days = new Set(activity.map((item) => new Date(item.createdAt).toDateString()));
+  const days = new Set(scoreableActivity(activity).map((item) => new Date(item.createdAt).toDateString()));
   let streak = 0;
   const cursor = new Date();
   for (let i = 0; i < 30; i += 1) {
@@ -861,8 +1003,7 @@ function dashboardInsights() {
   const recentNotes = state.stats.recentNotes || state.notes.filter((note) => daysAgo(note.updatedAt || note.createdAt) <= 7).length;
   const streak = computeStreak(state.activity);
   const completion = todos.length ? (doneTodos / todos.length) * 100 : 0;
-  const focusDepth = state.productivity.focus?.trim() ? 18 : 0;
-  const focusScore = clamp(Math.round((completion * 0.44) + (Math.min(streak, 7) * 6) + Math.min(activeIdeas * 5, 20) + focusDepth), 0, 100);
+  const focusScore = getDailyScore();
 
   return {
     todos,
@@ -876,6 +1017,11 @@ function dashboardInsights() {
     focusSessionsToday: state.stats.focusSessionsToday || 0,
     focusSessionsTotal: state.stats.focusSessionsTotal || 0
   };
+}
+
+function recordDailyAction() {
+  incrementDailyScore();
+  if (currentView() === 'dashboard') renderCurrentAppView();
 }
 
 function weekActivityBars() {
@@ -955,7 +1101,7 @@ function renderApp() {
           <button class="btn danger" id="logout">${icon('logout')} ${t('nav.logout')}</button>
         </div>
       </aside>
-      <button class="sidebar-scrim" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
+      <button class="sidebar-scrim modal-layer" id="sidebar-scrim" aria-label="${t('a11y.closeMenu')}"></button>
 
       <main class="main">
         <header class="topbar surface">
@@ -982,11 +1128,15 @@ function renderApp() {
       </nav>
 
       <div class="toast-stack" aria-live="polite"></div>
-      <div class="command-backdrop" id="command">
+      <div class="command-backdrop modal-layer" id="command">
         <div class="cmd surface">
           <label class="sr-only" for="cmd-input">${t('a11y.commandPalette')}</label>
           <input class="input" id="cmd-input" type="text" autocomplete="off" placeholder="${t('shell.cmdPlaceholder')}" />
           <div class="cmd-results" id="cmd-results"></div>
+          <div class="cmd-danger-zone">
+            <b>Danger Zone</b>
+            <button class="btn danger" id="clear-all-data" type="button">Clear All Data & Reset</button>
+          </div>
         </div>
       </div>
     `;
@@ -1057,6 +1207,15 @@ function bindShell() {
   });
   document.querySelector('#quick-note').onclick = () => openNoteEditor();
   document.querySelector('#cmd-open').onclick = () => openCommand();
+  document.querySelector('#clear-all-data').onclick = async () => {
+    if (window.confirm('This will delete all notes, scores, and streaks. This cannot be undone.')) {
+      try {
+        await clearAllAppData();
+      } catch (error) {
+        toast(error.message || 'Could not clear app data', 'error');
+      }
+    }
+  };
   window.onkeydown = (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
@@ -1089,6 +1248,8 @@ function bindShell() {
 
 function renderView(view) {
   const root = document.querySelector('#view-root');
+  if (!APP_VIEW_IDS.includes(view)) return renderNotFound(root, { inShell: true });
+  if (view === 'dashboard') return renderDashboard(root);
   if (view === 'notes') return renderNotes(root);
 
   if (view === 'graph') return renderGraph(root);
@@ -1217,7 +1378,7 @@ function renderDashboard(root) {
           <span class="metric-chip">${state.activity.length}</span>
         </div>
         <div class="timeline">
-          ${state.activity.slice(0, 8).map((item) => `
+          ${state.activity.slice(0, 5).map((item) => `
             <div class="timeline-item">
               <span class="dot"></span>
               <div>
@@ -1246,15 +1407,14 @@ function renderDashboard(root) {
   root.querySelector('#dash-notes').onclick = () => route('/app/notes');
   root.querySelector('#dash-start-focus')?.addEventListener('click', async (event) => {
     const text = event.currentTarget.dataset.focusTask;
-    if (text) await saveProd({ focus: text });
+    if (text) saveProd({ focus: text });
     route('/app/productivity');
   });
   root.querySelectorAll('[data-dashboard-todo]').forEach((button) => {
-    button.onclick = async () => {
-      await saveProd({
+    button.onclick = () => {
+      saveProd({
         todos: (state.productivity.todos || []).map((todo) => todo.id === button.dataset.dashboardTodo ? { ...todo, done: true } : todo)
       });
-      await loadWorkspace();
       renderDashboard(root);
     };
   });
@@ -1334,10 +1494,40 @@ async function openNoteEditor(note = {}) {
       pinned: form.querySelector('[name=pinned]').checked,
       favorite: form.querySelector('[name=favorite]').checked
     };
-    await api.saveNote(payload, note._id);
-    toast(t('toast.noteSaved'));
-    await loadWorkspace();
+    const previousNotes = state.notes;
+    const stamp = new Date().toISOString();
+    const optimisticId = note._id || `pending-${uid()}`;
+    const optimisticNote = {
+      ...note,
+      ...payload,
+      _id: optimisticId,
+      user: note.user || state.user?._id || state.user?.id,
+      createdAt: note.createdAt || stamp,
+      updatedAt: stamp
+    };
+
+    setState({
+      notes: sortNotesForView(note._id
+        ? previousNotes.map((item) => item._id === note._id ? optimisticNote : item)
+        : [optimisticNote, ...previousNotes])
+    });
     route('/app/notes');
+    api.saveNote(payload, note._id)
+      .then(({ note: savedNote }) => {
+        if (!savedNote) return;
+        setState({
+          notes: sortNotesForView(state.notes.map((item) => item._id === optimisticId || item._id === savedNote._id ? savedNote : item))
+        });
+        recordDailyAction();
+        if (currentView() === 'notes') renderCurrentAppView();
+        toast(t('toast.noteSaved'));
+        refreshWorkspaceInBackground('notes');
+      })
+      .catch((error) => {
+        setState({ notes: previousNotes });
+        if (currentView() === 'notes') renderCurrentAppView();
+        toast(error.message || 'Note save failed', 'error');
+      });
   });
 
   setTimeout(() => {
@@ -1347,11 +1537,21 @@ async function openNoteEditor(note = {}) {
   }, 0);
 }
 
-async function deleteNote(id) {
-  await api.deleteNote(id);
-  toast(t('toast.noteDeleted'));
-  await loadWorkspace();
-  renderView('notes');
+function deleteNote(id) {
+  const previousNotes = state.notes;
+  setState({ notes: previousNotes.filter((note) => note._id !== id) });
+  renderCurrentAppView();
+  api.deleteNote(id)
+    .then(() => {
+      recordDailyAction();
+      toast(t('toast.noteDeleted'));
+      refreshWorkspaceInBackground(currentView());
+    })
+    .catch((error) => {
+      setState({ notes: previousNotes });
+      renderCurrentAppView();
+      toast(error.message || 'Note delete failed', 'error');
+    });
 }
 
 
@@ -1376,7 +1576,7 @@ function renderGraph(root) {
           <button class="graph-control-btn graph-control-export" data-graph-action="download">${t('graph.downloadPng')}</button>
         </div>
         <button class="graph-help-toggle" id="graph-help-toggle" aria-label="${t('graph.howItWorks')}">?</button>
-        <div class="graph-inspector-backdrop" id="graph-inspector-backdrop"></div>
+        <div class="graph-inspector-backdrop modal-layer" id="graph-inspector-backdrop"></div>
         <aside class="graph-inspector-panel" id="inspector" aria-hidden="true">
           <button class="graph-inspector-close" id="graph-inspector-close" aria-label="${t('common.close')}">
             ${icon('close')}
@@ -1386,7 +1586,7 @@ function renderGraph(root) {
             <p class="muted">${t('graph.selectHint')}</p>
           </div>
         </aside>
-        <div class="graph-help-modal" id="graph-help-modal" aria-hidden="true">
+        <div class="graph-help-modal modal-layer" id="graph-help-modal" aria-hidden="true">
           <div class="graph-help-card" role="dialog" aria-modal="true" aria-labelledby="graph-help-title">
             <button class="graph-help-close" id="graph-help-close" aria-label="${t('common.close')}">${icon('close')}</button>
             <h3 id="graph-help-title">${t('graph.helpTitle')}</h3>
@@ -1536,11 +1736,30 @@ function renderIdeas(root) {
   });
   root.querySelectorAll('.lane').forEach((lane) => {
     lane.ondragover = (event) => event.preventDefault();
-    lane.ondrop = async (event) => {
+    lane.ondrop = (event) => {
       const idea = state.ideas.find((item) => item._id === event.dataTransfer.getData('text/plain'));
-      await api.saveIdea({ ...idea, status: lane.dataset.status }, idea._id);
-      await loadWorkspace();
+      if (!idea) return;
+      const previousIdeas = state.ideas;
+      const optimisticIdea = { ...idea, status: lane.dataset.status, updatedAt: new Date().toISOString() };
+      setState({
+        ideas: sortIdeasForView(previousIdeas.map((item) => item._id === idea._id ? optimisticIdea : item))
+      });
       renderView('ideas');
+      api.saveIdea({ ...idea, status: lane.dataset.status }, idea._id)
+        .then(({ idea: savedIdea }) => {
+          if (!savedIdea) return;
+          setState({
+            ideas: sortIdeasForView(state.ideas.map((item) => item._id === savedIdea._id ? savedIdea : item))
+          });
+          recordDailyAction();
+          if (currentView() === 'ideas') renderCurrentAppView();
+          refreshWorkspaceInBackground('ideas');
+        })
+        .catch((error) => {
+          setState({ ideas: previousIdeas });
+          if (currentView() === 'ideas') renderCurrentAppView();
+          toast(error.message || 'Idea save failed', 'error');
+        });
     };
   });
 }
@@ -1573,7 +1792,7 @@ function openIdeaEditor(idea = {}) {
     <div class="field"><label for="modal-idea-tags">${t('ideas.tags')}</label><input class="input" id="modal-idea-tags" name="tags" value="${escapeHTML((idea.tags || []).join(', '))}" placeholder="${t('ideas.tagsPlaceholder')}" /></div>
   `, async (root) => {
     const form = root.querySelector('.modal-body');
-    await api.saveIdea({
+    const payload = {
       title: form.querySelector('[name=title]').value || t('ideas.untitled'),
       description: form.querySelector('[name=description]').value,
       status: form.querySelector('[name=status]').value,
@@ -1581,10 +1800,41 @@ function openIdeaEditor(idea = {}) {
       category: form.querySelector('[name=category]').value || 'General',
       progress: Number(form.querySelector('[name=progress]').value),
       tags: form.querySelector('[name=tags]').value.split(',').map((tag) => tag.trim()).filter(Boolean)
-    }, idea._id);
-    toast(t('toast.ideaSaved'));
-    await loadWorkspace();
+    };
+    const previousIdeas = state.ideas;
+    const stamp = new Date().toISOString();
+    const optimisticId = idea._id || `pending-${uid()}`;
+    const optimisticIdea = {
+      ...idea,
+      ...payload,
+      _id: optimisticId,
+      user: idea.user || state.user?._id || state.user?.id,
+      createdAt: idea.createdAt || stamp,
+      updatedAt: stamp
+    };
+
+    setState({
+      ideas: sortIdeasForView(idea._id
+        ? previousIdeas.map((item) => item._id === idea._id ? optimisticIdea : item)
+        : [optimisticIdea, ...previousIdeas])
+    });
     route('/app/ideas');
+    api.saveIdea(payload, idea._id)
+      .then(({ idea: savedIdea }) => {
+        if (!savedIdea) return;
+        setState({
+          ideas: sortIdeasForView(state.ideas.map((item) => item._id === optimisticId || item._id === savedIdea._id ? savedIdea : item))
+        });
+        recordDailyAction();
+        if (currentView() === 'ideas') renderCurrentAppView();
+        toast(t('toast.ideaSaved'));
+        refreshWorkspaceInBackground('ideas');
+      })
+      .catch((error) => {
+        setState({ ideas: previousIdeas });
+        if (currentView() === 'ideas') renderCurrentAppView();
+        toast(error.message || 'Idea save failed', 'error');
+      });
   });
 }
 
@@ -1651,14 +1901,14 @@ function renderProductivity(root) {
           </div>
           <div class="task-summary">${t('focus.taskSummary', { done: doneTodos, total: todos.length || 0, pct: formatPercent(percentComplete) })}</div>
         </div>
-        <form id="todo-form" class="actions" style="display: grid; grid-template-columns: 1fr auto auto;">
+        <form id="todo-form" class="focus-task-form">
           <div>
             <label class="sr-only" for="todo-text">${t('a11y.newTask')}</label>
             <textarea class="autosize-input" id="todo-text" name="todo" rows="1" placeholder="${t('focus.addTaskPlaceholder')}" required style="width:100%"></textarea>
           </div>
           <div>
             <label class="sr-only" for="todo-priority">${t('a11y.taskPriority')}</label>
-            <select class="select" id="todo-priority" name="priority" style="width: auto;">
+            <select class="select" id="todo-priority" name="priority">
             <option value="low">${t('ideas.priorityLow')}</option>
             <option value="medium" selected>${t('ideas.priorityMedium')}</option>
             <option value="high">${t('ideas.priorityHigh')}</option>
@@ -1759,6 +2009,7 @@ function bindProductivity(root) {
         totalSeconds = Number(state.productivity.pomodoro?.work || 25) * 60;
         seconds = totalSeconds;
         faceIsReady = false;
+        recordDailyAction();
       }
       timerLabel.textContent = mode === 'work' ? t('focus.focusing') : t('focus.break');
     }
@@ -1855,9 +2106,20 @@ function bindProductivity(root) {
 }
 
 async function saveProd(patch) {
+  const previousProductivity = state.productivity;
   const productivity = { ...state.productivity, ...patch };
-  const response = await api.saveProductivity(productivity);
-  setState({ productivity: response.productivity || productivity });
+  setState({ productivity });
+  void api.saveProductivity(productivity)
+    .then((response) => {
+      setState({ productivity: response.productivity || productivity });
+      recordDailyAction();
+    })
+    .catch((error) => {
+      setState({ productivity: previousProductivity });
+      renderCurrentAppView();
+      toast(error.message || 'Productivity save failed', 'error');
+    });
+  return productivity;
 }
 
 function openCommand(seed = '') {

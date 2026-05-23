@@ -6,7 +6,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
+import * as Sentry from '@sentry/node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { connectDB, databaseStatus } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import noteRoutes from './routes/noteRoutes.js';
@@ -20,46 +21,54 @@ import { getGraphData } from './controllers/graphController.js';
 import searchRoutes from './routes/searchRoutes.js';
 import { protect } from './middleware/auth.js';
 import { asyncHandler } from './middleware/asyncHandler.js';
+import {
+  attachRequestId,
+  createRateLimiter,
+  detectSuspiciousTraffic,
+  enforceHttps,
+  logSecurityEvent,
+  rejectUnsafeMongoKeys,
+  requireJsonForApi
+} from './middleware/security.js';
+import { getJwtExpiresIn, getJwtSecret } from './config/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-console.log('server: express app created');
 const dist = path.resolve(__dirname, '..', 'dist');
 const serveDist = express.static(dist);
 let serverInstance = null;
 let requestLogger = null;
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 1.0,
+  profilesSampleRate: 1.0,
+  integrations: [nodeProfilingIntegration()]
+});
 
 function getRequestLogger() {
   requestLogger ||= morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev');
   return requestLogger;
 }
 
-console.log('server: modules loaded');
+function parseAllowedOrigins() {
+  const values = [
+    process.env.CLIENT_URL,
+    process.env.ADDITIONAL_CLIENT_URLS,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
+  ];
 
-function parseAllowedOrigins(value = process.env.CLIENT_URL) {
-  const list = String(value || '')
+  const list = values.join(',')
     .split(',')
     .map((origin) => origin.trim().replace(/\/$/, ''))
     .filter(Boolean);
-  
-  // Ensure the primary GitHub Pages URL is always allowed in production
+
+  // Explicit static frontend used by this project.
   const ghPages = 'https://mahmodym8124-bot.github.io';
   if (!list.includes(ghPages)) list.push(ghPages);
-  
-  return list;
-}
 
-function isTrustedHostedFrontend(origin = '') {
-  try {
-    const parsed = new URL(origin);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-    if (parsed.hostname.endsWith('.github.io')) return true;
-    if (parsed.hostname.endsWith('.vercel.app')) return true;
-    return false;
-  } catch {
-    return false;
-  }
+  return [...new Set(list)];
 }
 
 function isAllowedOrigin(origin, allowedOrigins) {
@@ -71,9 +80,9 @@ function isAllowedOrigin(origin, allowedOrigins) {
     if (isLocal) return true;
   }
 
-  if (!allowedOrigins.length) return true;
+  if (!allowedOrigins.length) return process.env.NODE_ENV !== 'production';
   if (allowedOrigins.includes(normalizedOrigin)) return true;
-  return isTrustedHostedFrontend(normalizedOrigin);
+  return false;
 }
 
 function sanitizeMongoUri(uri = '') {
@@ -101,10 +110,17 @@ function getPort() {
 }
 
 function validateEnvironment() {
-  const required = ['MONGODB_URI', 'JWT_SECRET', 'JWT_EXPIRES_IN'];
+  const required = ['MONGODB_URI'];
   const missing = required.filter((key) => !String(process.env[key] || '').trim());
   if (missing.length) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+  getJwtSecret();
+  getJwtExpiresIn();
+
+  if (process.env.NODE_ENV === 'production' && process.env.PASSWORD_RESET_BASE_URL) {
+    const resetBase = new URL(process.env.PASSWORD_RESET_BASE_URL);
+    if (resetBase.protocol !== 'https:') throw new Error('PASSWORD_RESET_BASE_URL must use HTTPS in production');
   }
 }
 
@@ -120,6 +136,9 @@ function startupMetadata(port) {
 }
 
 app.set('trust proxy', 1);
+app.use(attachRequestId);
+app.use(enforceHttps);
+app.use(detectSuspiciousTraffic);
 app.use((req, res, next) => {
   // COOP is required for security headers but breaks OAuth popup handshake if mis-scoped.
   // Scope the relaxed COOP policy to the Google OAuth endpoint(s) only.
@@ -138,7 +157,7 @@ app.use((req, res, next) => {
         imgSrc: ["'self'", 'data:', 'https:'],
         fontSrc: ["'self'"],
         frameSrc: ["'self'", 'https://accounts.google.com'],
-        connectSrc: ["'self'", 'https://*.mongodb.net', 'https://accounts.google.com', 'https://play.google.com']
+        connectSrc: ["'self'", 'https://accounts.google.com', 'https://play.google.com']
       }
     },
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
@@ -162,33 +181,55 @@ app.use(cors({
 }));
 app.use(compression());
 app.use((req, res, next) => getRequestLogger()(req, res, next));
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '512kb' }));
+app.use(express.urlencoded({ extended: false, limit: '32kb' }));
 app.use('/api', (_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
-app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 800, standardHeaders: true, legacyHeaders: false }));
-app.use(['/api/auth/login', '/api/auth/register', '/api/auth/google'], rateLimit({
+app.use('/api', requireJsonForApi);
+app.use('/api', rejectUnsafeMongoKeys);
+app.use('/api', createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many authentication attempts. Please wait and try again.' }
+  limit: 300,
+  event: 'rate_limit_api',
+  message: { message: 'Too many API requests. Please wait and try again.' }
 }));
-app.use('/api/auth/forgot-password', rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 3,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many password reset requests. Please wait and try again.' }
-}));
-app.use('/api/auth/reset-password', rateLimit({
+app.use('/api/auth/login', createRateLimiter({
   windowMs: 15 * 60 * 1000,
   limit: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
+  event: 'rate_limit_login',
+  message: { message: 'Too many login attempts. Please wait and try again.' }
+}));
+app.use('/api/auth/register', createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  event: 'rate_limit_register',
+  message: { message: 'Too many account creation attempts. Please wait and try again.' }
+}));
+app.use('/api/auth/google', createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  event: 'rate_limit_google_auth',
+  message: { message: 'Too many Google sign-in attempts. Please wait and try again.' }
+}));
+app.use('/api/auth/reset-password', createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  event: 'rate_limit_reset_password',
   message: { message: 'Too many password reset attempts. Please wait and try again.' }
+}));
+app.use('/api/workspace/reset', createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  event: 'rate_limit_workspace_reset',
+  message: { message: 'Too many workspace reset attempts. Please wait and try again.' }
+}));
+app.use(['/api/ai', '/api/generate', '/api/generation'], createRateLimiter({
+  windowMs: 60 * 1000,
+  limit: 10,
+  event: 'rate_limit_ai_generation',
+  message: { message: 'Too many generation requests. Please wait and try again.' }
 }));
 
 async function requireDatabase(_req, res, next) {
@@ -205,13 +246,7 @@ async function ensureDatabaseConnected() {
   const before = databaseStatus();
   if (before.connected) return true;
   try {
-    console.log('ensureDatabaseConnected: before connect, status=', before);
-    console.log('ensureDatabaseConnected: calling connectDB');
-    const start = Date.now();
     await connectDB(process.env.MONGODB_URI);
-    const elapsed = Date.now() - start;
-    const after = databaseStatus();
-    console.log(`ensureDatabaseConnected: connectDB returned after ${elapsed}ms, status=`, after);
   } catch (error) {
     console.error('ensureDatabaseConnected: MongoDB connection failed:', error && error.stack ? error.stack : String(error));
   }
@@ -238,8 +273,12 @@ app.use('/api/focus', requireDatabase, focusRoutes);
 app.use('/api/graph', requireDatabase, graphRoutes);
 app.get('/api/graph-data', requireDatabase, asyncHandler(protect), asyncHandler(getGraphData));
 app.use('/api/search', requireDatabase, searchRoutes);
-// Lightweight debug endpoints (do not expose secrets)
-app.use('/api/_debug', debugRoutes);
+// Lightweight debug endpoints (development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/_debug', debugRoutes);
+}
+
+Sentry.setupExpressErrorHandler(app);
 
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
@@ -254,9 +293,22 @@ app.get('*', (req, res, next) => {
   return next();
 });
 
+app.use('/api', (req, res) => res.status(404).json({
+  message: `API route not found: ${req.method} ${req.originalUrl || req.url}`
+}));
+
+app.use((req, res) => res.status(404).json({
+  message: `Route not found: ${req.method} ${req.originalUrl || req.url}`
+}));
+
 // eslint-disable-next-line no-unused-vars
 app.use((error, _req, res, next) => {
-  console.error(error);
+  logSecurityEvent(_req, 'api_error', {
+    name: error.name,
+    code: error.code,
+    status: error.status,
+    message: error.message
+  }, error.status && error.status < 500 ? 'warn' : 'error');
   if (error.message === 'Not allowed by CORS') return res.status(403).json({ message: 'Origin is not allowed' });
   if (error.message === 'Unsupported file type') return res.status(415).json({ message: error.message });
   if (error.code === 11000) return res.status(409).json({ message: 'A record with that value already exists' });
