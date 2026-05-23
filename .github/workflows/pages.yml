@@ -31,14 +31,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate public build variables
+        run: |
+          test -n "$VITE_API_URL"
+          test -n "$VITE_GOOGLE_CLIENT_ID"
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+
       - name: Build static site
         run: npm run build
         env:
           VITE_BASE_PATH: /study-planner/
-          # Use the same public production API URL as Vercel unless overridden by a repo variable.
-          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://study-planner-two-murex.vercel.app/api' }}
-          # Google sign-in also needs the public web client ID at build time.
-          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || '271491864203-jdrhu2gvdvudd3omut7eu9lg26503cbf.apps.googleusercontent.com' }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Archive Pages artifact
         run: |
