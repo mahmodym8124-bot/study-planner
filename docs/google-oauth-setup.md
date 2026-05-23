@@ -1,4 +1,4 @@
-# Google OAuth Setup (Study Planner / MindVault)
+# Google OAuth Setup
 
 This guide covers end-to-end setup for Google Sign-In with the current MindVault implementation:
 
@@ -9,7 +9,7 @@ This guide covers end-to-end setup for Google Sign-In with the current MindVault
 ## 1. Create or Select a Google Cloud Project
 
 1. Open <https://console.cloud.google.com/>.
-2. Select an existing project or create a new one (for example `study-planner-auth`).
+2. Select an existing project or create a new one (for example `mindvault-auth`).
 3. Save the project ID for reference.
 
 ## 2. Configure OAuth Consent Screen
@@ -17,7 +17,7 @@ This guide covers end-to-end setup for Google Sign-In with the current MindVault
 1. Go to **APIs & Services** -> **OAuth consent screen**.
 2. Choose **External** (typical for public apps) and create.
 3. Set required fields:
-   - App name: `Study Planner` (or `MindVault`)
+   - App name: `MindVault`
    - User support email
    - Developer contact email
 4. Add scopes:
@@ -56,17 +56,17 @@ CLIENT_URL=http://localhost:5173
 VITE_API_URL=/api
 ```
 
-Reference template: [`.env.example`](/C:/Users/RA%20store/study-planner/.env.example)
+Reference template: [../.env.example](../.env.example)
 
 ## 5. Code Paths in This Repository
 
-- Frontend auth/API client: [`client/js/api.js`](/C:/Users/RA%20store/study-planner/client/js/api.js)
-- Backend Google verification handler: [`server/controllers/authController.js`](/C:/Users/RA%20store/study-planner/server/controllers/authController.js)
-- Auth routes (`POST /api/auth/google`): [`server/routes/authRoutes.js`](/C:/Users/RA%20store/study-planner/server/routes/authRoutes.js)
+- Frontend auth/API client: [../client/js/api.js](../client/js/api.js)
+- Backend Google verification handler: [../server/controllers/authController.js](../server/controllers/authController.js)
+- Auth routes (`POST /api/auth/google`): [../server/routes/authRoutes.js](../server/routes/authRoutes.js)
 - Locale strings (including Google button text/legal links):
-  - [`client/locales/en.json`](/C:/Users/RA%20store/study-planner/client/locales/en.json)
-  - [`client/locales/ar.json`](/C:/Users/RA%20store/study-planner/client/locales/ar.json)
-  - [`client/locales/kmr.json`](/C:/Users/RA%20store/study-planner/client/locales/kmr.json)
+  - [../client/locales/en.json](../client/locales/en.json)
+  - [../client/locales/ar.json](../client/locales/ar.json)
+  - [../client/locales/kmr.json](../client/locales/kmr.json)
 
 ## 6. Verification Checklist
 
