@@ -24,26 +24,22 @@ export async function createNote(req, res) {
 }
 
 export async function getNote(req, res) {
-  const note = await Note.findById(req.params.id).maxTimeMS(operationTimeoutMS()).lean();
+  const note = await Note.findOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS()).lean();
   if (!note) return res.status(404).json({ message: 'Note not found' });
-  // Hide existence of other users' notes
-  if (note.user.toString() !== req.user._id.toString()) return res.status(404).json({ message: 'Note not found' });
   res.json({ data: note });
 }
 export async function updateNote(req, res) {
-  const note = await Note.findById(req.params.id).maxTimeMS(operationTimeoutMS());
+  const note = await Note.findOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS());
   if (!note) return res.status(404).json({ message: 'Note not found' });
-  if (note.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
   Object.assign(note, notePayload(req.body));
   await note.save();
   recordActivitySoon(req.user._id, 'Updated note', note.title, 'note', note._id);
   res.json({ data: note.toObject() });
 }
 export async function deleteNote(req, res) {
-  const note = await Note.findById(req.params.id).maxTimeMS(operationTimeoutMS());
+  const note = await Note.findOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS());
   if (!note) return res.status(404).json({ message: 'Note not found' });
-  if (note.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
-  await Note.findByIdAndDelete(req.params.id).maxTimeMS(operationTimeoutMS());
+  await Note.deleteOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS());
   recordActivitySoon(req.user._id, 'Deleted note', note.title, 'note', note._id);
   res.json({ ok: true });
 }

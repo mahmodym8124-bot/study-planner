@@ -1,10 +1,28 @@
 import FocusSession from '../models/FocusSession.js';
 import DailyFocus from '../models/DailyFocus.js';
+import Note from '../models/Note.js';
+import Idea from '../models/Idea.js';
 import { operationTimeoutMS } from '../config/db.js';
 import { recordActivitySoon } from '../utils/activity.js';
 
+async function assertOwnedTask({ taskId, taskModel, userId }) {
+  if (!taskId && !taskModel) return;
+  const Model = taskModel === 'Note' ? Note : Idea;
+  const task = await Model.findOne({ _id: taskId, user: userId })
+    .select('_id title')
+    .maxTimeMS(operationTimeoutMS())
+    .lean();
+
+  if (!task) {
+    const error = new Error('Task not found');
+    error.status = 404;
+    throw error;
+  }
+}
+
 export async function startFocusSession(req, res) {
   const { taskId, taskModel, taskName, workDurationMinutes, breakDurationMinutes } = req.body;
+  await assertOwnedTask({ taskId, taskModel, userId: req.user._id });
 
   const session = new FocusSession({
     user: req.user._id,

@@ -54,9 +54,11 @@ npm install
 ```text
 MONGODB_URI=
 JWT_SECRET=
-JWT_EXPIRES_IN=7d
+JWT_EXPIRES_IN=2h
 PORT=8091
 CLIENT_URL=http://localhost:5173
+ADDITIONAL_CLIENT_URLS=
+ENFORCE_HTTPS=true
 VITE_API_URL=/api
 GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
 VITE_GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
@@ -70,6 +72,8 @@ SMTP_FROM_NAME=MindVault
 ```
 
 For Gmail, enable 2-Step Verification on the sending Google account, create an App Password, and use that 16-character App Password for `SMTP_PASS`. Do not use your normal Gmail password. `SMTP_FROM_EMAIL` is optional and defaults to `SMTP_USER`.
+
+Use a high-entropy `JWT_SECRET` of at least 32 characters. Keep server-only secrets out of frontend variables; only `VITE_API_URL`, `VITE_API_TIMEOUT_MS`, and `VITE_GOOGLE_CLIENT_ID` are intended for browser exposure.
 
 3. Start the app:
 
@@ -86,6 +90,8 @@ API health: `http://127.0.0.1:8091/api/health`
 The Express app mounts route groups under `/api/auth`, `/api/notes`, `/api/ideas`, `/api/workspace`, `/api/productivity`, `/api/focus`, `/api/graph`, and `/api/search`.
 
 See [docs/api.md](docs/api.md) for the route summary.
+
+Security controls include owner-scoped database queries, strict request validation, Mongo operator key rejection, JWT expiry enforcement, email verification, expiring password reset tokens, HTTPS enforcement in production, and endpoint-specific rate limits.
 
 ## Authentication Setup
 

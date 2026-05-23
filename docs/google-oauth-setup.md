@@ -49,6 +49,8 @@ GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
 VITE_GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
 ```
 
+`GOOGLE_CLIENT_ID` is used only by the server to verify ID tokens. `VITE_GOOGLE_CLIENT_ID` is public browser configuration for rendering Google Identity Services. Do not put Google client secrets or private provider keys in any `VITE_*` variable.
+
 Related variables used in this project:
 
 ```dotenv

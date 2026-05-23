@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String, unique: true, sparse: true, index: true },
   authProviders: { type: [String], default: ['password'], enum: ['password', 'google'] },
   verified: { type: Boolean, default: false },
-  verificationToken: { type: String, minlength: 64, maxlength: 64, index: true },
+  verificationToken: { type: String, minlength: 64, maxlength: 64, select: false, index: true },
   verificationTokenExpires: { type: Date, index: true },
   theme: { type: String, default: 'dark', enum: ['dark', 'light'] },
   resetToken: { type: String, minlength: 64, maxlength: 64, select: false, index: true },

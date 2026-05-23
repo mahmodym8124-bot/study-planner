@@ -98,8 +98,8 @@ export async function getGraphNode(req, res) {
   let node;
   if (id.startsWith('note_')) {
     const noteId = id.replace('note_', '');
-    node = await Note.findById(noteId).lean();
-    if (!node || node.user.toString() !== req.user._id.toString()) {
+    node = await Note.findOne({ _id: noteId, user: req.user._id }).lean();
+    if (!node) {
       return res.status(404).json({ error: 'Note not found' });
     }
     return res.json({ data: { node: { ...node, type: 'note' } } });
@@ -107,8 +107,8 @@ export async function getGraphNode(req, res) {
 
   if (id.startsWith('idea_')) {
     const ideaId = id.replace('idea_', '');
-    node = await Idea.findById(ideaId).lean();
-    if (!node || node.user.toString() !== req.user._id.toString()) {
+    node = await Idea.findOne({ _id: ideaId, user: req.user._id }).lean();
+    if (!node) {
       return res.status(404).json({ error: 'Idea not found' });
     }
     return res.json({ data: { node: { ...node, type: 'idea' } } });

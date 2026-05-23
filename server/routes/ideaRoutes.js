@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { createIdea, deleteIdea, listIdeas, updateIdea } from '../controllers/ideaController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { protect } from '../middleware/auth.js';
@@ -19,7 +19,9 @@ function normalizeIdeaPriority(value) {
 }
 
 router.use(asyncHandler(protect));
-router.get('/', asyncHandler(listIdeas));
+router.get('/', [
+  query('status').optional({ checkFalsy: true }).customSanitizer(normalizeIdeaStatus).isIn(IDEA_STATUSES)
+], validate, asyncHandler(listIdeas));
 router.post('/', [
   body('title').trim().isLength({ min: 1, max: 180 }),
   body('description').optional().isString().isLength({ max: 12000 }),

@@ -23,19 +23,17 @@ export async function createIdea(req, res) {
   res.status(201).json({ data: idea });
 }
 export async function updateIdea(req, res) {
-  const idea = await Idea.findById(req.params.id).maxTimeMS(operationTimeoutMS());
+  const idea = await Idea.findOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS());
   if (!idea) return res.status(404).json({ message: 'Idea not found' });
-  if (idea.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
   Object.assign(idea, ideaPayload(req.body));
   await idea.save();
   recordActivitySoon(req.user._id, 'Updated idea', idea.title, 'idea', idea._id);
   res.json({ data: idea.toObject() });
 }
 export async function deleteIdea(req, res) {
-  const idea = await Idea.findById(req.params.id).maxTimeMS(operationTimeoutMS());
+  const idea = await Idea.findOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS());
   if (!idea) return res.status(404).json({ message: 'Idea not found' });
-  if (idea.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
-  await Idea.findByIdAndDelete(req.params.id).maxTimeMS(operationTimeoutMS());
+  await Idea.deleteOne({ _id: req.params.id, user: req.user._id }).maxTimeMS(operationTimeoutMS());
   recordActivitySoon(req.user._id, 'Deleted idea', idea.title, 'idea', idea._id);
   res.json({ ok: true });
 }

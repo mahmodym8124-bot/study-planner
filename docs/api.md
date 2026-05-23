@@ -8,6 +8,15 @@ All application routes are mounted under `/api`. Protected routes require the JW
 Authorization: Bearer <token>
 ```
 
+## Security Behavior
+
+- JWTs expire according to `JWT_EXPIRES_IN`; the server rejects missing, invalid, expired, or unverified-user sessions.
+- All user-owned resources are queried with the authenticated user id before reads, updates, or deletes.
+- Request bodies, query strings, and params reject Mongo operator keys like `$ne`, dotted keys, and prototype-pollution keys.
+- Search input is treated as literal text, not executable regex.
+- Production requests require HTTPS unless `ENFORCE_HTTPS=false`.
+- API, auth, password-reset, workspace-reset, and future generation endpoints have rate limits.
+
 ## Entrypoints
 
 - Local Express server: `http://127.0.0.1:8091/api`

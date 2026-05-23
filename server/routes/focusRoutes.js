@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import {
   startFocusSession,
   getFocusSessions,
@@ -19,6 +19,12 @@ router.use(asyncHandler(protect));
 const startFocusValidators = [
   body('taskId').optional().isMongoId(),
   body('taskModel').optional().isIn(['Note', 'Idea']),
+  body().custom((bodyValue) => {
+    if ((bodyValue.taskId && !bodyValue.taskModel) || (!bodyValue.taskId && bodyValue.taskModel)) {
+      throw new Error('taskId and taskModel must be provided together');
+    }
+    return true;
+  }),
   body('taskName').optional().trim().isLength({ max: 256 }),
   body('workDurationMinutes').optional().isInt({ min: 5, max: 120 }).toInt(),
   body('breakDurationMinutes').optional().isInt({ min: 1, max: 60 }).toInt()
@@ -27,10 +33,17 @@ const startFocusValidators = [
 router.post('/start', startFocusValidators, validate, asyncHandler(startFocusSession));
 router.post('/sessions', startFocusValidators, validate, asyncHandler(startFocusSession));
 
-router.get('/', asyncHandler(getFocusSessions));
-router.get('/sessions', asyncHandler(getFocusSessions));
+const listFocusValidators = [
+  query('status').optional({ checkFalsy: true }).isIn(['active', 'paused', 'completed', 'abandoned']),
+  query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+  query('skip').optional().isInt({ min: 0, max: 10000 }).toInt()
+];
+
+router.get('/', listFocusValidators, validate, asyncHandler(getFocusSessions));
+router.get('/sessions', listFocusValidators, validate, asyncHandler(getFocusSessions));
 
 const updateFocusValidators = [
+  param('id').isMongoId(),
   body('status').optional().isIn(['active', 'paused', 'completed', 'abandoned']),
   body('elapsedSeconds').optional().isInt({ min: 0 }).toInt(),
   body('currentPhase').optional().isIn(['work', 'break']),

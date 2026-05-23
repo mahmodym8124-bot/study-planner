@@ -46,10 +46,11 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(201);
       expect(res.body.message).toBe('Account created. Please check your email to verify your account.');
 
-      const user = await User.findOne({ email: testUser.email.toLowerCase() });
+      const user = await User.findOne({ email: testUser.email.toLowerCase() }).select('+verificationToken');
       expect(user).toBeTruthy();
       expect(user.verified).toBe(false);
       expect(user.verificationToken).toBeTruthy();
+      expect(user.verificationToken).toMatch(/^[a-f0-9]{64}$/);
       expect(user.verificationTokenExpires).toBeTruthy();
     });
 
@@ -164,7 +165,7 @@ describe('Auth Routes', () => {
       const token = crypto.randomBytes(32).toString('hex');
       await createTestUser({
         verified: false,
-        verificationToken: token,
+        verificationToken: hashResetToken(token),
         verificationTokenExpires: new Date(Date.now() + (24 * 60 * 60 * 1000))
       });
 

@@ -18,11 +18,14 @@ Add these to your Vercel project settings under **Environment Variables**:
 
 ### Authentication & Security
 - `MONGODB_URI` - MongoDB connection string (required)
-- `JWT_SECRET` - JWT signing secret (required)
+- `JWT_SECRET` - JWT signing secret, at least 32 high-entropy characters (required)
+- `JWT_EXPIRES_IN` - JWT lifetime; defaults to `2h` and must not exceed `7d`
 - `GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `ENFORCE_HTTPS` - Set to `true` in production unless a trusted proxy already blocks HTTP
 
 ### Application
 - `CLIENT_URL` - Frontend URL (e.g., `https://your-project.vercel.app`)
+- `ADDITIONAL_CLIENT_URLS` - Optional comma-separated list of extra allowed browser origins
 - `VITE_API_URL` - API base URL (e.g., `https://your-project.vercel.app/api`)
 - `VITE_GOOGLE_CLIENT_ID` - Google OAuth client ID for frontend
 - `PASSWORD_RESET_BASE_URL` - Public frontend URL used in reset links
@@ -37,6 +40,8 @@ Add these to your Vercel project settings under **Environment Variables**:
 - `SMTP_FROM_NAME` - Optional sender name; defaults to `MindVault`
 
 `PORT` is optional and defaults to `8091`. A Google OAuth client secret is not required by the current Google Identity Services credential flow.
+
+Only variables prefixed with `VITE_` are exposed to the browser bundle. Do not put database URLs, JWT secrets, SMTP credentials, provider secrets, or private API keys in `VITE_*` variables.
 
 ## Deployment Steps
 
@@ -70,6 +75,8 @@ git push origin main
 4. Password reset email sends and reset links open the deployed frontend.
 5. MongoDB operations work for notes, ideas, workspace, focus, graph, and search.
 6. Vercel logs show no serverless function errors.
+7. HTTP requests redirect to HTTPS or are rejected.
+8. Unknown origins are rejected by CORS.
 
 ## Troubleshooting
 
@@ -77,11 +84,13 @@ git push origin main
 - Ensure `CLIENT_URL` and `VITE_API_URL` match your Vercel domain
 - Do NOT use preview URLs (`...git-main...vercel.app`) - use production domain only
 - Confirm the Google OAuth client allows the deployed origin
+- Add extra trusted origins to `ADDITIONAL_CLIENT_URLS`; do not use wildcard origins
 
 ### 502 Bad Gateway
 - Check MongoDB connection string
 - Verify `MONGODB_URI` is set and accessible
 - Check Vercel serverless function logs
+- In MongoDB Atlas, do not use broad public access longer than necessary. Use least-privilege database users and the narrowest network access your hosting setup supports.
 
 ### Password Reset Email Fails
 - Verify `PASSWORD_RESET_BASE_URL` uses HTTPS in production
@@ -103,3 +112,4 @@ git push origin main
 - Vite frontend is served from root with API proxy to `/api`
 - All backend routes are handled by the serverless function at `api/index.js`
 - Google OAuth setup details are in [docs/google-oauth-setup.md](docs/google-oauth-setup.md)
+- Runtime abuse controls are implemented in Express. For production defense in depth, also enable Vercel Firewall Bot Protection and add WAF rate-limit rules for `/api/auth/login`, `/api/auth/register`, `/api/auth/forgot-password`, `/api/auth/reset-password`, and `/api/*`.

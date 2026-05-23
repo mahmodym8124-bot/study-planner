@@ -10,8 +10,8 @@ router.use(asyncHandler(protect));
 
 router.get('/', [
   query('q').optional({ checkFalsy: true }).trim().isLength({ max: 256 }),
-  query('limit').optional().isInt({ min: 1 }).toInt(),
-  query('skip').optional().toInt()
+  query('limit').optional().isInt({ min: 1, max: 50 }).toInt(),
+  query('skip').optional().isInt({ min: 0, max: 10000 }).toInt()
 ], validate, asyncHandler(search));
 
 export default router;

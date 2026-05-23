@@ -108,7 +108,7 @@ describe('Notes CRUD', () => {
         .put(`/api/notes/${note._id}`)
         .send({ title: 'Hacked' });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   });
 
@@ -130,7 +130,7 @@ describe('Notes CRUD', () => {
 
       const res = await req.delete(`/api/notes/${note._id}`);
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   });
 });
@@ -229,6 +229,17 @@ describe('Ideas CRUD', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.priority).toBe('low');
     });
+
+    it('should not allow updating another user\'s idea', async () => {
+      const otherUser = await createTestUser({ email: 'idea-other@example.com', username: 'other' });
+      const idea = await createTestIdea(otherUser, testIdea);
+
+      const res = await req
+        .put(`/api/ideas/${idea._id}`)
+        .send({ title: 'Hacked' });
+
+      expect(res.status).toBe(404);
+    });
   });
 
   describe('DELETE /api/ideas/:id', () => {
@@ -241,6 +252,15 @@ describe('Ideas CRUD', () => {
 
       const checkRes = await req.get(`/api/ideas/${idea._id}`);
       expect(checkRes.status).toBe(404);
+    });
+
+    it('should not allow deleting another user\'s idea', async () => {
+      const otherUser = await createTestUser({ email: 'idea-delete-other@example.com', username: 'other' });
+      const idea = await createTestIdea(otherUser, testIdea);
+
+      const res = await req.delete(`/api/ideas/${idea._id}`);
+
+      expect(res.status).toBe(404);
     });
   });
 });

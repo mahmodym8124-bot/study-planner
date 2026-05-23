@@ -67,10 +67,13 @@ export async function resetWorkspace(req, res) {
 
 export async function updateSettings(req, res) {
   const { defaultFocusTime, theme } = req.body;
+  const update = {};
+  if (defaultFocusTime !== undefined) update['pomodoro.work'] = defaultFocusTime;
+
   // Update productivity/pomodoro work time
   const productivity = await Productivity.findOneAndUpdate(
     { user: req.user._id },
-    { $set: { 'pomodoro.work': defaultFocusTime } },
+    Object.keys(update).length ? { $set: update } : { $setOnInsert: { user: req.user._id } },
     { new: true, upsert: true, setDefaultsOnInsert: true, maxTimeMS: operationTimeoutMS() }
   ).lean();
 
