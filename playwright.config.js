@@ -2,10 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 const appPort = process.env.PLAYWRIGHT_PORT || '3000';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${appPort}`;
+const configuredWorkers = Number(process.env.PLAYWRIGHT_WORKERS);
+const workers = Number.isInteger(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 2;
 
 export default defineConfig({
   testDir: './tests',
   testIgnore: '**/__tests__/**',
+  workers,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
     baseURL,

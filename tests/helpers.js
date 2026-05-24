@@ -159,7 +159,10 @@ export function visibleSearchInput(page) {
 
 export async function gotoAppRoute(page, route) {
   const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForFunction(() => {
+    const app = document.querySelector('#app');
+    return Boolean(app && app.childElementCount > 0);
+  }, null, { timeout: 10000 });
   return response;
 }
 
