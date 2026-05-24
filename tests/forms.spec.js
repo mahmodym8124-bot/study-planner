@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoAppRoute, isMissingRoute, preparePage } from './helpers.js';
+import { gotoAppRoute, isMissingRoute, preparePage, visibleSearchInput } from './helpers.js';
 
 test('/notes note editor accepts title and body input without saving', async ({ page }) => {
   await preparePage(page, { authenticated: true });
@@ -36,7 +36,8 @@ test('/search global search input accepts a query', async ({ page }) => {
   const response = await gotoAppRoute(page, '/search');
   test.skip(isMissingRoute(response), '/search returned 404');
 
-  const searchInput = page.locator('#global-search, input[type="search"]').first();
+  const searchInput = visibleSearchInput(page);
+  await expect(searchInput).toBeVisible();
   await searchInput.fill('test query');
 
   await expect(searchInput).toHaveValue('test query');

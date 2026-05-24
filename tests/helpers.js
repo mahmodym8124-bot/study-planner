@@ -127,7 +127,23 @@ async function mockApi(page) {
   });
 }
 
+async function stabilizeBrowserForE2E(page) {
+  await page.addInitScript(() => {
+    window.__MINDVAULT_E2E__ = true;
+
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function getContext(type, ...args) {
+      const normalized = String(type || '').toLowerCase();
+      if (normalized === 'webgl' || normalized === 'webgl2' || normalized === 'experimental-webgl') {
+        return null;
+      }
+      return originalGetContext.call(this, type, ...args);
+    };
+  });
+}
+
 export async function preparePage(page, { authenticated = false } = {}) {
+  await stabilizeBrowserForE2E(page);
   await mockExternalAssets(page);
   await mockApi(page);
   if (authenticated) {
@@ -135,6 +151,10 @@ export async function preparePage(page, { authenticated = false } = {}) {
       window.localStorage.setItem('mindvault_token', token);
     }, E2E_TOKEN);
   }
+}
+
+export function visibleSearchInput(page) {
+  return page.locator('#global-search, input[type="search"]').filter({ visible: true }).first();
 }
 
 export async function gotoAppRoute(page, route) {

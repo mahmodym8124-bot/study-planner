@@ -132,6 +132,13 @@ window.addEventListener('mindvault:auth-expired', () => {
 });
 
 function loadScenes() {
+  if (window.__MINDVAULT_E2E__) {
+    const noopScene = () => () => {};
+    return Promise.resolve({
+      createAmbientBackground: noopScene,
+      createHeroScene: noopScene
+    });
+  }
   scenesPromise ||= import('./three-scenes.js');
   return scenesPromise;
 }
