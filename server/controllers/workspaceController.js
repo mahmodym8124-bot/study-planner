@@ -5,30 +5,39 @@ import Activity from '../models/Activity.js';
 import Productivity from '../models/Productivity.js';
 import FocusSession from '../models/FocusSession.js';
 import DailyFocus from '../models/DailyFocus.js';
+import User from '../models/User.js';
 import { operationTimeoutMS } from '../config/db.js';
 
 export async function stats(req, res) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [notes, files, ideas, productivity, focusSessions, dailyFocus, todaysSessions] = await Promise.all([
+  const [
+    notes,
+    files,
+    ideas,
+    productivity,
+    focusSessions,
+    dailyFocus,
+    todaysSessions,
+    ideasInMotion,
+    recentNotes
+  ] = await Promise.all([
     Note.countDocuments({ user: req.user._id }).maxTimeMS(operationTimeoutMS()),
     FileAsset.countDocuments({ user: req.user._id }).maxTimeMS(operationTimeoutMS()),
     Idea.countDocuments({ user: req.user._id }).maxTimeMS(operationTimeoutMS()),
     Productivity.findOne({ user: req.user._id }).select('todos reminders focus pomodoro').maxTimeMS(operationTimeoutMS()).lean(),
     FocusSession.countDocuments({ user: req.user._id }).maxTimeMS(operationTimeoutMS()),
     DailyFocus.findOne({ user: req.user._id, date: { $gte: today } }).maxTimeMS(operationTimeoutMS()).lean(),
-    FocusSession.countDocuments({ user: req.user._id, createdAt: { $gte: today } }).maxTimeMS(operationTimeoutMS())
+    FocusSession.countDocuments({ user: req.user._id, createdAt: { $gte: today } }).maxTimeMS(operationTimeoutMS()),
+    Idea.countDocuments({
+      user: req.user._id,
+      status: { $in: ['active', 'review'] }
+    }).maxTimeMS(operationTimeoutMS()),
+    Note.find({
+      user: req.user._id,
+    }).sort({ updatedAt: -1 }).limit(10).maxTimeMS(operationTimeoutMS()).lean()
   ]);
-
-  const ideasInMotion = await Idea.countDocuments({
-    user: req.user._id,
-    status: { $in: ['active', 'review'] }
-  }).maxTimeMS(operationTimeoutMS());
-
-  const recentNotes = await Note.find({
-    user: req.user._id,
-  }).sort({ updatedAt: -1 }).limit(10).maxTimeMS(operationTimeoutMS()).lean();
 
   res.json({
     data: {
@@ -79,7 +88,7 @@ export async function updateSettings(req, res) {
 
   // Update user theme if provided
   if (theme) {
-    await (await import('../models/User.js')).default.findByIdAndUpdate(req.user._id, { theme }, { new: true, maxTimeMS: operationTimeoutMS() });
+    await User.findByIdAndUpdate(req.user._id, { theme }, { new: true, maxTimeMS: operationTimeoutMS() });
   }
 
   res.json({ data: { defaultFocusTime: productivity?.pomodoro?.work || defaultFocusTime, theme } });
@@ -87,7 +96,7 @@ export async function updateSettings(req, res) {
 
 export async function getSettings(req, res) {
   const productivity = await Productivity.findOne({ user: req.user._id }).maxTimeMS(operationTimeoutMS()).lean();
-  const user = await (await import('../models/User.js')).default.findById(req.user._id).maxTimeMS(operationTimeoutMS()).lean();
+  const user = await User.findById(req.user._id).maxTimeMS(operationTimeoutMS()).lean();
   res.json({ data: { defaultFocusTime: productivity?.pomodoro?.work || 25, theme: user?.theme || 'dark' } });
 }
 
