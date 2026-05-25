@@ -19,6 +19,7 @@ import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const SUPPORTED_LANGUAGES = ['en', 'ar', 'kmr', 'bad'];
 let googleIdentityPromise;
 
 // Expose error boundary globally for API error handling
@@ -50,6 +51,29 @@ let focusTimerId;
 let graphController = null;
 let graphUi = { closeInspector: () => {}, closeHelp: () => {} };
 
+function currentLanguage() {
+  const rawLanguage = i18n.resolvedLanguage || i18n.language || 'en';
+  const lang = String(rawLanguage).split('-')[0];
+  return SUPPORTED_LANGUAGES.includes(lang) ? lang : 'en';
+}
+
+function languageLabels() {
+  return {
+    en: t('lang.toEnglish'),
+    ar: t('lang.toArabic'),
+    kmr: t('lang.toKurdish'),
+    bad: t('lang.toBadini')
+  };
+}
+
+function renderLanguageOptions(currentLang, langs) {
+  return SUPPORTED_LANGUAGES.map(lang => `
+    <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
+      ${langs[lang]}
+      ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
+    </button>
+  `).join('');
+}
 
 document.body.classList.toggle('light', state.theme === 'light');
 
@@ -487,8 +511,8 @@ function renderLanding() {
   try {
     mountAmbientBackground().catch(() => {});
     app.className = 'app-shell';
-    const currentLang = i18n.language?.split('-')[0] || 'en';
-    const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
+    const currentLang = currentLanguage();
+    const langs = languageLabels();
 
     app.innerHTML = `
       <section class="landing">
@@ -498,12 +522,7 @@ function renderLanding() {
             <div class="lang-menu" id="lang-menu-landing">
               <button type="button" class="btn lang-toggle" id="lang-toggle-landing">${langs[currentLang]}</button>
               <div class="lang-dropdown" id="lang-dropdown-landing">
-                ${['en', 'ar', 'kmr'].map(lang => `
-                  <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                    ${langs[lang]}
-                    ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
-                  </button>
-                `).join('')}
+                ${renderLanguageOptions(currentLang, langs)}
               </div>
             </div>
             <a href="#/login">${t('landing.signIn')}</a>
@@ -564,8 +583,8 @@ function renderAuth(signup) {
   try {
     mountAmbientBackground().catch(() => {});
     app.className = 'app-shell';
-    const currentLang = i18n.language?.split('-')[0] || 'en';
-    const langs = { 'en': 'English', 'ar': 'العربية', 'kmr': 'کوردی (بادینی)' };
+    const currentLang = currentLanguage();
+    const langs = languageLabels();
     
     app.innerHTML = `
       <section class="auth-page">
@@ -575,12 +594,7 @@ function renderAuth(signup) {
             <div class="lang-menu" id="lang-menu-auth">
               <button type="button" class="btn lang-toggle" id="lang-toggle-auth">${langs[currentLang]}</button>
               <div class="lang-dropdown" id="lang-dropdown-auth">
-                ${['en', 'ar', 'kmr'].map(lang => `
-                  <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                    ${langs[lang]}
-                    ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
-                  </button>
-                `).join('')}
+                ${renderLanguageOptions(currentLang, langs)}
               </div>
             </div>
         </div>
@@ -1090,12 +1104,8 @@ function renderApp() {
   unmountAmbientBackground();
   const view = currentView();
   const insights = dashboardInsights();
-  const currentLang = i18n.language?.split('-')[0] || 'en';
-  const langs = {
-    en: t('lang.toEnglish'),
-    ar: t('lang.toArabic'),
-    kmr: t('lang.toKurdish')
-  };
+  const currentLang = currentLanguage();
+  const langs = languageLabels();
   const langLabel = langs[currentLang] || langs.en;
 
   const viewRootExists = app.querySelector('#view-root') && app.classList.contains('dashboard-shell');
@@ -1123,12 +1133,7 @@ function renderApp() {
           <div class="lang-menu" id="lang-menu-sidebar">
             <button class="btn lang-toggle" id="lang-toggle-sidebar" type="button">${langLabel}</button>
             <div class="lang-dropdown" id="lang-dropdown-sidebar">
-              ${['en', 'ar', 'kmr'].map((lang) => `
-                <button type="button" class="lang-option ${lang === currentLang ? 'active' : ''}" data-lang="${lang}">
-                  ${langs[lang]}
-                  ${lang === currentLang ? '<span class="checkmark">✓</span>' : ''}
-                </button>
-              `).join('')}
+              ${renderLanguageOptions(currentLang, langs)}
             </div>
           </div>
           <button class="btn" id="cmd-open">${icon('command')} ${t('nav.command')}</button>
