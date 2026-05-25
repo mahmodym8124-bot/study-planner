@@ -1699,7 +1699,7 @@ function renderGraph(root) {
           </div>
           <div class="graph-tags-row">${(node.tags || []).map((tag) => `<span class="graph-tag-pill">${escapeHTML(tag)}</span>`).join('') || '<span class="muted">No tags</span>'}</div>
           <p class="graph-meta">${escapeHTML(meta)}</p>
-          <div class="graph-node-metadata">${wordCount} / ${escapeHTML(node._id || node.id)}</div>
+          <div class="graph-node-metadata">${wordCount}</div>
           <button class="graph-open-note-btn" id="graph-open-note">Open Note</button>
         `;
         inspectorContent.querySelector('#graph-open-note').onclick = () => {
