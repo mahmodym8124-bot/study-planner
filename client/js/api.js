@@ -85,6 +85,13 @@ function makeError(message, status) {
   return error;
 }
 
+function shouldCaptureApiError(error) {
+  if (error?.name === 'AbortError') return true;
+  const status = Number(error?.status);
+  if (!Number.isFinite(status)) return true;
+  return status >= 500;
+}
+
 function defaultProductivity() {
   return { todos: [], reminders: [], focus: '', pomodoro: { work: 25, break: 5 } };
 }
@@ -431,7 +438,8 @@ async function request(path, { method = 'GET', body, headers = {}, timeoutMs = A
       
       if (shouldFallback) return offlineRequest(path, { method, body, headers });
       
-      if (response.status === 401 && !OFFLINE_HOST) {
+      if (response.status === 401 && !isAuthRoute && !OFFLINE_HOST) {
+        storage.token = null;
         window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
       }
       
@@ -456,8 +464,9 @@ async function request(path, { method = 'GET', body, headers = {}, timeoutMs = A
       ? Object.assign(new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`), { name: 'AbortError', status: 408 })
       : error;
     
-    // Capture error for error boundary
-    if (typeof window !== 'undefined' && window.__errorBoundary) {
+    // Expected 4xx API responses are handled by the caller; reserve the
+    // global boundary for outages and unexpected transport failures.
+    if (shouldCaptureApiError(apiError) && typeof window !== 'undefined' && window.__errorBoundary) {
       const source = apiError.name === 'AbortError' ? 'api-timeout' : 'api-error';
       const context = { path, method, status: apiError.status };
       window.__errorBoundary.captureError(apiError, source, context);

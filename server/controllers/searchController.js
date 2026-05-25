@@ -6,6 +6,13 @@ function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function buildSearchFilter(userId, searchRegex, fields) {
+  return {
+    user: userId,
+    $or: fields.map((field) => ({ [field]: searchRegex }))
+  };
+}
+
 export async function search(req, res) {
   const { q } = req.query;
   let limit = parseInt(req.query.limit) || 20;
@@ -19,17 +26,11 @@ export async function search(req, res) {
   }
 
   const searchRegex = new RegExp(escapeRegex(q.trim()), 'i');
+  const noteFilter = buildSearchFilter(req.user._id, searchRegex, ['title', 'content', 'tags', 'folder']);
+  const ideaFilter = buildSearchFilter(req.user._id, searchRegex, ['title', 'description', 'tags', 'category']);
 
   const notePromise = Note.find(
-    {
-      user: req.user._id,
-      $or: [
-        { title: searchRegex },
-        { content: searchRegex },
-        { tags: searchRegex },
-        { folder: searchRegex }
-      ]
-    },
+    noteFilter,
     { content: 0 }
   )
     .sort({ updatedAt: -1 })
@@ -39,15 +40,7 @@ export async function search(req, res) {
     .lean();
 
   const ideaPromise = Idea.find(
-    {
-      user: req.user._id,
-      $or: [
-        { title: searchRegex },
-        { description: searchRegex },
-        { tags: searchRegex },
-        { category: searchRegex }
-      ]
-    }
+    ideaFilter
   )
     .sort({ updatedAt: -1 })
     .limit(limit)
@@ -55,32 +48,22 @@ export async function search(req, res) {
     .maxTimeMS(operationTimeoutMS())
     .lean();
 
-  const [notes, ideas] = await Promise.all([notePromise, ideaPromise]);
+  const [
+    notes,
+    ideas,
+    totalNotes,
+    totalIdeas
+  ] = await Promise.all([
+    notePromise,
+    ideaPromise,
+    Note.countDocuments(noteFilter).maxTimeMS(operationTimeoutMS()),
+    Idea.countDocuments(ideaFilter).maxTimeMS(operationTimeoutMS())
+  ]);
 
   const results = [
     ...notes.map(n => ({ ...n, type: 'note' })),
     ...ideas.map(i => ({ ...i, type: 'idea' }))
   ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-  const totalNotes = await Note.countDocuments({
-    user: req.user._id,
-    $or: [
-      { title: searchRegex },
-      { content: searchRegex },
-      { tags: searchRegex },
-      { folder: searchRegex }
-    ]
-  }).maxTimeMS(operationTimeoutMS());
-
-  const totalIdeas = await Idea.countDocuments({
-    user: req.user._id,
-    $or: [
-      { title: searchRegex },
-      { description: searchRegex },
-      { tags: searchRegex },
-      { category: searchRegex }
-    ]
-  }).maxTimeMS(operationTimeoutMS());
 
   res.json({
     data: results.slice(0, limit),

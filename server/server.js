@@ -87,14 +87,10 @@ function isAllowedOrigin(origin, allowedOrigins) {
 
 function sanitizeMongoUri(uri = '') {
   try {
-    const isAtlas = uri.includes('mongodb+srv://') || uri.includes('.mongodb.net');
-    if (isAtlas) {
-      return uri.replace(/:([^@]+)@/, ':***@');
-    }
     const parsed = new URL(uri);
     if (parsed.username) parsed.username = '***';
     if (parsed.password) parsed.password = '***';
-    return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
   } catch {
     return '<invalid>';
   }
@@ -140,22 +136,18 @@ app.use(attachRequestId);
 app.use(enforceHttps);
 app.use(detectSuspiciousTraffic);
 app.use((req, res, next) => {
-  // COOP is required for security headers but breaks OAuth popup handshake if mis-scoped.
-  // Scope the relaxed COOP policy to the Google OAuth endpoint(s) only.
-  const isGoogleAuthEndpoint = req.path === '/api/auth/google' || req.path === '/api/auth/google/callback';
-
   const helmetOptions = {
     crossOriginOpenerPolicy: {
-      policy: isGoogleAuthEndpoint ? 'unsafe-none' : 'same-origin-allow-popups'
+      policy: 'same-origin-allow-popups'
     },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'https:'],
-        fontSrc: ["'self'"],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         frameSrc: ["'self'", 'https://accounts.google.com'],
         connectSrc: ["'self'", 'https://accounts.google.com', 'https://play.google.com']
       }

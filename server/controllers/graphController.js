@@ -1,17 +1,76 @@
 import Note from '../models/Note.js';
 import Idea from '../models/Idea.js';
+import { operationTimeoutMS } from '../config/db.js';
+
+const GRAPH_ITEMS_PER_TYPE_LIMIT = 150;
+const GRAPH_EDGE_LIMIT_MULTIPLIER = 3;
+
+function addTagEdges(tagIndex, edgesById, maxEdges) {
+  for (const [tag, nodeIds] of tagIndex.entries()) {
+    for (let i = 0; i < nodeIds.length; i += 1) {
+      for (let j = i + 1; j < nodeIds.length; j += 1) {
+        const [source, target] = [nodeIds[i], nodeIds[j]].sort();
+        const edgeId = `${source}_${target}`;
+        const existing = edgesById.get(edgeId);
+
+        if (!existing && edgesById.size >= maxEdges) continue;
+
+        if (existing) {
+          existing.labels.add(tag);
+          existing.weight = existing.labels.size;
+        } else {
+          edgesById.set(edgeId, {
+            source,
+            target,
+            labels: new Set([tag]),
+            weight: 1
+          });
+        }
+      }
+    }
+  }
+}
 
 async function buildGraphData(userId) {
-  const notes = await Note.find({ user: userId }).lean();
-  const ideas = await Idea.find({ user: userId }).lean();
+  const [
+    notes,
+    ideas,
+    totalNotes,
+    totalIdeas
+  ] = await Promise.all([
+    Note.find({ user: userId })
+      .select('title tags folder thumbnail content createdAt updatedAt')
+      .sort({ updatedAt: -1 })
+      .limit(GRAPH_ITEMS_PER_TYPE_LIMIT)
+      .maxTimeMS(operationTimeoutMS())
+      .lean(),
+    Idea.find({ user: userId })
+      .select('title status priority tags createdAt updatedAt')
+      .sort({ updatedAt: -1 })
+      .limit(GRAPH_ITEMS_PER_TYPE_LIMIT)
+      .maxTimeMS(operationTimeoutMS())
+      .lean(),
+    Note.countDocuments({ user: userId }).maxTimeMS(operationTimeoutMS()),
+    Idea.countDocuments({ user: userId }).maxTimeMS(operationTimeoutMS())
+  ]);
 
   const nodes = [];
-  const nodeMap = new Map();
+  const tagIndex = new Map();
 
-  // Add notes as nodes
+  function indexTags(node) {
+    const tags = Array.isArray(node.data.tags) ? node.data.tags : [];
+    tags.forEach((tag) => {
+      const normalized = String(tag || '').trim();
+      if (!normalized) return;
+      const ids = tagIndex.get(normalized) || [];
+      ids.push(node.id);
+      tagIndex.set(normalized, ids);
+    });
+  }
+
   notes.forEach(note => {
     const id = `note_${note._id}`;
-    nodes.push({
+    const node = {
       id,
       label: note.title || 'Untitled',
       type: 'note',
@@ -24,14 +83,14 @@ async function buildGraphData(userId) {
         content: note.content || '',
         createdAt: note.createdAt
       }
-    });
-    nodeMap.set(id, note);
+    };
+    nodes.push(node);
+    indexTags(node);
   });
 
-  // Add ideas as nodes
   ideas.forEach(idea => {
     const id = `idea_${idea._id}`;
-    nodes.push({
+    const node = {
       id,
       label: idea.title || 'Untitled',
       type: 'idea',
@@ -43,43 +102,35 @@ async function buildGraphData(userId) {
         tags: idea.tags || [],
         createdAt: idea.createdAt
       }
-    });
-    nodeMap.set(id, idea);
+    };
+    nodes.push(node);
+    indexTags(node);
   });
 
-  // Generate edges based on shared tags
-  const edges = [];
-  const edgeSet = new Set();
+  const edgesById = new Map();
+  const maxEdges = Math.max(nodes.length * GRAPH_EDGE_LIMIT_MULTIPLIER, 0);
+  addTagEdges(tagIndex, edgesById, maxEdges);
 
-  nodes.forEach(node1 => {
-    nodes.forEach(node2 => {
-      if (node1.id === node2.id) return;
+  const limitedEdges = [...edgesById.values()]
+    .map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      label: [...edge.labels].join(', '),
+      weight: edge.weight
+    }))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, maxEdges);
 
-      const tags1 = node1.data.tags || [];
-      const tags2 = node2.data.tags || [];
-      
-      const sharedTags = tags1.filter(t => tags2.includes(t));
-      if (sharedTags.length > 0) {
-        const edgeId = [node1.id, node2.id].sort().join('_');
-        if (!edgeSet.has(edgeId)) {
-          edges.push({
-            source: node1.id,
-            target: node2.id,
-            label: sharedTags.join(', '),
-            weight: sharedTags.length
-          });
-          edgeSet.add(edgeId);
-        }
-      }
-    });
-  });
-
-  // Sort by weight and limit to top N edges for performance
-  edges.sort((a, b) => b.weight - a.weight);
-  const maxEdges = Math.min(edges.length, nodes.length * 3);
-  const limitedEdges = edges.slice(0, maxEdges);
-
-  return { nodes, edges: limitedEdges, count: { notes: notes.length, ideas: ideas.length } };
+  return {
+    nodes,
+    edges: limitedEdges,
+    count: {
+      notes: totalNotes,
+      ideas: totalIdeas,
+      visibleNotes: notes.length,
+      visibleIdeas: ideas.length
+    }
+  };
 }
 
 export async function getGraphNodes(req, res) {

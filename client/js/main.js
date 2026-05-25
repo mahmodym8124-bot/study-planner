@@ -93,6 +93,23 @@ const PUBLIC_ROUTES = new Set([
   '/privacy',
   '/terms'
 ]);
+const DIRECT_ROUTE_ALIASES = new Map([
+  ['/', '/'],
+  ['/landing', '/landing'],
+  ['/login', '/login'],
+  ['/signup', '/signup'],
+  ['/forgot-password', '/forgot-password'],
+  ['/reset-password', '/reset-password'],
+  ['/verify-email', '/verify-email'],
+  ['/privacy', '/privacy'],
+  ['/terms', '/terms'],
+  ['/workspace', '/app/dashboard'],
+  ['/notes', '/app/notes'],
+  ['/ideas', '/app/ideas'],
+  ['/focus', '/app/productivity'],
+  ['/graph', '/app/graph'],
+  ['/search', '/app/dashboard']
+]);
 
 function tIdeaStatus(status) {
   const normalized = String(status || '').trim().toLowerCase();
@@ -115,6 +132,13 @@ window.addEventListener('mindvault:auth-expired', () => {
 });
 
 function loadScenes() {
+  if (window.__MINDVAULT_E2E__) {
+    const noopScene = () => () => {};
+    return Promise.resolve({
+      createAmbientBackground: noopScene,
+      createHeroScene: noopScene
+    });
+  }
   scenesPromise ||= import('./three-scenes.js');
   return scenesPromise;
 }
@@ -217,6 +241,16 @@ function routeQuery(value = state.route || '/') {
   return idx >= 0 ? raw.slice(idx + 1) : '';
 }
 
+function routeFromLocation() {
+  if (location.hash) return location.hash.replace('#', '') || '/';
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const routeAlias = DIRECT_ROUTE_ALIASES.get(normalizedPath);
+  if (!routeAlias) return '/';
+  const query = location.search || '';
+  if (!query) return routeAlias;
+  return routeAlias.includes('?') ? `${routeAlias}&${query.slice(1)}` : `${routeAlias}${query}`;
+}
+
 function passwordStrength(value = '') {
   const password = String(value);
   let score = 0;
@@ -256,9 +290,10 @@ async function bootstrap() {
         .catch(() => {});
     }
 
+    const initialRoute = routeFromLocation();
     // Support direct-path links in hash-based routing.
-    if (!location.hash && ['/verify-email', '/reset-password', '/privacy', '/terms'].includes(location.pathname)) {
-      history.replaceState(null, '', `#${location.pathname}${location.search || ''}`);
+    if (!location.hash && initialRoute !== '/') {
+      history.replaceState(null, '', `#${initialRoute}`);
     }
 
     if (storage.token) {
@@ -274,7 +309,7 @@ async function bootstrap() {
       }
     }
 
-    route(location.hash.replace('#', '') || '/');
+    route(routeFromLocation());
   } catch (error) {
     globalErrorBoundary.captureError(error, 'bootstrap-error', {});
     renderErrorPage({
@@ -1664,7 +1699,7 @@ function renderGraph(root) {
           </div>
           <div class="graph-tags-row">${(node.tags || []).map((tag) => `<span class="graph-tag-pill">${escapeHTML(tag)}</span>`).join('') || '<span class="muted">No tags</span>'}</div>
           <p class="graph-meta">${escapeHTML(meta)}</p>
-          <div class="graph-node-metadata">${wordCount} / ${escapeHTML(node._id || node.id)}</div>
+          <div class="graph-node-metadata">${wordCount}</div>
           <button class="graph-open-note-btn" id="graph-open-note">Open Note</button>
         `;
         inspectorContent.querySelector('#graph-open-note').onclick = () => {

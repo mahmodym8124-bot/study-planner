@@ -2676,10 +2676,6 @@ html[dir='rtl'] .lang-option .checkmark {
     display: none;
   }
 
-  .search-wrap {
-    display: none;
-  }
-
   .bar-chart {
     gap: 0.42rem;
   }
