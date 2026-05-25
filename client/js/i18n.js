@@ -2,10 +2,9 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import en from '../locales/en.json' with { type: 'json' };
 import ar from '../locales/ar.json' with { type: 'json' };
-import kmr from '../locales/kmr.json' with { type: 'json' };
 import bad from '../locales/bad.json' with { type: 'json' };
 // RTL languages
-const RTL_LANGUAGES = ['ar', 'kmr', 'bad'];
+const RTL_LANGUAGES = ['ar', 'bad'];
 
 export function syncDocumentLang() {
   const rawLanguage = i18n.resolvedLanguage || i18n.language || i18n.options?.fallbackLng || 'en';
@@ -30,11 +29,10 @@ i18n.use(LanguageDetector).init({
   resources: {
     en: { translation: en },
     ar: { translation: ar },
-    kmr: { translation: kmr },
     bad: { translation: bad }
   },
   fallbackLng: 'en',
-  supportedLngs: ['en', 'ar', 'kmr', 'bad'],
+  supportedLngs: ['en', 'ar', 'bad'],
   load: 'languageOnly',
   cleanCode: true,
   interpolation: { escapeValue: false },

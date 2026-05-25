@@ -19,7 +19,7 @@ import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-const SUPPORTED_LANGUAGES = ['en', 'ar', 'kmr', 'bad'];
+const SUPPORTED_LANGUAGES = ['en', 'ar', 'bad'];
 let googleIdentityPromise;
 
 // Expose error boundary globally for API error handling
@@ -61,7 +61,6 @@ function languageLabels() {
   return {
     en: t('lang.toEnglish'),
     ar: t('lang.toArabic'),
-    kmr: t('lang.toKurdish'),
     bad: t('lang.toBadini')
   };
 }
