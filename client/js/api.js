@@ -9,7 +9,7 @@ function ensureApiPath(raw = '') {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : '/api';
+export const API_BASE = import.meta.env.VITE_API_URL ? ensureApiPath(import.meta.env.VITE_API_URL) : '/api';
 const configuredApiTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
 const API_TIMEOUT_MS = Number.isFinite(configuredApiTimeout) && configuredApiTimeout > 0 ? configuredApiTimeout : 15000;
 const TOKEN_KEY = 'mindvault_token';

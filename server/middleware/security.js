@@ -88,6 +88,7 @@ export function rejectUnsafeMongoKeys(req, res, next) {
 }
 
 export function requireJsonForApi(req, res, next) {
+  if (req.path === '/auth/google/callback' || req.originalUrl?.endsWith('/auth/google/callback')) return next();
   if (!['POST', 'PUT', 'PATCH'].includes(req.method)) return next();
   const hasBody = Number(req.headers['content-length'] || 0) > 0 || req.headers['transfer-encoding'];
   if (!hasBody) return next();
