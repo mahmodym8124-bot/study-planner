@@ -360,7 +360,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   .graph-node-main h3 {
     font-size: 16px;
   }

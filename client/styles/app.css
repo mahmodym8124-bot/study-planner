@@ -2789,13 +2789,23 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   .auth-shell {
     grid-template-columns: 1fr;
   }
 
   .auth-context {
-    display: none;
+    display: grid;
+    order: 0;
+    min-height: auto;
+  }
+
+  .auth-card {
+    order: 1;
+  }
+
+  .auth-context-grid {
+    grid-template-columns: 1fr;
   }
 
   .google-signin-button {
@@ -2820,6 +2830,7 @@ html[dir='rtl'] .lang-option .checkmark {
 
   .hero-meta,
   .features,
+  .split,
   .grid.stats,
   .dashboard-grid,
   .productivity,

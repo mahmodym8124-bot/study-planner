@@ -17,6 +17,10 @@ function getGoogleClientId() {
   return process.env.GOOGLE_CLIENT_ID || '';
 }
 
+function getGoogleClientSecret() {
+  return process.env.GOOGLE_CLIENT_SECRET || '';
+}
+
 function safeGoogleName(payload) {
   const name = String(payload.name || payload.given_name || payload.email?.split('@')[0] || 'MindVault User').trim();
   return (name.length >= 2 ? name : 'MindVault User').slice(0, 80);
@@ -45,6 +49,87 @@ function respondMailNotConfigured(res, context) {
     });
     return true;
   }
+}
+
+function getServerBaseUrl(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim() || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  if (host) return `${proto}://${host}`;
+  return 'http://localhost:8091';
+}
+
+function getClientUrl(req) {
+  if (process.env.CLIENT_URL) {
+    return process.env.CLIENT_URL.replace(/\/$/, '');
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim() || 'http';
+  if (host) {
+    if (host.includes('localhost') || host.includes('127.0.0.1')) return 'http://localhost:5173';
+    return `${proto}://${host}`;
+  }
+  return 'http://localhost:5173';
+}
+
+function createGoogleOAuthClient(req) {
+  const clientId = getGoogleClientId();
+  const clientSecret = getGoogleClientSecret();
+  const redirectUri = `${getServerBaseUrl(req)}/api/auth/google/callback`;
+  const oauthClient = new OAuth2Client(clientId, clientSecret, redirectUri);
+  return { clientId, clientSecret, redirectUri, oauthClient };
+}
+
+function parseGooglePayload(payload, req) {
+  const email = String(payload?.email || '').toLowerCase();
+  if (!payload?.sub || !email || !payload.email_verified) {
+    logSecurityEvent(req, 'google_login_failed', { email }, 'warn');
+    const error = new Error('Google account could not be verified');
+    error.status = 401;
+    throw error;
+  }
+  return { email, googleId: payload.sub, name: safeGoogleName(payload), picture: payload.picture || null };
+}
+
+async function upsertGoogleUser(payload, req) {
+  const { email, googleId, name, picture } = parseGooglePayload(payload, req);
+  let user = await User.findOne({ $or: [{ googleId }, { email }] });
+  const providerUpdate = { $addToSet: { authProviders: 'google' } };
+
+  if (user) {
+    const update = {
+      googleId,
+      verified: true,
+      verificationToken: null,
+      verificationTokenExpires: null,
+      resetToken: null,
+      resetExpires: null
+    };
+    if (!user.name && name) update.name = name;
+    if (picture && !user.avatar) update.avatar = picture;
+    user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
+    await ensureProductivity(user._id);
+    recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
+    logSecurityEvent(req, 'google_login_success', { userId: user._id, email });
+    return { user, created: false };
+  }
+
+  user = await User.create({
+    name,
+    email,
+    password: crypto.randomBytes(32).toString('hex'),
+    googleId,
+    avatar: picture || null,
+    authProviders: ['google'],
+    verified: true
+  });
+  await Productivity.create({ user: user._id, todos: [], reminders: [] });
+  await ensureProductivity(user._id);
+  recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
+  logSecurityEvent(req, 'google_register_success', { userId: user._id, email });
+  return { user, created: true };
 }
 
 export async function register(req, res) {
@@ -147,72 +232,23 @@ export async function googleLogin(req, res) {
     return res.status(503).json({ error: 'Google sign-in is not configured' });
   }
 
-  const ticket = await googleClient.verifyIdToken({
-    idToken: credential,
-    audience: googleClientId
-  });
-  const payload = ticket.getPayload();
-  const email = String(payload?.email || '').toLowerCase();
-
-  if (!payload?.sub || !email || !payload.email_verified) {
-    logSecurityEvent(req, 'google_login_failed', { email }, 'warn');
-    return res.status(401).json({ error: 'Google account could not be verified' });
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: googleClientId
+    });
+    const payload = ticket.getPayload();
+    const { user, created } = await upsertGoogleUser(payload, req);
+    const token = sign(user);
+    return res.status(created ? 201 : 200).json({ data: { token, user: user.toSafeJSON() } });
+  } catch (error) {
+    const status = error.status || 401;
+    return res.status(status).json({ error: error.message || 'Google account could not be verified' });
   }
-
-  let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] });
-  const providerUpdate = { $addToSet: { authProviders: 'google' } };
-
-  if (user) {
-    const update = {
-      googleId: payload.sub,
-      verified: true,
-      verificationToken: null,
-      verificationTokenExpires: null,
-      resetToken: null,
-      resetExpires: null
-    };
-    if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
-    if (payload.picture && !user.avatar) update.avatar = payload.picture;
-    user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
-    await ensureProductivity(user._id);
-    recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
-    logSecurityEvent(req, 'google_login_success', { userId: user._id, email });
-    return res.json({ data: { token: sign(user), user: user.toSafeJSON() } });
-  }
-
-  user = await User.create({
-    name: safeGoogleName(payload),
-    email,
-    password: crypto.randomBytes(32).toString('hex'),
-    googleId: payload.sub,
-    avatar: payload.picture || null,
-    authProviders: ['google'],
-    verified: true
-  });
-  await Productivity.create({ user: user._id, todos: [], reminders: [] });
-  recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
-  logSecurityEvent(req, 'google_register_success', { userId: user._id, email });
-  return res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
 export async function googleOneTap(req, res) {
   return googleLogin(req, res);
-}
-
-function getClientUrl(req) {
-  if (process.env.CLIENT_URL) {
-    return process.env.CLIENT_URL.replace(/\/$/, '');
-  }
-  const referer = req.get('referer');
-  if (referer) {
-    try {
-      const u = new URL(referer);
-      return `${u.protocol}//${u.host}`;
-    } catch {
-      return 'http://localhost:5173';
-    }
-  }
-  return 'http://localhost:5173';
 }
 
 export async function googleCallback(req, res) {
@@ -235,54 +271,81 @@ export async function googleCallback(req, res) {
       audience: googleClientId
     });
     const payload = ticket.getPayload();
-    const email = String(payload?.email || '').toLowerCase();
-
-    if (!payload?.sub || !email || !payload.email_verified) {
-      logSecurityEvent(req, 'google_login_failed', { email }, 'warn');
-      return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Google account could not be verified')}`);
-    }
-
-    let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] });
-    const providerUpdate = { $addToSet: { authProviders: 'google' } };
-
-    if (user) {
-      const update = {
-        googleId: payload.sub,
-        verified: true,
-        verificationToken: null,
-        verificationTokenExpires: null,
-        resetToken: null,
-        resetExpires: null
-      };
-      if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
-      if (payload.picture && !user.avatar) update.avatar = payload.picture;
-      user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
-      await ensureProductivity(user._id);
-      recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
-      logSecurityEvent(req, 'google_login_success', { userId: user._id, email });
-      
-      const token = sign(user);
-      return res.redirect(`${clientUrl}/#/auth/callback?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}`);
-    }
-
-    user = await User.create({
-      name: safeGoogleName(payload),
-      email,
-      password: crypto.randomBytes(32).toString('hex'),
-      googleId: payload.sub,
-      avatar: payload.picture || null,
-      authProviders: ['google'],
-      verified: true
-    });
-    await Productivity.create({ user: user._id, todos: [], reminders: [] });
-    await ensureProductivity(user._id);
-    recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
-    logSecurityEvent(req, 'google_register_success', { userId: user._id, email });
-    
+    const { user } = await upsertGoogleUser(payload, req);
     const token = sign(user);
     return res.redirect(`${clientUrl}/#/auth/callback?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}`);
   } catch (error) {
     console.error('Google Callback Error:', error);
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent(error.message || 'Google authentication failed')}`);
+  }
+}
+
+export async function googleOAuthStart(req, res) {
+  const clientUrl = getClientUrl(req);
+  const { clientId, clientSecret, oauthClient } = createGoogleOAuthClient(req);
+
+  if (!clientId || !clientSecret) {
+    logSecurityEvent(req, 'google_oauth_not_configured', {}, 'warn');
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Google OAuth is not configured')}`);
+  }
+
+  const state = jwt.sign({ nonce: crypto.randomBytes(16).toString('hex') }, getJwtSecret(), { expiresIn: '10m' });
+  const url = oauthClient.generateAuthUrl({
+    access_type: 'online',
+    scope: ['openid', 'email', 'profile'],
+    prompt: 'select_account',
+    state
+  });
+
+  return res.redirect(url);
+}
+
+export async function googleOAuthCallback(req, res) {
+  const clientUrl = getClientUrl(req);
+  const errorParam = String(req.query?.error || '');
+  const code = String(req.query?.code || '');
+  const state = String(req.query?.state || '');
+
+  if (errorParam) {
+    logSecurityEvent(req, 'google_oauth_denied', { error: errorParam }, 'warn');
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent(`Google sign-in failed: ${errorParam}`)}`);
+  }
+
+  if (!code) {
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('No authorization code received from Google')}`);
+  }
+
+  try {
+    if (!state) {
+      return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Invalid OAuth state')}`);
+    }
+    try {
+      jwt.verify(state, getJwtSecret());
+    } catch {
+      return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Invalid OAuth state')}`);
+    }
+
+    const { clientId, clientSecret, oauthClient } = createGoogleOAuthClient(req);
+    if (!clientId || !clientSecret) {
+      logSecurityEvent(req, 'google_oauth_not_configured', {}, 'warn');
+      return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Google OAuth is not configured')}`);
+    }
+
+    const { tokens } = await oauthClient.getToken(code);
+    if (!tokens?.id_token) {
+      return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Google authentication did not return an ID token')}`);
+    }
+
+    const ticket = await oauthClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: clientId
+    });
+    const payload = ticket.getPayload();
+    const { user } = await upsertGoogleUser(payload, req);
+    const token = sign(user);
+    return res.redirect(`${clientUrl}/#/auth/callback?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}`);
+  } catch (error) {
+    console.error('Google OAuth Callback Error:', error);
     return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent(error.message || 'Google authentication failed')}`);
   }
 }

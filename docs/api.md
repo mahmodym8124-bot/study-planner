@@ -30,6 +30,8 @@ Authorization: Bearer <token>
 
 - `POST /api/auth/register` - create account with name, email, and password.
 - `POST /api/auth/login` - log in with email and password.
+- `GET /api/auth/google` - start Google OAuth redirect flow.
+- `GET /api/auth/google/callback` - handle Google OAuth callback and redirect to `/#/auth/callback`.
 - `POST /api/auth/google` - log in or register with a Google Identity Services credential.
 - `POST /api/auth/verify-email` - verify email with a token.
 - `POST /api/auth/forgot-password` - request a password reset email.

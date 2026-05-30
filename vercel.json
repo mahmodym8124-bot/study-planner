@@ -62,6 +62,14 @@
       "destination": "/api/index.js?path=:path*"
     },
     {
+      "source": "/auth/google",
+      "destination": "/api/auth/google"
+    },
+    {
+      "source": "/auth/google/callback",
+      "destination": "/api/auth/google/callback"
+    },
+    {
       "source": "/manifest.webmanifest",
       "destination": "/manifest.webmanifest"
     },

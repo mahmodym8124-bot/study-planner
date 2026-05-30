@@ -2,9 +2,9 @@
 
 This guide covers end-to-end setup for Google Sign-In with the current MindVault implementation:
 
-- Frontend uses Google Identity Services (`credential` flow).
-- Backend verifies the Google ID token using `google-auth-library`.
-- App then returns its own JWT session token.
+- Frontend redirects to the backend `/api/auth/google` endpoint.
+- Backend starts the OAuth 2.0 authorization code flow, exchanges the code for tokens, verifies the ID token, and issues the MindVault JWT.
+- The app then redirects back to `/#/auth/callback` to establish the session.
 
 ## 1. Create or Select a Google Cloud Project
 
@@ -31,14 +31,18 @@ This guide covers end-to-end setup for Google Sign-In with the current MindVault
 2. Click **Create Credentials** -> **OAuth client ID**.
 3. Application type: **Web application**.
 4. Add Authorized JavaScript origins:
-   - `http://localhost:5173` (local dev)
-   - your Vercel domain (for example `https://your-project.vercel.app`)
-   - your custom production domain (if any)
-5. Create and copy the **Client ID**.
+    - `http://localhost:5173` (local dev)
+    - your Vercel domain (for example `https://your-project.vercel.app`)
+    - your custom production domain (if any)
+5. Add Authorized redirect URIs:
+   - `http://localhost:8091/api/auth/google/callback`
+   - `https://your-project.vercel.app/api/auth/google/callback`
+   - your custom production domain equivalent (if any)
+6. Create and copy the **Client ID** and **Client Secret**.
 
 Notes:
-- For the current GIS credential flow in this repo, a backend redirect URI is not required for sign-in.
-- A client secret is not required by the current implementation.
+- The redirect URI must match exactly what you configure in Google Cloud Console.
+- Keep the Client Secret on the server only. Never expose it in `VITE_*` variables.
 
 ## 4. Environment Variables
 
@@ -46,10 +50,11 @@ Set these values in your local `.env` and in hosting environment settings:
 
 ```dotenv
 GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 VITE_GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
 ```
 
-`GOOGLE_CLIENT_ID` is used only by the server to verify ID tokens. `VITE_GOOGLE_CLIENT_ID` is public browser configuration for rendering Google Identity Services. Do not put Google client secrets or private provider keys in any `VITE_*` variable.
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are used by the server to complete the OAuth code exchange and verify ID tokens. `VITE_GOOGLE_CLIENT_ID` is public browser configuration for any client-side Google UI, but it is not required for the redirect flow. Do not put Google client secrets or private provider keys in any `VITE_*` variable.
 
 Related variables used in this project:
 
@@ -64,7 +69,7 @@ Reference template: [../.env.example](../.env.example)
 
 - Frontend auth/API client: [../client/js/api.js](../client/js/api.js)
 - Backend Google verification handler: [../server/controllers/authController.js](../server/controllers/authController.js)
-- Auth routes (`POST /api/auth/google`): [../server/routes/authRoutes.js](../server/routes/authRoutes.js)
+- Auth routes (`GET /api/auth/google`, `GET /api/auth/google/callback`, `POST /api/auth/google`): [../server/routes/authRoutes.js](../server/routes/authRoutes.js)
 - Locale strings (including Google button text/legal links):
   - [../client/locales/en.json](../client/locales/en.json)
   - [../client/locales/ar.json](../client/locales/ar.json)
@@ -74,8 +79,8 @@ Reference template: [../.env.example](../.env.example)
 
 1. Run local app:
    - `npm run dev`
-2. Confirm Google sign-in renders and returns a logged-in state.
-3. Confirm backend receives `credential` at `POST /api/auth/google`.
+2. Confirm Google sign-in redirects to Google and returns a logged-in state.
+3. Confirm backend receives the callback at `GET /api/auth/google/callback`.
 4. Run quality checks:
    - `npm run lint`
    - `npm test`

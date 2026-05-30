@@ -118,6 +118,20 @@
   }
 }
 
+@media (max-width: 767px) {
+  .error-recovery-actions {
+    flex-direction: column;
+  }
+
+  .error-recovery-actions .btn {
+    width: 100%;
+  }
+
+  .error-recovery-actions .btn:first-child {
+    max-width: none;
+  }
+}
+
 /* Error Recovery UI */
 .error-boundary-recovery {
   position: fixed;

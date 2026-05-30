@@ -10,7 +10,7 @@ import {
   closeSidebarAnimation
 } from './animation.js';
 import i18n from './i18n.js';
-import { api, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
+import { API_BASE, api, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
@@ -18,11 +18,8 @@ import { globalErrorBoundary, setupErrorMonitoring } from './error-utils.js';
 import { createGraphExperience } from './graph.js';
 
 const t = i18n.t.bind(i18n);
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const SUPPORTED_LANGUAGES = ['en', 'ar', 'bad'];
-let googleIdentityPromise;
 let workspaceLoading = false;
-let googlePromptShown = false;
 
 // Expose error boundary globally for API error handling
 window.__errorBoundary = globalErrorBoundary;
@@ -180,23 +177,6 @@ async function mountAmbientBackground() {
   ambientMounted = true;
 }
 
-function loadGoogleIdentity() {
-  if (window.google?.accounts?.id) return Promise.resolve(window.google);
-  if (googleIdentityPromise) return googleIdentityPromise;
-  googleIdentityPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-google-identity], script[src*="accounts.google.com/gsi/client"]');
-    const script = existing || document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.dataset.googleIdentity = 'true';
-    script.onload = () => resolve(window.google);
-    script.onerror = () => reject(new Error('Google sign-in failed to load'));
-    if (!existing) document.head.appendChild(script);
-  });
-  return googleIdentityPromise;
-}
-
 async function handleAuthCallback() {
   const queryStr = routeQuery();
   const params = new URLSearchParams(queryStr);
@@ -237,38 +217,6 @@ async function handleAuthCallback() {
   }
 }
 
-async function completeGoogleAuth(response, authRequest = api.googleLogin) {
-  if (!response?.credential) {
-    toast(t('auth.googleFailed'), 'error');
-    return;
-  }
-
-  setAuthProgress(t('auth.googleVerifying'));
-  try {
-    const { token, user } = await authRequest({ credential: response.credential });
-    storage.token = token;
-    setState({ user, isOffline: false });
-    setAuthProgress(t('auth.openingWorkspace'));
-    toast(t('toast.workspaceOpened'));
-    workspaceLoading = true;
-    route('/app/dashboard');
-    loadWorkspace().then(() => {
-      workspaceLoading = false;
-      renderCurrentAppView();
-    }).catch(() => {
-      workspaceLoading = false;
-      renderCurrentAppView();
-    });
-  } catch (error) {
-    setAuthProgress(t('auth.signInReady'), false);
-    toast(error.message || t('auth.googleFailed'), 'error');
-  }
-}
-
-async function handleGoogleOneTap(response) {
-  return completeGoogleAuth(response, api.googleOneTap);
-}
-
 function setAuthProgress(message, busy = true) {
   const panel = document.querySelector('#auth-progress');
   if (!panel) return;
@@ -280,81 +228,24 @@ function setAuthProgress(message, busy = true) {
   if (text) text.textContent = message;
 }
 
-function isMobileAuthViewport() {
-  return window.matchMedia('(max-width: 760px)').matches;
+function getGoogleOAuthRedirectUrl() {
+  const apiUrl = new URL(API_BASE || '/api', window.location.origin);
+  const apiPath = apiUrl.pathname.replace(/\/$/, '');
+  apiUrl.pathname = `${apiPath}/auth/google`;
+  apiUrl.search = '';
+  apiUrl.hash = '';
+  return apiUrl.toString();
 }
 
-function renderGoogleFallbackButton(google, button, block) {
-  const trigger = document.querySelector('#google-one-tap-btn');
-  if (trigger) trigger.hidden = true;
-  button.hidden = false;
-  button.innerHTML = '';
-  const buttonWidth = Math.min(400, Math.max(200, Math.round(block.getBoundingClientRect().width || 300)));
-  google.accounts.id.renderButton(button, {
-    type: 'standard',
-    theme: state.theme === 'light' ? 'outline' : 'filled_black',
-    size: 'large',
-    text: 'continue_with',
-    shape: 'pill',
-    width: buttonWidth,
-    locale: i18n.resolvedLanguage || i18n.language || 'en'
-  });
-}
-
-async function showGoogleOneTap({ interactive = false } = {}) {
-  const block = document.querySelector('#google-auth-block');
-  const button = document.querySelector('#google-signin-button');
-  if (!block || !button) return;
-
-  try {
-    if (interactive) setAuthProgress(t('auth.googlePrompt'));
-    const google = await loadGoogleIdentity();
-    google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        if (interactive && !isMobileAuthViewport()) renderGoogleFallbackButton(google, button, block);
-        setAuthProgress(t('auth.googleReady'), false);
-      }
-    });
-  } catch (error) {
-    setAuthProgress(t('auth.googleFailed'), false);
-    toast(error.message || t('auth.googleFailed'), 'error');
-  }
-}
-
-async function setupGoogleAuthButton() {
+function setupGoogleAuthButton() {
   const block = document.querySelector('#google-auth-block');
   const trigger = document.querySelector('#google-one-tap-btn');
   if (!block || !trigger) return;
-  if (!GOOGLE_CLIENT_ID) {
-    setAuthProgress(t('auth.signInReady'), false);
-    block.hidden = true;
-    return;
-  }
-
-  try {
-    setAuthProgress(t('auth.preparingSignIn'));
-    const google = await loadGoogleIdentity();
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleOneTap,
-      auto_select: true,
-      cancel_on_tap_outside: true,
-      use_fedcm_for_prompt: true
-    });
-    setAuthProgress(t('auth.googleReady'), false);
-    trigger.onclick = (event) => {
-      event.preventDefault();
-      showGoogleOneTap({ interactive: true });
-    };
-    if (!googlePromptShown) {
-      googlePromptShown = true;
-      window.setTimeout(() => showGoogleOneTap(), 250);
-    }
-  } catch (err) {
-    console.warn('Google Sign-In failed to load or render:', err);
-    setAuthProgress(t('auth.googleFailed'), false);
-    block.hidden = true;
-  }
+  setAuthProgress(t('auth.signInReady'), false);
+  trigger.onclick = (event) => {
+    event.preventDefault();
+    window.location.href = getGoogleOAuthRedirectUrl();
+  };
 }
 
 function unmountAmbientBackground() {
@@ -386,6 +277,7 @@ function routeQuery(value = state.route || '/') {
 function routeFromLocation() {
   if (location.hash) return location.hash.replace('#', '') || '/';
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  if (!state.user && normalizedPath === '/workspace') return '/';
   const routeAlias = DIRECT_ROUTE_ALIASES.get(normalizedPath);
   if (!routeAlias) return '/';
   const query = location.search || '';
@@ -425,9 +317,6 @@ async function bootstrap() {
   try {
     initGlobalInteractions();
     renderLoadingScreen();
-
-    // Preload Google Identity script early so it's ready when user reaches login
-    if (GOOGLE_CLIENT_ID) loadGoogleIdentity().catch(() => {});
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations()
