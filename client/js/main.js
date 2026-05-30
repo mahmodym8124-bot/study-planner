@@ -183,7 +183,7 @@ function loadGoogleIdentity() {
   if (window.google?.accounts?.id) return Promise.resolve(window.google);
   if (googleIdentityPromise) return googleIdentityPromise;
   googleIdentityPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-google-identity]');
+    const existing = document.querySelector('script[data-google-identity], script[src*="accounts.google.com/gsi/client"]');
     const script = existing || document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
@@ -236,14 +236,14 @@ async function handleAuthCallback() {
   }
 }
 
-async function handleGoogleCredential(response) {
+async function completeGoogleAuth(response, authRequest = api.googleLogin) {
   if (!response?.credential) {
     toast(t('auth.googleFailed'), 'error');
     return;
   }
 
   try {
-    const { token, user } = await api.googleLogin({ credential: response.credential });
+    const { token, user } = await authRequest({ credential: response.credential });
     storage.token = token;
     setState({ user, isOffline: false });
     toast(t('toast.workspaceOpened'));
@@ -261,10 +261,46 @@ async function handleGoogleCredential(response) {
   }
 }
 
-async function setupGoogleAuthButton() {
+async function handleGoogleOneTap(response) {
+  return completeGoogleAuth(response, api.googleOneTap);
+}
+
+function renderGoogleFallbackButton(google, button, block) {
+  button.hidden = false;
+  button.innerHTML = '';
+  const buttonWidth = Math.min(400, Math.max(200, Math.round(block.getBoundingClientRect().width || 300)));
+  google.accounts.id.renderButton(button, {
+    type: 'standard',
+    theme: state.theme === 'light' ? 'outline' : 'filled_black',
+    size: 'large',
+    text: 'continue_with',
+    shape: 'rectangular',
+    width: buttonWidth,
+    locale: i18n.resolvedLanguage || i18n.language || 'en'
+  });
+}
+
+async function showGoogleOneTap() {
   const block = document.querySelector('#google-auth-block');
   const button = document.querySelector('#google-signin-button');
   if (!block || !button) return;
+
+  try {
+    const google = await loadGoogleIdentity();
+    google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        renderGoogleFallbackButton(google, button, block);
+      }
+    });
+  } catch (error) {
+    toast(error.message || t('auth.googleFailed'), 'error');
+  }
+}
+
+async function setupGoogleAuthButton() {
+  const block = document.querySelector('#google-auth-block');
+  const trigger = document.querySelector('#google-one-tap-btn');
+  if (!block || !trigger) return;
   if (!GOOGLE_CLIENT_ID) {
     block.hidden = true;
     return;
@@ -272,27 +308,17 @@ async function setupGoogleAuthButton() {
 
   try {
     const google = await loadGoogleIdentity();
-
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCredential,
-      auto_select: true, // Seamless one-click automatic login for returning authenticated users
-      // Use FedCM where available for fastest, inline credential selection
+      callback: handleGoogleOneTap,
+      auto_select: false,
+      cancel_on_tap_outside: true,
       use_fedcm_for_prompt: true
     });
-    // Show One Tap inline prompt — no popup window
-    google.accounts.id.prompt();
-    button.innerHTML = '';
-    const buttonWidth = Math.min(400, Math.max(200, Math.round(block.getBoundingClientRect().width || 300)));
-    google.accounts.id.renderButton(button, {
-      type: 'standard',
-      theme: state.theme === 'light' ? 'outline' : 'filled_black',
-      size: 'large',
-      text: 'continue_with',
-      shape: 'rectangular',
-      width: buttonWidth,
-      locale: i18n.resolvedLanguage || i18n.language || 'en'
-    });
+    trigger.onclick = (event) => {
+      event.preventDefault();
+      showGoogleOneTap();
+    };
   } catch (err) {
     console.warn('Google Sign-In failed to load or render:', err);
     block.hidden = true;
@@ -684,7 +710,8 @@ function renderAuth(signup) {
         <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
         <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
         <div class="google-auth-block" id="google-auth-block">
-          <div id="google-signin-button" class="google-signin-button" aria-label="${t('auth.continueWithGoogle')}"></div>
+          <button type="button" class="btn-google" id="google-one-tap-btn"><span class="google-mark" aria-hidden="true">G</span> ${t('auth.continueWithGoogle')}</button>
+          <div id="google-signin-button" class="google-signin-button" aria-label="${t('auth.continueWithGoogle')}" hidden></div>
           <div class="auth-divider"><span>${t('auth.or')}</span></div>
         </div>
         ${signup ? `<div class="field"><label for="auth-name">${t('auth.name')}</label><input id="auth-name" class="input" name="name" autocomplete="name" required minlength="2" placeholder="${t('auth.namePlaceholder')}" /></div>` : ''}

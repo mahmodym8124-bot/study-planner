@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
-import { googleCallback, googleLogin, login, me, register, refreshToken, requestPasswordReset, resetPassword, verifyEmail } from '../controllers/authController.js';
+import { googleCallback, googleLogin, googleOneTap, login, me, register, refreshToken, requestPasswordReset, resetPassword, verifyEmail } from '../controllers/authController.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -37,6 +37,7 @@ function validateResetPassword(req, res, next) {
 router.post('/register', [body('name').trim().isLength({ min: 2, max: 80 }), body('email').isEmail().normalizeEmail(), passwordValidator], validate, asyncHandler(register));
 router.post('/login', [body('email').isEmail().normalizeEmail(), body('password').isLength({ min: 8 })], validate, asyncHandler(login));
 router.post('/google', [body('credential').isString().isLength({ min: 20, max: 4096 })], validate, asyncHandler(googleLogin));
+router.post('/google/onetap', [body('credential').isString().isLength({ min: 20, max: 4096 })], validate, asyncHandler(googleOneTap));
 router.post('/google/callback', [body('credential').isString().isLength({ min: 20, max: 4096 })], validate, asyncHandler(googleCallback));
 router.post('/verify-email', [body('token').isString().isLength({ min: 64, max: 64 }).isHexadecimal()], validate, asyncHandler(verifyEmail));
 router.post('/forgot-password', forgotPasswordLimiter, [body('email').isEmail().normalizeEmail()], validate, asyncHandler(requestPasswordReset));

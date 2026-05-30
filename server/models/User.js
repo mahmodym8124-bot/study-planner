@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   password: { type: String, required: true, minlength: 8, select: false },
   googleId: { type: String, unique: true, sparse: true, index: true },
+  avatar: { type: String, default: null },
   authProviders: { type: [String], default: ['password'], enum: ['password', 'google'] },
   verified: { type: Boolean, default: false },
   verificationToken: { type: String, minlength: 64, maxlength: 64, select: false, index: true },
@@ -31,7 +32,7 @@ userSchema.methods.comparePassword = function comparePassword(candidate) {
 };
 
 userSchema.methods.toSafeJSON = function toSafeJSON() {
-  return { _id: this._id, name: this.name, email: this.email, theme: this.theme };
+  return { _id: this._id, name: this.name, email: this.email, avatar: this.avatar, theme: this.theme };
 };
 
 export default mongoose.model('User', userSchema);

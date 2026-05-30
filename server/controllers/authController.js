@@ -172,6 +172,7 @@ export async function googleLogin(req, res) {
       resetExpires: null
     };
     if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
+    if (payload.picture && !user.avatar) update.avatar = payload.picture;
     user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
     await ensureProductivity(user._id);
     recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
@@ -184,6 +185,7 @@ export async function googleLogin(req, res) {
     email,
     password: crypto.randomBytes(32).toString('hex'),
     googleId: payload.sub,
+    avatar: payload.picture || null,
     authProviders: ['google'],
     verified: true
   });
@@ -191,6 +193,10 @@ export async function googleLogin(req, res) {
   recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
   logSecurityEvent(req, 'google_register_success', { userId: user._id, email });
   return res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
+}
+
+export async function googleOneTap(req, res) {
+  return googleLogin(req, res);
 }
 
 function getClientUrl(req) {
@@ -249,6 +255,7 @@ export async function googleCallback(req, res) {
         resetExpires: null
       };
       if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
+      if (payload.picture && !user.avatar) update.avatar = payload.picture;
       user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
       await ensureProductivity(user._id);
       recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
@@ -263,6 +270,7 @@ export async function googleCallback(req, res) {
       email,
       password: crypto.randomBytes(32).toString('hex'),
       googleId: payload.sub,
+      avatar: payload.picture || null,
       authProviders: ['google'],
       verified: true
     });

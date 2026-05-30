@@ -138,7 +138,7 @@ describe('Auth Routes', () => {
   });
 
   describe('POST /api/auth/google', () => {
-    it('should require Google auth configuration', async () => {
+    it.each(['/api/auth/google', '/api/auth/google/onetap'])('should require Google auth configuration for %s', async (path) => {
       const previousClientId = process.env.GOOGLE_CLIENT_ID;
       const previousViteClientId = process.env.VITE_GOOGLE_CLIENT_ID;
       delete process.env.GOOGLE_CLIENT_ID;
@@ -146,7 +146,7 @@ describe('Auth Routes', () => {
 
       try {
         const res = await request(app)
-          .post('/api/auth/google')
+          .post(path)
           .send({ credential: 'fake-google-credential-with-enough-length' });
 
         expect(res.status).toBe(503);

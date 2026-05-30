@@ -783,12 +783,55 @@ body.light .floating-card {
   display: none;
 }
 
+.btn-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  color: #202124;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-google:hover {
+  background: #f8fafd;
+  border-color: #c9ced6;
+  transform: translateY(-1px);
+}
+
+.btn-google svg {
+  width: 18px;
+  height: 18px;
+}
+
+.google-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: #1a73e8;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .google-signin-button {
   display: flex;
   justify-content: center;
   min-height: 44px;
   overflow: hidden;
   color-scheme: light;
+}
+
+.google-signin-button[hidden] {
+  display: none;
 }
 
 
