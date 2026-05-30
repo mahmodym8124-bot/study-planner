@@ -10,7 +10,7 @@ import {
   closeSidebarAnimation
 } from './animation.js';
 import i18n from './i18n.js';
-import { api, API_BASE, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
+import { api, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
@@ -236,6 +236,31 @@ async function handleAuthCallback() {
   }
 }
 
+async function handleGoogleCredential(response) {
+  if (!response?.credential) {
+    toast(t('auth.googleFailed'), 'error');
+    return;
+  }
+
+  try {
+    const { token, user } = await api.googleLogin({ credential: response.credential });
+    storage.token = token;
+    setState({ user, isOffline: false });
+    toast(t('toast.workspaceOpened'));
+    workspaceLoading = true;
+    route('/app/dashboard');
+    loadWorkspace().then(() => {
+      workspaceLoading = false;
+      renderCurrentAppView();
+    }).catch(() => {
+      workspaceLoading = false;
+      renderCurrentAppView();
+    });
+  } catch (error) {
+    toast(error.message || t('auth.googleFailed'), 'error');
+  }
+}
+
 async function setupGoogleAuthButton() {
   const block = document.querySelector('#google-auth-block');
   const button = document.querySelector('#google-signin-button');
@@ -248,18 +273,9 @@ async function setupGoogleAuthButton() {
   try {
     const google = await loadGoogleIdentity();
 
-    // Dynamically resolve absolute login redirect callback URL for Google Identity Services
-    let loginUri;
-    if (API_BASE.startsWith('http://') || API_BASE.startsWith('https://')) {
-      loginUri = `${API_BASE}/auth/google/callback`;
-    } else {
-      loginUri = `${window.location.origin}${API_BASE}/auth/google/callback`;
-    }
-
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      ux_mode: 'redirect',
-      login_uri: loginUri,
+      callback: handleGoogleCredential,
       auto_select: true, // Seamless one-click automatic login for returning authenticated users
       // Use FedCM where available for fastest, inline credential selection
       use_fedcm_for_prompt: true
