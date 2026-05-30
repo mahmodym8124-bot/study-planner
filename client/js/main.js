@@ -22,6 +22,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const SUPPORTED_LANGUAGES = ['en', 'ar', 'bad'];
 let googleIdentityPromise;
 let workspaceLoading = false;
+let googlePromptShown = false;
 
 // Expose error boundary globally for API error handling
 window.__errorBoundary = globalErrorBoundary;
@@ -242,10 +243,12 @@ async function completeGoogleAuth(response, authRequest = api.googleLogin) {
     return;
   }
 
+  setAuthProgress(t('auth.googleVerifying'));
   try {
     const { token, user } = await authRequest({ credential: response.credential });
     storage.token = token;
     setState({ user, isOffline: false });
+    setAuthProgress(t('auth.openingWorkspace'));
     toast(t('toast.workspaceOpened'));
     workspaceLoading = true;
     route('/app/dashboard');
@@ -257,6 +260,7 @@ async function completeGoogleAuth(response, authRequest = api.googleLogin) {
       renderCurrentAppView();
     });
   } catch (error) {
+    setAuthProgress(t('auth.signInReady'), false);
     toast(error.message || t('auth.googleFailed'), 'error');
   }
 }
@@ -265,7 +269,24 @@ async function handleGoogleOneTap(response) {
   return completeGoogleAuth(response, api.googleOneTap);
 }
 
+function setAuthProgress(message, busy = true) {
+  const panel = document.querySelector('#auth-progress');
+  if (!panel) return;
+
+  const text = panel.querySelector('[data-auth-progress-text]');
+  panel.hidden = false;
+  panel.classList.toggle('is-busy', busy);
+  panel.setAttribute('aria-busy', busy ? 'true' : 'false');
+  if (text) text.textContent = message;
+}
+
+function isMobileAuthViewport() {
+  return window.matchMedia('(max-width: 760px)').matches;
+}
+
 function renderGoogleFallbackButton(google, button, block) {
+  const trigger = document.querySelector('#google-one-tap-btn');
+  if (trigger) trigger.hidden = true;
   button.hidden = false;
   button.innerHTML = '';
   const buttonWidth = Math.min(400, Math.max(200, Math.round(block.getBoundingClientRect().width || 300)));
@@ -274,25 +295,28 @@ function renderGoogleFallbackButton(google, button, block) {
     theme: state.theme === 'light' ? 'outline' : 'filled_black',
     size: 'large',
     text: 'continue_with',
-    shape: 'rectangular',
+    shape: 'pill',
     width: buttonWidth,
     locale: i18n.resolvedLanguage || i18n.language || 'en'
   });
 }
 
-async function showGoogleOneTap() {
+async function showGoogleOneTap({ interactive = false } = {}) {
   const block = document.querySelector('#google-auth-block');
   const button = document.querySelector('#google-signin-button');
   if (!block || !button) return;
 
   try {
+    if (interactive) setAuthProgress(t('auth.googlePrompt'));
     const google = await loadGoogleIdentity();
     google.accounts.id.prompt((notification) => {
       if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        renderGoogleFallbackButton(google, button, block);
+        if (interactive && !isMobileAuthViewport()) renderGoogleFallbackButton(google, button, block);
+        setAuthProgress(t('auth.googleReady'), false);
       }
     });
   } catch (error) {
+    setAuthProgress(t('auth.googleFailed'), false);
     toast(error.message || t('auth.googleFailed'), 'error');
   }
 }
@@ -302,25 +326,33 @@ async function setupGoogleAuthButton() {
   const trigger = document.querySelector('#google-one-tap-btn');
   if (!block || !trigger) return;
   if (!GOOGLE_CLIENT_ID) {
+    setAuthProgress(t('auth.signInReady'), false);
     block.hidden = true;
     return;
   }
 
   try {
+    setAuthProgress(t('auth.preparingSignIn'));
     const google = await loadGoogleIdentity();
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: handleGoogleOneTap,
-      auto_select: false,
+      auto_select: true,
       cancel_on_tap_outside: true,
       use_fedcm_for_prompt: true
     });
+    setAuthProgress(t('auth.googleReady'), false);
     trigger.onclick = (event) => {
       event.preventDefault();
-      showGoogleOneTap();
+      showGoogleOneTap({ interactive: true });
     };
+    if (!googlePromptShown) {
+      googlePromptShown = true;
+      window.setTimeout(() => showGoogleOneTap(), 250);
+    }
   } catch (err) {
     console.warn('Google Sign-In failed to load or render:', err);
+    setAuthProgress(t('auth.googleFailed'), false);
     block.hidden = true;
   }
 }
@@ -697,7 +729,19 @@ function renderAuth(signup) {
     
     app.innerHTML = `
       <section class="auth-page">
-        <form class="auth-card surface" id="auth-form">
+        <div class="auth-shell">
+          <aside class="auth-context surface" aria-label="MindVault">
+            <div>
+              <a class="brand auth-context-brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
+              <p class="auth-context-copy">${t('auth.authPanelBody')}</p>
+            </div>
+            <div class="auth-context-grid" aria-hidden="true">
+              <span>${t('auth.fastResume')}</span>
+              <span>${t('auth.workspaceSync')}</span>
+              <span>${t('auth.secureAccess')}</span>
+            </div>
+          </aside>
+          <form class="auth-card surface" id="auth-form">
           <div class="auth-toolbar">
             <a class="brand" href="#/"><span class="logo">${icon('vault')}</span>MindVault</a>
             <div class="lang-menu" id="lang-menu-auth">
@@ -708,9 +752,16 @@ function renderAuth(signup) {
             </div>
         </div>
         <h1>${signup ? t('auth.createWorkspace') : t('auth.welcomeBack')}</h1>
-        <p class="muted">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
+        <p class="muted auth-lede">${signup ? t('auth.signupHint') : t('auth.loginHint')}</p>
+        <div class="auth-progress" id="auth-progress" role="status" aria-live="polite" aria-busy="true">
+          <span class="auth-progress-spinner" aria-hidden="true"></span>
+          <span data-auth-progress-text>${t('auth.preparingSignIn')}</span>
+        </div>
         <div class="google-auth-block" id="google-auth-block">
-          <button type="button" class="btn-google" id="google-one-tap-btn"><span class="google-mark" aria-hidden="true">G</span> ${t('auth.continueWithGoogle')}</button>
+          <button type="button" class="btn-google" id="google-one-tap-btn">
+            <span class="google-mark" aria-hidden="true">G</span>
+            <span>${t('auth.continueWithGoogle')}</span>
+          </button>
           <div id="google-signin-button" class="google-signin-button" aria-label="${t('auth.continueWithGoogle')}" hidden></div>
           <div class="auth-divider"><span>${t('auth.or')}</span></div>
         </div>
@@ -724,20 +775,21 @@ function renderAuth(signup) {
           </div>
         </div>
         ${signup ? '' : `<p class="auth-inline-action"><button type="button" id="forgot-password-link">${t('auth.forgotPassword')}</button></p>`}
-        <button class="btn primary" style="width:100%" type="submit">${signup ? t('auth.createAccount') : t('auth.signIn')}</button>
+        <button class="btn primary auth-submit" type="submit">${signup ? t('auth.createAccount') : t('auth.signIn')}</button>
         <p class="switch-auth">
           ${signup ? t('auth.alreadyHave') : t('auth.newHere')}
           <button type="button" id="switch-auth">${signup ? t('auth.signInLink') : t('auth.createOne')}</button>
         </p>
-        <div class="auth-legal-footer" style="text-align: center; margin-top: 1.75rem; padding-top: 1rem; border-top: 1px solid var(--color-border); font-size: 0.8rem; color: var(--color-muted); opacity: 0.8; line-height: 1.4;">
+        <div class="auth-legal-footer">
           ${t('auth.legalAgreement')}
-          <div style="margin-top: 0.25rem;">
-            <a href="#/terms" style="color: var(--color-primary); text-decoration: underline;">${t('auth.termsOfService')}</a>
-            <span style="margin: 0 0.5rem;">&bull;</span>
-            <a href="#/privacy" style="color: var(--color-primary); text-decoration: underline;">${t('auth.privacyPolicy')}</a>
+          <div>
+            <a href="#/terms">${t('auth.termsOfService')}</a>
+            <span>&bull;</span>
+            <a href="#/privacy">${t('auth.privacyPolicy')}</a>
           </div>
         </div>
       </form>
+      </div>
     </section>
   `;
 
@@ -757,7 +809,11 @@ function renderAuth(signup) {
     const payload = Object.fromEntries(new FormData(form));
     try {
       btn.disabled = true;
+      form.querySelectorAll('input, #google-one-tap-btn, #switch-auth, #forgot-password-link').forEach((control) => {
+        if (control) control.disabled = true;
+      });
       btn.textContent = signup ? t('auth.creating') : t('auth.opening');
+      setAuthProgress(signup ? t('auth.creatingWorkspace') : t('auth.checkingCredentials'));
       
       const data = signup ? await api.register(payload) : await api.login(payload);
       if (signup) {
@@ -769,6 +825,7 @@ function renderAuth(signup) {
       const isOffline = data.token.startsWith('offline-token:');
       storage.token = data.token;
       setState({ user: data.user, isOffline });
+      setAuthProgress(t('auth.openingWorkspace'));
       
       if (isOffline) toast(t('toast.localOpened'), 'info');
       else toast(t('toast.workspaceOpened'));
@@ -786,6 +843,10 @@ function renderAuth(signup) {
     } catch (error) {
       btn.disabled = false;
       btn.textContent = originalText;
+      form.querySelectorAll('input, #google-one-tap-btn, #switch-auth, #forgot-password-link').forEach((control) => {
+        if (control) control.disabled = false;
+      });
+      setAuthProgress(t('auth.signInReady'), false);
       
       let message = error.message;
       if (message === 'Invalid email or password' && !signup) {

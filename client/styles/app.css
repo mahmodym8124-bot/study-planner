@@ -747,12 +747,65 @@ body.light .floating-card {
   padding: 24px;
 }
 
+.auth-shell {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 440px);
+  gap: clamp(18px, 4vw, 34px);
+  align-items: stretch;
+}
+
+.auth-context,
 .auth-card {
-  width: min(440px, 100%);
+  width: 100%;
   max-width: 100%;
   padding: var(--space-6);
   border-radius: var(--radius);
   box-shadow: var(--shadow-glow-strong);
+}
+
+.auth-context {
+  display: grid;
+  align-content: space-between;
+  min-height: 500px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(45, 212, 191, 0.18), transparent 18rem),
+    radial-gradient(circle at 82% 78%, rgba(14, 165, 233, 0.16), transparent 18rem),
+    var(--surface);
+}
+
+.auth-context-brand {
+  margin-bottom: clamp(1.8rem, 6vw, 4.5rem);
+}
+
+.auth-context-copy {
+  max-width: 30rem;
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.5rem, 4vw, 2.85rem);
+  font-weight: 850;
+  line-height: 1.05;
+}
+
+.auth-context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: var(--space-6);
+}
+
+.auth-context-grid span {
+  min-height: 76px;
+  display: grid;
+  align-content: end;
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .auth-toolbar {
@@ -773,6 +826,49 @@ body.light .floating-card {
   line-height: 1.04;
 }
 
+.auth-lede {
+  margin-top: 0;
+  line-height: 1.65;
+}
+
+.auth-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 42px;
+  margin: var(--space-4) 0;
+  padding: 0.72rem 0.85rem;
+  border-radius: var(--radius);
+  background: rgba(45, 212, 191, 0.08);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.auth-progress[hidden] {
+  display: none;
+}
+
+.auth-progress-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+}
+
+.auth-progress.is-busy .auth-progress-spinner {
+  animation: spin 0.75s linear infinite;
+}
+
+.auth-progress:not(.is-busy) .auth-progress-spinner {
+  border-color: rgba(45, 212, 191, 0.22);
+  background: var(--brand);
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.22);
+}
+
 .google-auth-block {
   display: grid;
   gap: 0.85rem;
@@ -789,22 +885,34 @@ body.light .floating-card {
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
-  min-height: 44px;
-  padding: 0.75rem 1rem;
-  background: #fff;
-  color: #202124;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
+  min-height: 48px;
+  padding: 0.78rem 1rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(45, 212, 191, 0.08)),
+    var(--card);
+  color: var(--text);
+  border: 1px solid rgba(45, 212, 191, 0.16);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .btn-google:hover {
-  background: #f8fafd;
-  border-color: #c9ced6;
-  transform: translateY(-1px);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.11), rgba(45, 212, 191, 0.12)),
+    var(--card-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(45, 212, 191, 0.12);
+}
+
+.btn-google:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-google svg {
@@ -815,17 +923,24 @@ body.light .floating-card {
 .google-mark {
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
-  color: #1a73e8;
-  font-weight: 800;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: conic-gradient(from -45deg, #4285f4 0 25%, #34a853 0 50%, #fbbc05 0 75%, #ea4335 0);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 900;
   line-height: 1;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
 }
 
 .google-signin-button {
   display: flex;
   justify-content: center;
-  min-height: 44px;
+  min-height: 48px;
+  padding: 0.35rem;
+  border-radius: var(--radius);
+  background: var(--card);
   overflow: hidden;
   color-scheme: light;
 }
@@ -880,12 +995,41 @@ body.light .floating-card {
 .switch-auth {
   color: var(--muted);
   text-align: center;
+  margin-bottom: 0;
 }
 
 .switch-auth button {
   background: transparent;
   color: var(--brand);
   font-weight: 780;
+}
+
+.auth-submit {
+  width: 100%;
+}
+
+.auth-legal-footer {
+  margin-top: 1.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.auth-legal-footer div {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+
+.auth-legal-footer a {
+  color: var(--brand);
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Forgot password link alignment and styling */
@@ -2646,6 +2790,18 @@ html[dir='rtl'] .lang-option .checkmark {
 }
 
 @media (max-width: 760px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-context {
+    display: none;
+  }
+
+  .google-signin-button {
+    display: none !important;
+  }
+
   .landing {
     width: min(100% - 20px, 1180px);
   }
@@ -2946,9 +3102,18 @@ html[dir='rtl'] .lang-option .checkmark {
     padding: var(--space-5);
   }
 
+  .auth-context {
+    padding: var(--space-5);
+  }
+
   .auth-card h1 {
     font-size: 1.95rem;
     line-height: 1.08;
+  }
+
+  .auth-progress,
+  .btn-google {
+    font-size: 0.82rem;
   }
 
   .google-signin-button {
@@ -3211,7 +3376,7 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .auth-page {
-    padding: 48px;
+    padding: 32px;
     background: 
       radial-gradient(circle at 12% 16%, rgba(101, 228, 212, 0.08), transparent 36rem),
       radial-gradient(circle at 88% 84%, rgba(167, 139, 250, 0.08), transparent 36rem),
@@ -3219,13 +3384,13 @@ html[dir='rtl'] .lang-option .checkmark {
   }
 
   .auth-card {
-    padding: var(--space-8);
+    padding: var(--space-6);
     border: 0;
     box-shadow: var(--shadow-glow-strong);
   }
 
   .auth-card h1 {
-    font-size: 2.55rem;
+    font-size: 2.35rem;
   }
 
   .main {
