@@ -193,6 +193,92 @@ export async function googleLogin(req, res) {
   return res.status(201).json({ data: { token: sign(user), user: user.toSafeJSON() } });
 }
 
+function getClientUrl(req) {
+  if (process.env.CLIENT_URL) {
+    return process.env.CLIENT_URL.replace(/\/$/, '');
+  }
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      return 'http://localhost:5173';
+    }
+  }
+  return 'http://localhost:5173';
+}
+
+export async function googleCallback(req, res) {
+  const clientUrl = getClientUrl(req);
+  const { credential } = req.body;
+  const googleClientId = getGoogleClientId();
+
+  if (!googleClientId) {
+    logSecurityEvent(req, 'google_login_not_configured', {}, 'warn');
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Google sign-in is not configured')}`);
+  }
+
+  if (!credential) {
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('No credential received from Google')}`);
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: googleClientId
+    });
+    const payload = ticket.getPayload();
+    const email = String(payload?.email || '').toLowerCase();
+
+    if (!payload?.sub || !email || !payload.email_verified) {
+      logSecurityEvent(req, 'google_login_failed', { email }, 'warn');
+      return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent('Google account could not be verified')}`);
+    }
+
+    let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] });
+    const providerUpdate = { $addToSet: { authProviders: 'google' } };
+
+    if (user) {
+      const update = {
+        googleId: payload.sub,
+        verified: true,
+        verificationToken: null,
+        verificationTokenExpires: null,
+        resetToken: null,
+        resetExpires: null
+      };
+      if (!user.name && safeGoogleName(payload)) update.name = safeGoogleName(payload);
+      user = await User.findByIdAndUpdate(user._id, { $set: update, ...providerUpdate }, { new: true });
+      await ensureProductivity(user._id);
+      recordActivitySoon(user._id, 'Unlocked vault', 'Signed in with Google', 'auth', user._id);
+      logSecurityEvent(req, 'google_login_success', { userId: user._id, email });
+      
+      const token = sign(user);
+      return res.redirect(`${clientUrl}/#/auth/callback?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}`);
+    }
+
+    user = await User.create({
+      name: safeGoogleName(payload),
+      email,
+      password: crypto.randomBytes(32).toString('hex'),
+      googleId: payload.sub,
+      authProviders: ['google'],
+      verified: true
+    });
+    await Productivity.create({ user: user._id, todos: [], reminders: [] });
+    await ensureProductivity(user._id);
+    recordActivitySoon(user._id, 'Created vault', 'Google account', 'auth', user._id);
+    logSecurityEvent(req, 'google_register_success', { userId: user._id, email });
+    
+    const token = sign(user);
+    return res.redirect(`${clientUrl}/#/auth/callback?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}`);
+  } catch (error) {
+    console.error('Google Callback Error:', error);
+    return res.redirect(`${clientUrl}/#/login?error=${encodeURIComponent(error.message || 'Google authentication failed')}`);
+  }
+}
+
 export async function requestPasswordReset(req, res, next) {
   const { email } = req.body;
   const genericMessage = { message: 'If an account exists, a reset email has been sent.' };

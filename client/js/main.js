@@ -10,7 +10,7 @@ import {
   closeSidebarAnimation
 } from './animation.js';
 import i18n from './i18n.js';
-import { api, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
+import { api, API_BASE, clearAllAppData, getDailyScore, incrementDailyScore, storage } from './api.js';
 import { state, setState, formatDate, uid } from './store.js';
 import { icon, toast, escapeHTML, markdown, debounce, modal } from './ui.js';
 import { setupLanguageMenu } from './language-menu.js';
@@ -21,6 +21,7 @@ const t = i18n.t.bind(i18n);
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const SUPPORTED_LANGUAGES = ['en', 'ar', 'bad'];
 let googleIdentityPromise;
+let workspaceLoading = false;
 
 // Expose error boundary globally for API error handling
 window.__errorBoundary = globalErrorBoundary;
@@ -114,7 +115,8 @@ const PUBLIC_ROUTES = new Set([
   '/reset-password',
   '/verify-email',
   '/privacy',
-  '/terms'
+  '/terms',
+  '/auth/callback'
 ]);
 const DIRECT_ROUTE_ALIASES = new Map([
   ['/', '/'],
@@ -126,6 +128,7 @@ const DIRECT_ROUTE_ALIASES = new Map([
   ['/verify-email', '/verify-email'],
   ['/privacy', '/privacy'],
   ['/terms', '/terms'],
+  ['/auth/callback', '/auth/callback'],
   ['/workspace', '/app/dashboard'],
   ['/notes', '/app/notes'],
   ['/ideas', '/app/ideas'],
@@ -193,6 +196,46 @@ function loadGoogleIdentity() {
   return googleIdentityPromise;
 }
 
+async function handleAuthCallback() {
+  const queryStr = routeQuery();
+  const params = new URLSearchParams(queryStr);
+  const token = params.get('token');
+  const email = params.get('email');
+  const name = params.get('name');
+
+  if (!token) {
+    toast(t('auth.googleFailed'), 'error');
+    route('/login');
+    return;
+  }
+
+  try {
+    storage.token = token;
+    setState({
+      user: {
+        name: name ? decodeURIComponent(name) : 'MindVault User',
+        email: email ? decodeURIComponent(email) : ''
+      },
+      isOffline: false
+    });
+    toast(t('toast.workspaceOpened'));
+    
+    // Optimistic: route to dashboard immediately, load data in background
+    workspaceLoading = true;
+    route('/app/dashboard');
+    loadWorkspace().then(() => {
+      workspaceLoading = false;
+      renderCurrentAppView();
+    }).catch(() => {
+      workspaceLoading = false;
+      renderCurrentAppView();
+    });
+  } catch (error) {
+    toast(error.message || t('auth.googleFailed'), 'error');
+    route('/login');
+  }
+}
+
 async function setupGoogleAuthButton() {
   const block = document.querySelector('#google-auth-block');
   const button = document.querySelector('#google-signin-button');
@@ -204,23 +247,25 @@ async function setupGoogleAuthButton() {
 
   try {
     const google = await loadGoogleIdentity();
+
+    // Dynamically resolve absolute login redirect callback URL for Google Identity Services
+    let loginUri;
+    if (API_BASE.startsWith('http://') || API_BASE.startsWith('https://')) {
+      loginUri = `${API_BASE}/auth/google/callback`;
+    } else {
+      loginUri = `${window.location.origin}${API_BASE}/auth/google/callback`;
+    }
+
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      callback: async ({ credential }) => {
-        if (!credential) return;
-        try {
-          const data = await api.googleLogin({ credential });
-          storage.token = data.token;
-          setState({ user: data.user, isOffline: false });
-          toast(t('toast.workspaceOpened'));
-          renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
-          await loadWorkspace();
-          route('/app/dashboard');
-        } catch (error) {
-          toast(error.message || t('auth.googleFailed'), 'error');
-        }
-      }
+      ux_mode: 'redirect',
+      login_uri: loginUri,
+      auto_select: true, // Seamless one-click automatic login for returning authenticated users
+      // Use FedCM where available for fastest, inline credential selection
+      use_fedcm_for_prompt: true
     });
+    // Show One Tap inline prompt — no popup window
+    google.accounts.id.prompt();
     button.innerHTML = '';
     const buttonWidth = Math.min(400, Math.max(200, Math.round(block.getBoundingClientRect().width || 300)));
     google.accounts.id.renderButton(button, {
@@ -307,6 +352,9 @@ async function bootstrap() {
     initGlobalInteractions();
     renderLoadingScreen();
 
+    // Preload Google Identity script early so it's ready when user reaches login
+    if (GOOGLE_CLIENT_ID) loadGoogleIdentity().catch(() => {});
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations()
         .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
@@ -322,10 +370,20 @@ async function bootstrap() {
     if (storage.token) {
       const isOffline = storage.token.startsWith('offline-token:');
       try {
-        renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
+        // Authenticate first (fast), then load workspace in parallel with routing
         const { user } = await api.me();
         setState({ user, isOffline });
-        await loadWorkspace();
+        // Route immediately, load workspace data in background
+        workspaceLoading = true;
+        route(routeFromLocation());
+        loadWorkspace().then(() => {
+          workspaceLoading = false;
+          renderCurrentAppView();
+        }).catch(() => {
+          workspaceLoading = false;
+          renderCurrentAppView();
+        });
+        return; // Already routed above
       } catch {
         storage.token = null;
         setState({ isOffline: false });
@@ -490,6 +548,7 @@ function render() {
     if (!PUBLIC_ROUTES.has(currentRoute) && !currentRoute.startsWith('/app')) return renderNotFound();
     if (currentRoute === '/' || currentRoute === '/landing') return renderLanding();
     if (currentRoute === '/login' || currentRoute === '/signup') return renderAuth(currentRoute === '/signup');
+    if (currentRoute === '/auth/callback') return handleAuthCallback();
     if (currentRoute === '/forgot-password') return renderForgotPassword();
     if (currentRoute === '/reset-password') return renderResetPassword();
     if (currentRoute === '/verify-email') return renderVerifyEmail();
@@ -584,6 +643,15 @@ function renderAuth(signup) {
     app.className = 'app-shell';
     const currentLang = currentLanguage();
     const langs = languageLabels();
+
+    // Catch and display Google redirect OAuth errors
+    const queryStr = routeQuery();
+    const params = new URLSearchParams(queryStr);
+    const errorParam = params.get('error');
+    if (errorParam) {
+      history.replaceState(null, '', signup ? '#/signup' : '#/login');
+      setTimeout(() => toast(decodeURIComponent(errorParam), 'error'), 100);
+    }
     
     app.innerHTML = `
       <section class="auth-page">
@@ -662,9 +730,16 @@ function renderAuth(signup) {
       if (isOffline) toast(t('toast.localOpened'), 'info');
       else toast(t('toast.workspaceOpened'));
       
-      renderLoadingScreen(t('state.workspaceLoadingTitle'), t('state.workspaceLoadingBody'));
-      await loadWorkspace();
+      // Optimistic: route to dashboard immediately, load data in background
+      workspaceLoading = true;
       route('/app/dashboard');
+      loadWorkspace().then(() => {
+        workspaceLoading = false;
+        renderCurrentAppView();
+      }).catch(() => {
+        workspaceLoading = false;
+        renderCurrentAppView();
+      });
     } catch (error) {
       btn.disabled = false;
       btn.textContent = originalText;
@@ -1304,6 +1379,10 @@ function getGreeting() {
   return t('dash.greetingEvening');
 }
 
+function skeletonCards(count, extraClass = '') {
+  return Array.from({ length: count }, () => `<div class="skeleton${extraClass ? ' ' + extraClass : ''}" style="min-height:120px"></div>`).join('');
+}
+
 function renderDashboard(root) {
   const firstName = state.user?.name?.split(' ')[0] || t('dash.there');
   const insights = dashboardInsights();
@@ -1312,6 +1391,7 @@ function renderDashboard(root) {
   const activeIdeas = state.ideas.filter((idea) => ['active', 'review'].includes(String(idea.status || '').toLowerCase())).slice(0, 3);
   const nextTask = topTasks[0];
   const quote = getStudyQuote();
+  const loading = workspaceLoading;
   
   root.innerHTML = `
     <section class="dashboard-hero">
@@ -1331,7 +1411,7 @@ function renderDashboard(root) {
       </div>
     </section>
 
-    ${nextTask ? `
+    ${!loading && nextTask ? `
       <div class="next-up-card">
         ${icon('focus')}
         <div class="next-up-text">
@@ -1342,6 +1422,7 @@ function renderDashboard(root) {
       </div>
     ` : ''}
 
+    ${loading ? `<div class="grid stats">${skeletonCards(4)}</div>` : `
     <div class="grid stats">
       ${[
         [t('dash.statNotes'), state.stats.notes || 0, t('dash.statRecentNotes', { n: insights.recentNotes }), 'var(--brand)', sparkFromPercent(state.stats.notes ? (insights.recentNotes / state.stats.notes) * 100 : 16)],
@@ -1356,8 +1437,25 @@ function renderDashboard(root) {
           <div class="stat-spark">${statSparkline(spark)}</div>
         </div>
       `).join('')}
-    </div>
+    </div>`}
 
+    ${loading ? `
+    <div class="dashboard-grid">
+      <div class="skeleton" style="min-height:200px;grid-column:span 2"></div>
+      <div class="skeleton" style="min-height:160px"></div>
+      <div class="skeleton" style="min-height:160px"></div>
+      <div class="skeleton" style="min-height:160px"></div>
+    </div>
+    <section class="dashboard-section">
+      <div class="section-head compact">
+        <div>
+          <h2>${t('dash.recentNotesTitle')}</h2>
+          <p class="muted">${t('dash.recentNotesBody')}</p>
+        </div>
+      </div>
+      <div class="notes-grid">${skeletonCards(4)}</div>
+    </section>
+    ` : `
     <div class="dashboard-grid">
       <section class="card insight-card wide">
         <div class="card-head">
@@ -1440,10 +1538,17 @@ function renderDashboard(root) {
       </div>
       <div class="notes-grid">${state.notes.slice(0, 4).map(noteCard).join('') || emptyState('notes', t('dash.notebookEmpty'), t('dash.notebookEmptyBody'))}</div>
     </section>
+    `}
   `;
-  root.querySelector('#dash-note').onclick = () => openNoteEditor();
-  root.querySelector('#dash-focus').onclick = () => route('/app/productivity');
-  root.querySelector('#dash-notes').onclick = () => route('/app/notes');
+  const dashNote = root.querySelector('#dash-note');
+  if (dashNote) dashNote.onclick = () => openNoteEditor();
+
+  const dashFocus = root.querySelector('#dash-focus');
+  if (dashFocus) dashFocus.onclick = () => route('/app/productivity');
+
+  const dashNotes = root.querySelector('#dash-notes');
+  if (dashNotes) dashNotes.onclick = () => route('/app/notes');
+
   root.querySelector('#dash-start-focus')?.addEventListener('click', async (event) => {
     const text = event.currentTarget.dataset.focusTask;
     if (text) saveProd({ focus: text });
